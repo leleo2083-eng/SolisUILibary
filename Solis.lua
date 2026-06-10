@@ -1,4 +1,4 @@
--- PROFILE + LIVE FPS PANEL: K toggles both panels; no visible K hint or close button.
+-- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; no visible close controls.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -391,7 +391,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-live",
+	Version = "2.0.3-profile-fps-bottom-clean",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -690,14 +690,15 @@ function Library:CreateWindow(opts)
 	local localPlayer = Players.LocalPlayer
 	local profileKey = typeof(opts.ProfileKey) == "EnumItem" and opts.ProfileKey or Enum.KeyCode.K
 	local profileWidth = math.max(280, tonumber(opts.ProfileWidth) or 312)
-	local profileOpenPosition = UDim2.new(1, -18, 0.5, 0)
-	local profileClosedPosition = UDim2.new(1, profileWidth + 28, 0.5, 0)
+	local bottomMargin = math.max(10, tonumber(opts.ProfileBottomMargin) or 18)
+	local profileOpenPosition = UDim2.new(1, -18, 1, -bottomMargin)
+	local profileClosedPosition = UDim2.new(1, profileWidth + 28, 1, -bottomMargin)
 	local profileOpen = false
 	local window
 
 	local profilePanel = make("CanvasGroup", {
 		Name = "UserProfile",
-		AnchorPoint = Vector2.new(1, 0.5),
+		AnchorPoint = Vector2.new(1, 1),
 		Position = profileClosedPosition,
 		Size = UDim2.fromOffset(profileWidth, 382),
 		BackgroundColor3 = C.CardBg,
@@ -707,9 +708,8 @@ function Library:CreateWindow(opts)
 		Parent = screenGui,
 	})
 	corner(profilePanel, 14)
-	stroke(profilePanel, C.Border)
 
-	-- No top accent: the panel uses only the subtle theme border.
+	-- No outer stroke or accent line: this avoids a bright line across the top edge.
 	local profileHeader = make("Frame", {
 		Position = UDim2.fromOffset(0, 0),
 		Size = UDim2.new(1, 0, 0, 65),
@@ -950,18 +950,19 @@ function Library:CreateWindow(opts)
 	addProfileDetail(2, "ACCOUNT AGE", localPlayer and (tostring(localPlayer.AccountAge) .. " days") or "N/A")
 	local pingLabel = addProfileDetail(3, "PING", "-- ms")
 
-	-- Slide-in live performance panel ---------------------------------------
-	-- Opens together with the profile panel and tracks client FPS in real time.
-	local performanceWidth = math.max(300, tonumber(opts.PerformanceWidth) or 332)
+	-- Compact slide-in live performance panel -------------------------------
+	-- Smaller than the profile panel and bottom-aligned beside it.
+	local performanceWidth = math.max(236, tonumber(opts.PerformanceWidth) or 266)
+	local performanceHeight = math.max(260, tonumber(opts.PerformanceHeight) or 294)
 	local panelGap = math.max(8, tonumber(opts.ProfilePanelGap) or 12)
-	local performanceOpenPosition = UDim2.new(1, -(18 + profileWidth + panelGap), 0.5, 0)
-	local performanceClosedPosition = UDim2.new(1, performanceWidth + 36, 0.5, 0)
+	local performanceOpenPosition = UDim2.new(1, -(18 + profileWidth + panelGap), 1, -bottomMargin)
+	local performanceClosedPosition = UDim2.new(1, performanceWidth + 36, 1, -bottomMargin)
 
 	local performancePanel = make("CanvasGroup", {
 		Name = "LivePerformance",
-		AnchorPoint = Vector2.new(1, 0.5),
+		AnchorPoint = Vector2.new(1, 1),
 		Position = performanceClosedPosition,
-		Size = UDim2.fromOffset(performanceWidth, 382),
+		Size = UDim2.fromOffset(performanceWidth, performanceHeight),
 		BackgroundColor3 = C.CardBg,
 		GroupTransparency = 1,
 		ClipsDescendants = true,
@@ -969,10 +970,9 @@ function Library:CreateWindow(opts)
 		Parent = screenGui,
 	})
 	corner(performancePanel, 14)
-	stroke(performancePanel, C.Border)
 
 	local performanceHeader = make("Frame", {
-		Size = UDim2.new(1, 0, 0, 68),
+		Size = UDim2.new(1, 0, 0, 56),
 		BackgroundTransparency = 1,
 		ZIndex = 150,
 		Parent = performancePanel,
@@ -980,41 +980,41 @@ function Library:CreateWindow(opts)
 	make("TextLabel", {
 		Text = opts.PerformanceTitle or "LIVE PERFORMANCE",
 		Font = Enum.Font.GothamBold,
-		TextSize = 13,
+		TextSize = 12,
 		TextColor3 = C.White,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(18, 13),
-		Size = UDim2.new(1, -128, 0, 18),
+		Position = UDim2.fromOffset(16, 11),
+		Size = UDim2.new(1, -94, 0, 17),
 		ZIndex = 151,
 		Parent = performanceHeader,
 	})
 	make("TextLabel", {
-		Text = "Real-time client frame tracker",
+		Text = "Real-time frame tracker",
 		Font = Enum.Font.Gotham,
-		TextSize = 10,
+		TextSize = 9,
 		TextColor3 = C.TextDim,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(18, 34),
-		Size = UDim2.new(1, -128, 0, 15),
+		Position = UDim2.fromOffset(16, 31),
+		Size = UDim2.new(1, -94, 0, 13),
 		ZIndex = 151,
 		Parent = performanceHeader,
 	})
 
 	local liveBadge = make("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -18, 0, 16),
-		Size = UDim2.fromOffset(70, 24),
+		Position = UDim2.new(1, -14, 0, 14),
+		Size = UDim2.fromOffset(58, 20),
 		BackgroundColor3 = C.BadgeIdle,
 		ZIndex = 151,
 		Parent = performanceHeader,
 	})
-	corner(liveBadge, 7)
+	corner(liveBadge, 6)
 	local liveDot = make("Frame", {
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 9, 0.5, 0),
-		Size = UDim2.fromOffset(6, 6),
+		Position = UDim2.new(0, 8, 0.5, 0),
+		Size = UDim2.fromOffset(5, 5),
 		BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
 		ZIndex = 152,
 		Parent = liveBadge,
@@ -1027,80 +1027,66 @@ function Library:CreateWindow(opts)
 		TextColor3 = C.TextGray,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(23, 0),
-		Size = UDim2.new(1, -28, 1, 0),
+		Position = UDim2.fromOffset(19, 0),
+		Size = UDim2.new(1, -23, 1, 0),
 		ZIndex = 152,
 		Parent = liveBadge,
 	})
-	make("Frame", {
-		Position = UDim2.new(0, 18, 1, -1),
-		Size = UDim2.new(1, -36, 0, 1),
-		BackgroundColor3 = C.Border,
-		ZIndex = 150,
-		Parent = performanceHeader,
-	})
 
 	local fpsSummary = make("Frame", {
-		Position = UDim2.fromOffset(16, 82),
-		Size = UDim2.new(1, -32, 0, 76),
+		Position = UDim2.fromOffset(14, 58),
+		Size = UDim2.new(1, -28, 0, 56),
 		BackgroundColor3 = C.Element,
 		ZIndex = 150,
 		Parent = performancePanel,
 	})
-	corner(fpsSummary, 11)
+	corner(fpsSummary, 10)
 	stroke(fpsSummary, C.Border)
 	make("TextLabel", {
-		Text = "CURRENT FRAME RATE",
+		Text = "FPS",
 		Font = Enum.Font.GothamBold,
-		TextSize = 9,
+		TextSize = 8,
 		TextColor3 = C.TextDim,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(14, 11),
-		Size = UDim2.new(0.58, -14, 0, 13),
+		Position = UDim2.fromOffset(12, 8),
+		Size = UDim2.new(0.5, -12, 0, 11),
 		ZIndex = 151,
 		Parent = fpsSummary,
 	})
 	local currentFpsLabel = make("TextLabel", {
-		Text = "-- FPS",
+		Text = "--",
 		Font = Enum.Font.GothamBold,
-		TextSize = 24,
+		TextSize = 23,
 		TextColor3 = C.White,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(14, 29),
-		Size = UDim2.new(0.58, -14, 0, 32),
-		ZIndex = 151,
-		Parent = fpsSummary,
-	})
-	make("Frame", {
-		Position = UDim2.new(0.58, 0, 0, 12),
-		Size = UDim2.new(0, 1, 1, -24),
-		BackgroundColor3 = C.Border,
+		Position = UDim2.fromOffset(12, 21),
+		Size = UDim2.new(0.5, -12, 0, 28),
 		ZIndex = 151,
 		Parent = fpsSummary,
 	})
 	make("TextLabel", {
 		Text = "FRAME TIME",
 		Font = Enum.Font.GothamBold,
-		TextSize = 9,
+		TextSize = 8,
 		TextColor3 = C.TextDim,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		BackgroundTransparency = 1,
-		Position = UDim2.new(0.58, 12, 0, 11),
-		Size = UDim2.new(0.42, -26, 0, 13),
+		Position = UDim2.new(0.5, 0, 0, 8),
+		Size = UDim2.new(0.5, -12, 0, 11),
 		ZIndex = 151,
 		Parent = fpsSummary,
 	})
 	local frameTimeLabel = make("TextLabel", {
 		Text = "-- ms",
 		Font = Enum.Font.GothamMedium,
-		TextSize = 13,
+		TextSize = 12,
 		TextColor3 = C.White,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		BackgroundTransparency = 1,
-		Position = UDim2.new(0.58, 12, 0, 33),
-		Size = UDim2.new(0.42, -26, 0, 20),
+		Position = UDim2.new(0.5, 0, 0, 26),
+		Size = UDim2.new(0.5, -12, 0, 18),
 		ZIndex = 151,
 		Parent = fpsSummary,
 	})
@@ -1108,80 +1094,81 @@ function Library:CreateWindow(opts)
 	make("TextLabel", {
 		Text = "FRAME HISTORY",
 		Font = Enum.Font.GothamBold,
-		TextSize = 10,
+		TextSize = 9,
 		TextColor3 = C.TextDim,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(18, 174),
-		Size = UDim2.new(1, -36, 0, 16),
+		Position = UDim2.fromOffset(16, 126),
+		Size = UDim2.new(1, -32, 0, 13),
 		ZIndex = 150,
 		Parent = performancePanel,
 	})
 
 	local graphCard = make("Frame", {
-		Position = UDim2.fromOffset(16, 198),
-		Size = UDim2.new(1, -32, 0, 104),
+		Position = UDim2.fromOffset(14, 145),
+		Size = UDim2.new(1, -28, 0, 82),
 		BackgroundColor3 = C.Element,
 		ClipsDescendants = true,
 		ZIndex = 150,
 		Parent = performancePanel,
 	})
-	corner(graphCard, 11)
+	corner(graphCard, 10)
 	stroke(graphCard, C.Border)
 
 	local graphPlot = make("Frame", {
-		Position = UDim2.fromOffset(12, 10),
-		Size = UDim2.new(1, -24, 1, -20),
+		Position = UDim2.fromOffset(10, 9),
+		Size = UDim2.new(1, -20, 1, -18),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 		ZIndex = 151,
 		Parent = graphCard,
 	})
-	for index = 1, 3 do
+	for index = 1, 2 do
 		make("Frame", {
-			Position = UDim2.new(0, 0, index / 4, 0),
+			Position = UDim2.new(0, 0, index / 3, 0),
 			Size = UDim2.new(1, 0, 0, 1),
 			BackgroundColor3 = C.Border,
-			BackgroundTransparency = 0.2,
+			BackgroundTransparency = 0.35,
 			ZIndex = 151,
 			Parent = graphPlot,
 		})
 	end
 
-	local maxFpsSamples = 48
+	-- Roblox GUI has no native polyline primitive. These thin overlapping
+	-- segments have square ends and render visually as one continuous line.
+	local maxFpsSamples = 32
 	local fpsSamples = {}
 	local graphSegments = {}
 	for index = 1, maxFpsSamples - 1 do
 		local segment = make("Frame", {
-			Name = "Segment" .. index,
+			Name = "Line" .. index,
 			AnchorPoint = Vector2.new(0, 0.5),
 			Position = UDim2.fromOffset(0, 0),
-			Size = UDim2.fromOffset(0, 2),
+			Size = UDim2.fromOffset(0, 1),
 			BackgroundColor3 = C.White,
+			BorderSizePixel = 0,
 			Visible = false,
 			ZIndex = 153,
 			Parent = graphPlot,
 		})
-		circle(segment)
 		graphSegments[index] = segment
 	end
 
 	local statsStrip = make("Frame", {
-		Position = UDim2.fromOffset(16, 318),
-		Size = UDim2.new(1, -32, 0, 48),
+		Position = UDim2.fromOffset(14, 237),
+		Size = UDim2.new(1, -28, 0, 43),
 		BackgroundColor3 = C.Element,
 		ZIndex = 150,
 		Parent = performancePanel,
 	})
-	corner(statsStrip, 11)
+	corner(statsStrip, 10)
 	stroke(statsStrip, C.Border)
 
 	local statValueLabels = {}
-	local statNames = { "AVERAGE", "LOW", "HIGH" }
+	local statNames = { "AVG", "LOW", "HIGH" }
 	for index, statName in ipairs(statNames) do
-		local xScale = (index - 1) / 3
 		local statCell = make("Frame", {
-			Position = UDim2.new(xScale, 0, 0, 0),
+			Position = UDim2.new((index - 1) / 3, 0, 0, 0),
 			Size = UDim2.new(1 / 3, 0, 1, 0),
 			BackgroundTransparency = 1,
 			ZIndex = 151,
@@ -1194,33 +1181,23 @@ function Library:CreateWindow(opts)
 			TextColor3 = C.TextDim,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(0, 7),
-			Size = UDim2.new(1, 0, 0, 11),
+			Position = UDim2.fromOffset(0, 5),
+			Size = UDim2.new(1, 0, 0, 10),
 			ZIndex = 152,
 			Parent = statCell,
 		})
 		statValueLabels[index] = make("TextLabel", {
-			Text = "-- FPS",
+			Text = "--",
 			Font = Enum.Font.GothamMedium,
-			TextSize = 11,
+			TextSize = 10,
 			TextColor3 = C.White,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(0, 23),
-			Size = UDim2.new(1, 0, 0, 17),
+			Position = UDim2.fromOffset(0, 19),
+			Size = UDim2.new(1, 0, 0, 15),
 			ZIndex = 152,
 			Parent = statCell,
 		})
-		if index < 3 then
-			make("Frame", {
-				AnchorPoint = Vector2.new(1, 0.5),
-				Position = UDim2.new(1, 0, 0.5, 0),
-				Size = UDim2.new(0, 1, 1, -18),
-				BackgroundColor3 = C.Border,
-				ZIndex = 152,
-				Parent = statCell,
-			})
-		end
 	end
 
 	local function redrawFpsGraph()
@@ -1253,7 +1230,7 @@ function Library:CreateWindow(opts)
 				local dy = y2 - y1
 				local length = math.sqrt(dx * dx + dy * dy)
 				segment.Position = UDim2.fromOffset(x1, y1)
-				segment.Size = UDim2.fromOffset(length, 2)
+				segment.Size = UDim2.fromOffset(length + 1.5, 1.5)
 				segment.Rotation = math.deg(math.atan2(dy, dx))
 				segment.Visible = true
 			else
@@ -1281,11 +1258,11 @@ function Library:CreateWindow(opts)
 		local roundedFps = math.floor(fps + 0.5)
 		local frameTime = fps > 0 and (1000 / fps) or 0
 
-		currentFpsLabel.Text = tostring(roundedFps) .. " FPS"
+		currentFpsLabel.Text = tostring(roundedFps)
 		frameTimeLabel.Text = string.format("%.1f ms", frameTime)
-		statValueLabels[1].Text = tostring(math.floor(average + 0.5)) .. " FPS"
-		statValueLabels[2].Text = tostring(math.floor(low + 0.5)) .. " FPS"
-		statValueLabels[3].Text = tostring(math.floor(high + 0.5)) .. " FPS"
+		statValueLabels[1].Text = tostring(math.floor(average + 0.5))
+		statValueLabels[2].Text = tostring(math.floor(low + 0.5))
+		statValueLabels[3].Text = tostring(math.floor(high + 0.5))
 		redrawFpsGraph()
 	end
 

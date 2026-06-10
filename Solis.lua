@@ -1,4 +1,4 @@
--- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; extra-large loader appears first and performs one continuous two-turn spin; single-image FPS polyline.
+-- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; loader icon makes two smooth circular orbits while shrinking; single-image FPS polyline.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -41,8 +41,9 @@
 
 	CreateWindow loading options:
 		LoadingAnimation = true -- set false to disable
-		LoadingDuration = 1.8 -- time for one continuous two-turn rotation
-		LoadingIconSize = 210 -- extra-large startup icon size in pixels
+		LoadingDuration = 1.8 -- time for two smooth circular orbits
+		LoadingIconSize = 150 -- starting icon size in pixels
+		LoadingOrbitRadius = 58 -- circular travel radius in pixels
 ]]
 
 local TweenService     = game:GetService("TweenService")
@@ -397,7 +398,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-loader-XL-smooth-v2",
+	Version = "2.0.3-profile-fps-orbit-shrink-loader",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -558,14 +559,17 @@ function Library:CreateWindow(opts)
 	table.insert(Library._windows, screenGui)
 
 	-- Create and start the loader BEFORE building the rest of the interface.
-	-- This makes the supplied icon the first visible UI element when the script
-	-- executes. The main window stays hidden until the icon finishes two turns.
+	-- The logo stays upright and travels around the center in two full circles.
+	-- At the same time it continuously shrinks, so it no longer spins around
+	-- its own axis or looks like it is flipping.
 	local loadingEnabled = opts.LoadingAnimation ~= false
 	local loadingDuration = math.clamp(tonumber(opts.LoadingDuration) or 1.8, 1.0, 4)
-	-- Keep the loader genuinely large even when an older example still passes 138.
-	local loadingIconSize = math.clamp(math.floor(tonumber(opts.LoadingIconSize) or 210), 180, 300)
+	local loadingIconSize = math.clamp(math.floor(tonumber(opts.LoadingIconSize) or 150), 96, 220)
+	local loadingOrbitRadius = math.clamp(math.floor(tonumber(opts.LoadingOrbitRadius) or 58), 24, 110)
 	local loadingComplete = not loadingEnabled
-	local loadingLayer, loadingIcon, loadingScale, loadingRotateTween
+	local loadingMotionComplete = not loadingEnabled
+	local loadingLayer, loadingIcon, loadingScale
+	local loadingProgress, loadingMotionTween, loadingProgressConnection, loadingTweenConnection
 
 	if loadingEnabled then
 		loadingLayer = make("CanvasGroup", {
@@ -578,8 +582,6 @@ function Library:CreateWindow(opts)
 			Parent = screenGui,
 		})
 
-		-- The icon itself is the loading screen: no card, text, close button,
-		-- or other UI is shown before the main interface is ready.
 		loadingIcon = make("ImageLabel", {
 			Name = "LoadingLogo",
 			Image = logoAsset,
@@ -595,45 +597,55 @@ function Library:CreateWindow(opts)
 		})
 
 		loadingScale = make("UIScale", {
-			Scale = 0.18,
+			Scale = 1,
 			Parent = loadingIcon,
 		})
 
-		-- The icon enters first, settles at full size, then performs a single
-		-- uninterrupted linear 720-degree spin. Linear motion avoids the uneven
-		-- speed and sluggish endpoints of the previous sine rotation.
 		TweenService:Create(
 			loadingIcon,
 			TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 			{ ImageTransparency = 0 }
 		):Play()
 
-		TweenService:Create(
-			loadingScale,
-			TweenInfo.new(0.30, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-			{ Scale = 1.12 }
-		):Play()
+		-- Tween a numeric progress value and convert that value into a real
+		-- circular path. Rotation remains zero, so the image itself stays upright.
+		loadingProgress = Instance.new("NumberValue")
+		loadingProgress.Name = "OrbitProgress"
+		loadingProgress.Value = 0
+		loadingProgress.Parent = loadingLayer
 
-		task.delay(0.30, function()
-			if loadingScale and loadingScale.Parent then
-				TweenService:Create(
-					loadingScale,
-					TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-					{ Scale = 1 }
-				):Play()
+		loadingProgressConnection = loadingProgress:GetPropertyChangedSignal("Value"):Connect(function()
+			if not loadingIcon or not loadingIcon.Parent or not loadingScale or not loadingScale.Parent then
+				return
 			end
+
+			local t = math.clamp(loadingProgress.Value, 0, 1)
+			-- Smoothstep keeps the shrinking soft at both ends instead of abrupt.
+			local smooth = t * t * (3 - 2 * t)
+			local angle = -math.pi / 2 + (math.pi * 4 * t) -- exactly two circles
+			local radius = loadingOrbitRadius * (1 - 0.18 * smooth)
+			local x = math.cos(angle) * radius
+			local y = math.sin(angle) * radius
+
+			loadingIcon.Position = UDim2.new(0.5, x, 0.5, y)
+			loadingIcon.Rotation = 0
+			loadingScale.Scale = 1 - (0.72 * smooth)
 		end)
 
-		loadingRotateTween = TweenService:Create(
-			loadingIcon,
-			TweenInfo.new(loadingDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut),
-			{ Rotation = 720 }
+		loadingMotionTween = TweenService:Create(
+			loadingProgress,
+			TweenInfo.new(loadingDuration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+			{ Value = 1 }
 		)
-		-- Give the pop-in a brief head start so the full-size icon is clearly
-		-- visible before the two-turn loading spin begins.
-		task.delay(0.10, function()
-			if loadingRotateTween and loadingIcon and loadingIcon.Parent then
-				loadingRotateTween:Play()
+
+		loadingTweenConnection = loadingMotionTween.Completed:Connect(function()
+			loadingMotionComplete = true
+		end)
+
+		-- A tiny fade-in lead makes the first frame clean, then the orbit starts.
+		task.delay(0.08, function()
+			if loadingMotionTween and loadingIcon and loadingIcon.Parent then
+				loadingMotionTween:Play()
 			end
 		end)
 	end
@@ -1630,24 +1642,39 @@ function Library:CreateWindow(opts)
 		screenGui.Enabled = false
 	end
 
-	if loadingEnabled and loadingLayer and loadingIcon and loadingScale and loadingRotateTween then
+	if loadingEnabled and loadingLayer and loadingIcon and loadingScale and loadingMotionTween then
 		task.defer(function()
-			-- The rotation was already started before the main interface was built.
-			-- Wait for the remaining animation time, then remove the loader first.
-			loadingRotateTween.Completed:Wait()
+			-- The loader starts before the rest of the interface is built. Polling a
+			-- boolean avoids missing a Completed event on very slow script execution.
+			while not loadingMotionComplete and screenGui.Parent do
+				RunService.Heartbeat:Wait()
+			end
 
 			if not screenGui.Parent or not loadingLayer.Parent then
 				return
 			end
 
-			local fadeOut = TweenService:Create(loadingLayer, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-				GroupTransparency = 1,
-			})
-			local popOut = TweenService:Create(loadingScale, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-				Scale = 1.12,
-			})
+			if loadingProgressConnection then
+				loadingProgressConnection:Disconnect()
+				loadingProgressConnection = nil
+			end
+			if loadingTweenConnection then
+				loadingTweenConnection:Disconnect()
+				loadingTweenConnection = nil
+			end
+
+			local fadeOut = TweenService:Create(
+				loadingLayer,
+				TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+				{ GroupTransparency = 1 }
+			)
+			local finalShrink = TweenService:Create(
+				loadingScale,
+				TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+				{ Scale = 0.08 }
+			)
 			fadeOut:Play()
-			popOut:Play()
+			finalShrink:Play()
 			fadeOut.Completed:Wait()
 
 			if not screenGui.Parent then
@@ -1658,16 +1685,14 @@ function Library:CreateWindow(opts)
 				loadingLayer:Destroy()
 			end
 
-			-- Only now can the normal interface become visible and accept K input.
 			main.Visible = true
 			loadingComplete = true
-			TweenService:Create(mainRevealScale, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-				Scale = 1,
-			}):Play()
+			TweenService:Create(
+				mainRevealScale,
+				TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+				{ Scale = 1 }
+			):Play()
 		end)
-	else
-		main.Visible = true
-		loadingComplete = true
 	end
 
 	return window

@@ -399,7 +399,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-loader-no-logo-background",
+	Version = "2.0.3-profile-fps-loader-true-transparent-v3",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -650,20 +650,8 @@ function Library:CreateWindow(opts)
 			Parent = loadingLayer,
 		})
 
-		-- Invisible positioning helper only. The old animated LogoGlow created
-		-- the grey translucent square behind transparent logo assets.
-		local logoGlow = make("Frame", {
-			Name = "LogoGlow",
-			Size = UDim2.fromOffset(loadingIconSize + 28, loadingIconSize + 28),
-			Position = UDim2.new(0.67, 0, 0.5, 0),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			Visible = false,
-			ZIndex = 510,
-			Parent = loadingLogoRig,
-		})
-		local logoGlowStroke = nil
-
+		-- The loading logo is attached directly to the transparent motion rig.
+		-- There is intentionally no card, glow, holder, stroke, or backdrop behind it.
 		loadingLogo = make("ImageLabel", {
 			Name = "LoadingLogo",
 			Image = logoAsset,
@@ -671,12 +659,17 @@ function Library:CreateWindow(opts)
 			Position = UDim2.new(0.67, 0, 0.5, 0),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			ImageTransparency = 1,
+			ImageTransparency = 0,
+			ImageColor3 = Color3.fromRGB(255, 255, 255),
 			ScaleType = Enum.ScaleType.Fit,
 			Rotation = 0,
 			ZIndex = 512,
 			Parent = loadingLogoRig,
 		})
+
+		-- Hard-force a transparent ImageLabel surface. Only the image pixels render.
+		loadingLogo.BackgroundTransparency = 1
+		loadingLogo.BorderSizePixel = 0
 
 		loadingLogoScale = make("UIScale", {
 			Scale = 0.72,
@@ -918,11 +911,6 @@ function Library:CreateWindow(opts)
 
 			task.wait(0.16)
 
-			TweenService:Create(
-				loadingLogo,
-				TweenInfo.new(0.34, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-				{ ImageTransparency = 0 }
-			):Play()
 			TweenService:Create(
 				loadingLogoScale,
 				TweenInfo.new(0.44, Enum.EasingStyle.Back, Enum.EasingDirection.Out),

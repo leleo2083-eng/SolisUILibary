@@ -399,7 +399,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-arqel-logo-loader",
+	Version = "2.0.3-profile-fps-loader-no-logo-background",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -650,19 +650,19 @@ function Library:CreateWindow(opts)
 			Parent = loadingLayer,
 		})
 
+		-- Invisible positioning helper only. The old animated LogoGlow created
+		-- the grey translucent square behind transparent logo assets.
 		local logoGlow = make("Frame", {
 			Name = "LogoGlow",
 			Size = UDim2.fromOffset(loadingIconSize + 28, loadingIconSize + 28),
 			Position = UDim2.new(0.67, 0, 0.5, 0),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = C.Element,
 			BackgroundTransparency = 1,
+			Visible = false,
 			ZIndex = 510,
 			Parent = loadingLogoRig,
 		})
-		corner(logoGlow, 24)
-		local logoGlowStroke = stroke(logoGlow, C.Border)
-		logoGlowStroke.Transparency = 1
+		local logoGlowStroke = nil
 
 		loadingLogo = make("ImageLabel", {
 			Name = "LoadingLogo",
@@ -927,16 +927,6 @@ function Library:CreateWindow(opts)
 				loadingLogoScale,
 				TweenInfo.new(0.44, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 				{ Scale = 1 }
-			):Play()
-			TweenService:Create(
-				logoGlow,
-				TweenInfo.new(0.34, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-				{ BackgroundTransparency = 0.5 }
-			):Play()
-			TweenService:Create(
-				logoGlowStroke,
-				TweenInfo.new(0.34, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-				{ Transparency = 0.55 }
 			):Play()
 
 			task.spawn(animateSpeedField)

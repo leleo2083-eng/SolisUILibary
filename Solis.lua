@@ -1,4 +1,4 @@
--- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; single-image FPS polyline.
+-- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; startup logo animation; single-image FPS polyline.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -38,6 +38,10 @@
 		Window:Toggle()
 		Window:SetLogo(assetId)
 		Window:Destroy()
+
+	CreateWindow loading options:
+		LoadingAnimation = true -- set false to disable
+		LoadingDuration = 1.25 -- time for two complete rotations
 ]]
 
 local TweenService     = game:GetService("TweenService")
@@ -392,7 +396,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-no-badges-actually-fixed",
+	Version = "2.0.3-profile-fps-loading-logo",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -552,6 +556,76 @@ function Library:CreateWindow(opts)
 	end
 	table.insert(Library._windows, screenGui)
 
+	-- Startup logo animation. The rest of the UI stays hidden until the icon
+	-- has completed exactly two full rotations. opts.Logo is used here too,
+	-- so the loading animation always matches the window branding.
+	local loadingEnabled = opts.LoadingAnimation ~= false
+	local loadingDuration = math.clamp(tonumber(opts.LoadingDuration) or 1.25, 0.5, 4)
+	local loadingComplete = not loadingEnabled
+	local loadingLayer, loadingIcon, loadingScale
+
+	if loadingEnabled then
+		loadingLayer = make("CanvasGroup", {
+			Name = "StartupLoader",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			GroupTransparency = 1,
+			ZIndex = 500,
+			Parent = screenGui,
+		})
+
+		local loadingCard = make("Frame", {
+			Name = "IconCard",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(86, 86),
+			BackgroundColor3 = C.CardBg,
+			ZIndex = 501,
+			Parent = loadingLayer,
+		})
+		corner(loadingCard, 22)
+
+		-- Subtle inner surface without an outer stroke, avoiding bright edge lines.
+		local iconSurface = make("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(64, 64),
+			BackgroundColor3 = C.Element,
+			ZIndex = 502,
+			Parent = loadingCard,
+		})
+		corner(iconSurface, 18)
+
+		make("TextLabel", {
+			Text = "S",
+			Font = Enum.Font.GothamBold,
+			TextSize = 22,
+			TextColor3 = C.White,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1),
+			ZIndex = 503,
+			Parent = iconSurface,
+		})
+
+		loadingIcon = make("ImageLabel", {
+			Name = "LoadingLogo",
+			Image = logoAsset,
+			BackgroundTransparency = 1,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(54, 54),
+			ScaleType = Enum.ScaleType.Fit,
+			Rotation = 0,
+			ZIndex = 504,
+			Parent = iconSurface,
+		})
+
+		loadingScale = make("UIScale", {
+			Scale = 0.76,
+			Parent = loadingCard,
+		})
+	end
+
 	local main = make("Frame", {
 		Name = "Main",
 		Size = windowSize,
@@ -559,11 +633,17 @@ function Library:CreateWindow(opts)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = C.WindowBg,
 		ClipsDescendants = true,
+		Visible = not loadingEnabled,
 		ZIndex = 2,
 		Parent = screenGui,
 	})
 	corner(main, 12)
 	stroke(main, C.Border)
+
+	local mainRevealScale = make("UIScale", {
+		Scale = loadingEnabled and 0.975 or 1,
+		Parent = main,
+	})
 
 
 	-- Regions that must never start a window drag: nav buttons, sub-tab
@@ -1522,7 +1602,7 @@ function Library:CreateWindow(opts)
 	table.insert(window._connections, fpsConnection)
 
 	local profileKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-		if gameProcessed or UserInputService:GetFocusedTextBox() then
+		if not loadingComplete or gameProcessed or UserInputService:GetFocusedTextBox() then
 			return
 		end
 		if input.KeyCode == profileKey
@@ -1536,6 +1616,63 @@ function Library:CreateWindow(opts)
 
 	if opts.Visible == false then
 		screenGui.Enabled = false
+	end
+
+	if loadingEnabled and loadingLayer and loadingIcon and loadingScale then
+		task.defer(function()
+			if not screenGui.Parent or not loadingLayer.Parent then
+				return
+			end
+
+			local fadeIn = TweenService:Create(loadingLayer, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				GroupTransparency = 0,
+			})
+			local popIn = TweenService:Create(loadingScale, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+				Scale = 1,
+			})
+			fadeIn:Play()
+			popIn:Play()
+			task.wait(0.12)
+
+			-- 720 degrees = exactly two complete rotations. Linear easing keeps
+			-- the spin smooth instead of speeding up and slowing down mid-turn.
+			local rotate = TweenService:Create(loadingIcon, TweenInfo.new(loadingDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+				Rotation = 720,
+			})
+			rotate:Play()
+			rotate.Completed:Wait()
+
+			if not screenGui.Parent or not loadingLayer.Parent then
+				return
+			end
+
+			local fadeOut = TweenService:Create(loadingLayer, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				GroupTransparency = 1,
+			})
+			local popOut = TweenService:Create(loadingScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				Scale = 1.14,
+			})
+			fadeOut:Play()
+			popOut:Play()
+			fadeOut.Completed:Wait()
+
+			if not screenGui.Parent then
+				return
+			end
+
+			main.Visible = true
+			loadingComplete = true
+			TweenService:Create(mainRevealScale, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+				Scale = 1,
+			}):Play()
+
+			if loadingLayer and loadingLayer.Parent then
+				loadingLayer:Destroy()
+			end
+		end)
+	else
+		main.Visible = true
+		loadingComplete = true
 	end
 
 	return window

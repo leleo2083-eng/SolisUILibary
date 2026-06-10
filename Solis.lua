@@ -10,7 +10,7 @@
 local Solis = {}
 Solis.__index = Solis
 
-Solis.Version = "1.1.3"
+Solis.Version = "1.2.0"
 Solis.Icon = "rbxassetid://105894109382235"
 
 local Players = game:GetService("Players")
@@ -594,7 +594,7 @@ function Solis:CreateWindow(options)
         Position = UDim2.new(1, 0, 0, 4),
         Size = UDim2.fromOffset(26, 26),
         Font = Enum.Font.GothamBold,
-        Text = "x",
+        Text = "",
         TextColor3 = theme.Muted,
         TextSize = 12,
         AutoButtonColor = false,
@@ -602,6 +602,21 @@ function Solis:CreateWindow(options)
         corner(6),
         stroke(theme.Border, 0.25, 1),
     })
+
+    for index, rotation in ipairs({ 45, -45 }) do
+        create("Frame", {
+            Parent = closeButton,
+            Name = "Line" .. index,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = theme.Muted,
+            BorderSizePixel = 0,
+            Position = UDim2.fromScale(0.5, 0.5),
+            Rotation = rotation,
+            Size = UDim2.fromOffset(11, 1),
+        }, {
+            corner(1),
+        })
+    end
 
     local hideButton = create("TextButton", {
         Parent = header,
@@ -612,7 +627,7 @@ function Solis:CreateWindow(options)
         Position = UDim2.new(1, -32, 0, 4),
         Size = UDim2.fromOffset(26, 26),
         Font = Enum.Font.GothamBold,
-        Text = "-",
+        Text = "",
         TextColor3 = theme.Muted,
         TextSize = 16,
         AutoButtonColor = false,
@@ -620,6 +635,20 @@ function Solis:CreateWindow(options)
         corner(6),
         stroke(theme.Border, 0.25, 1),
     })
+
+    for index = 1, 2 do
+        create("Frame", {
+            Parent = hideButton,
+            Name = "Line" .. index,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = theme.Muted,
+            BorderSizePixel = 0,
+            Position = UDim2.fromScale(0.5, index == 1 and 0.42 or 0.58),
+            Size = UDim2.fromOffset(11, 1),
+        }, {
+            corner(1),
+        })
+    end
 
     connectHover(closeButton, theme.Surface, theme.SurfaceHover)
     connectHover(hideButton, theme.Surface, theme.SurfaceHover)
@@ -655,6 +684,48 @@ function Solis:CreateWindow(options)
         listLayout(Enum.FillDirection.Vertical, 10, Enum.HorizontalAlignment.Right),
     })
 
+    local launcher = create("TextButton", {
+        Parent = screenGui,
+        Name = "Launcher",
+        AnchorPoint = Vector2.new(0, 0),
+        BackgroundColor3 = theme.Surface,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(22, 22),
+        Size = UDim2.fromOffset(74, 52),
+        Text = "",
+        AutoButtonColor = false,
+        Visible = false,
+    }, {
+        corner(14),
+        stroke(theme.Border, 0.18, 1),
+    })
+
+    create("ImageLabel", {
+        Parent = launcher,
+        Name = "Icon",
+        BackgroundTransparency = 1,
+        Image = normalizeIcon(options.Icon or Solis.Icon),
+        Position = UDim2.fromOffset(9, 9),
+        Size = UDim2.fromOffset(34, 34),
+        ScaleType = Enum.ScaleType.Fit,
+    })
+
+    for index = 1, 3 do
+        create("Frame", {
+            Parent = launcher,
+            Name = "MenuLine" .. index,
+            BackgroundColor3 = theme.Muted,
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(51, 15 + ((index - 1) * 9)),
+            Size = UDim2.fromOffset(13, 2),
+        }, {
+            corner(2),
+        })
+    end
+
+    connectHover(launcher, theme.Surface, theme.SurfaceHover)
+
     local window = setmetatable({
         Title = title,
         Footer = footer,
@@ -667,6 +738,7 @@ function Solis:CreateWindow(options)
         PageTabs = pageTabs,
         Content = content,
         Notifications = notifications,
+        Launcher = launcher,
         HeaderIcon = headerIcon,
         HeaderTitle = headerTitle,
         HeaderSubtitle = headerSubtitle,
@@ -676,7 +748,9 @@ function Solis:CreateWindow(options)
         Options = {},
         Connections = {},
         Visible = true,
+        Minimized = false,
         StoredSize = size,
+        StoredPosition = main.Position,
     }, { __index = WindowMethods })
 
     closeButton.MouseButton1Click:Connect(function()
@@ -684,7 +758,11 @@ function Solis:CreateWindow(options)
     end)
 
     hideButton.MouseButton1Click:Connect(function()
-        window:SetVisible(false)
+        window:Minimize()
+    end)
+
+    launcher.MouseButton1Click:Connect(function()
+        window:Restore()
     end)
 
     if toggleKey then
@@ -694,7 +772,11 @@ function Solis:CreateWindow(options)
             end
 
             if input.KeyCode == toggleKey then
-                window:SetVisible(not window.Visible)
+                if window.Visible then
+                    window:Minimize()
+                else
+                    window:Restore()
+                end
             end
         end))
     end
@@ -703,50 +785,94 @@ function Solis:CreateWindow(options)
         table.insert(window.Connections, connection)
     end
 
+    for _, connection in ipairs(makeDraggable(launcher, { launcher })) do
+        table.insert(window.Connections, connection)
+    end
+
     return window
 end
 
 function WindowMethods:SetVisible(visible)
-    self.Visible = visible
-
     if visible then
-        self.Main.Visible = true
-        self.Main.Size = UDim2.new(
-            self.StoredSize.X.Scale,
-            self.StoredSize.X.Offset,
-            self.StoredSize.Y.Scale,
-            0
-        )
-        tween(self.Main, { Size = self.StoredSize }, 0.16)
+        self:Restore()
     else
-        self.StoredSize = self.Main.Size
-        tween(self.Main, {
-            Size = UDim2.new(
-                self.StoredSize.X.Scale,
-                self.StoredSize.X.Offset,
-                self.StoredSize.Y.Scale,
-                0
-            ),
-        }, 0.12)
+        self:Minimize()
+    end
+end
 
-        task.delay(0.12, function()
-            if not self.Visible and self.Main then
-                self.Main.Visible = false
-            end
-        end)
+function WindowMethods:Minimize()
+    if self.Minimized then
+        return
+    end
+
+    self.Visible = false
+    self.Minimized = true
+    self.StoredSize = self.Main.Size
+    self.StoredPosition = self.Main.Position
+
+    local launcherX = math.max(12, self.Main.AbsolutePosition.X + 12)
+    local launcherY = math.max(12, self.Main.AbsolutePosition.Y + 12)
+    self.Launcher.Position = UDim2.fromOffset(launcherX, launcherY)
+    self.Launcher.BackgroundTransparency = 1
+    self.Launcher.Visible = false
+
+    tween(self.Main, {
+        Position = UDim2.fromOffset(launcherX + 37, launcherY + 26),
+        Size = UDim2.fromOffset(74, 52),
+    }, 0.14)
+
+    task.delay(0.14, function()
+        if not self.Minimized or not self.Main then
+            return
+        end
+
+        self.Main.Visible = false
+        self.Launcher.Visible = true
+        tween(self.Launcher, { BackgroundTransparency = 0 }, 0.12)
+    end)
+end
+
+function WindowMethods:Restore()
+    if self.Visible then
+        return
+    end
+
+    self.Visible = true
+    self.Minimized = false
+
+    local launcherPosition = self.Launcher.AbsolutePosition
+    local launcherSize = self.Launcher.AbsoluteSize
+    self.Launcher.Visible = false
+
+    if self.Main then
+        self.Main.Visible = true
+        self.Main.Position = UDim2.fromOffset(
+            launcherPosition.X + (launcherSize.X / 2),
+            launcherPosition.Y + (launcherSize.Y / 2)
+        )
+        self.Main.Size = UDim2.fromOffset(74, 52)
+
+        tween(self.Main, {
+            Position = self.StoredPosition,
+            Size = self.StoredSize,
+        }, 0.16)
     end
 end
 
 function WindowMethods:Show()
-    self:SetVisible(true)
+    self:Restore()
 end
 
 function WindowMethods:Hide()
-    self:SetVisible(false)
+    self:Minimize()
 end
 
 function WindowMethods:Toggle()
-    self:SetVisible(not self.Visible)
+    if self.Visible then
+        self:Minimize()
+    else
+        self:Restore()
+    end
 end
 
 function WindowMethods:Destroy()

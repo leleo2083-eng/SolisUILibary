@@ -46,24 +46,24 @@ local Players          = game:GetService("Players")
 
 local DEFAULT_LOGO = "rbxassetid://105894109382235"
 local TWEEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local NOTIFICATION_TWEEN = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local NOTIFICATION_TWEEN = TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
 local NOTIFICATION_STYLES = {
 	info = {
 		Name = "Info",
-		Color = Color3.fromRGB(92, 164, 255),
+		Color = Color3.fromRGB(118, 151, 194),
 	},
 	success = {
 		Name = "Success",
-		Color = Color3.fromRGB(91, 201, 126),
+		Color = Color3.fromRGB(105, 166, 124),
 	},
 	warning = {
 		Name = "Warning",
-		Color = Color3.fromRGB(244, 188, 73),
+		Color = Color3.fromRGB(190, 154, 84),
 	},
 	error = {
 		Name = "Error",
-		Color = Color3.fromRGB(242, 103, 103),
+		Color = Color3.fromRGB(190, 99, 99),
 	},
 }
 
@@ -387,7 +387,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.1",
+	Version = "2.0.3-clean",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -523,24 +523,6 @@ function Library:CreateWindow(opts)
 	end
 	table.insert(Library._windows, screenGui)
 
-	-- Soft drop shadow drawn without another image asset.
-	local shadow = make("Frame", {
-		Name = "Shadow",
-		Size = windowSize,
-		Position = UDim2.new(
-			windowPosition.X.Scale, windowPosition.X.Offset,
-			windowPosition.Y.Scale, windowPosition.Y.Offset + 8
-		),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-		BackgroundTransparency = 0.55,
-		ZIndex = 1,
-		Parent = screenGui,
-	})
-	-- Never theme the shadow even when the active theme uses pure black.
-	shadow:SetAttribute("Theme_BackgroundColor3", nil)
-	corner(shadow, 13)
-
 	local main = make("Frame", {
 		Name = "Main",
 		Size = windowSize,
@@ -554,13 +536,6 @@ function Library:CreateWindow(opts)
 	corner(main, 12)
 	stroke(main, C.Border)
 
-	main:GetPropertyChangedSignal("Position"):Connect(function()
-		local pos = main.Position
-		shadow.Position = UDim2.new(pos.X.Scale, pos.X.Offset, pos.Y.Scale, pos.Y.Offset + 8)
-	end)
-	main:GetPropertyChangedSignal("Size"):Connect(function()
-		shadow.Size = main.Size
-	end)
 
 	-- Regions that must never start a window drag: nav buttons, sub-tab
 	-- pills, content pages and open dropdown lists register themselves here.
@@ -692,8 +667,8 @@ function Library:CreateWindow(opts)
 	local notificationHolder = make("Frame", {
 		Name = "Notifications",
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -18, 0, 18),
-		Size = UDim2.new(0, 340, 1, -36),
+		Position = UDim2.new(1, -16, 0, 16),
+		Size = UDim2.new(0, 300, 1, -32),
 		BackgroundTransparency = 1,
 		ZIndex = 200,
 		Parent = screenGui,
@@ -702,14 +677,13 @@ function Library:CreateWindow(opts)
 		FillDirection = Enum.FillDirection.Vertical,
 		HorizontalAlignment = Enum.HorizontalAlignment.Right,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 10),
+		Padding = UDim.new(0, 6),
 		Parent = notificationHolder,
 	})
 
 	local window = setmetatable({
 		ScreenGui = screenGui,
 		Main = main,
-		Shadow = shadow,
 		Logo = brandLogo,
 		_logoAsset = logoAsset,
 		_navList = navList,
@@ -780,92 +754,50 @@ function Window:Notify(opts)
 	duration = math.max(duration, 0)
 	self._notificationOrder = self._notificationOrder + 1
 
+	local titleText = tostring(opts.Title or style.Name)
+	local contentText = tostring(opts.Content or opts.Description or opts.Message or "Notification")
+
 	local slot = make("Frame", {
 		Name = "NotificationSlot",
-		Size = UDim2.new(1, 0, 0, 82),
+		Size = UDim2.new(1, 0, 0, 62),
 		BackgroundTransparency = 1,
 		LayoutOrder = self._notificationOrder,
 		ZIndex = 200,
 		Parent = holder,
 	})
 
+	-- Intentionally flat and minimal: no icon, logo, shadow, accent stripe,
+	-- oversized badge, or decorative animation.
 	local card = make("CanvasGroup", {
 		Name = style.Name .. "Notification",
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 340, 0, 0),
-		Size = UDim2.new(1, -10, 1, 0),
+		Position = UDim2.new(1, 12, 0, 0),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = C.CardBg,
 		GroupTransparency = 1,
 		ClipsDescendants = true,
 		ZIndex = 201,
 		Parent = slot,
 	})
-	corner(card, 11)
+	corner(card, 6)
 	stroke(card, C.Border)
 
-	make("Frame", {
-		Size = UDim2.new(0, 4, 1, 0),
-		BackgroundColor3 = style.Color,
-		ZIndex = 202,
-		Parent = card,
-	})
-
-	local iconHolder = make("Frame", {
-		Position = UDim2.fromOffset(14, 14),
-		Size = UDim2.fromOffset(38, 38),
-		BackgroundColor3 = C.Element,
-		ZIndex = 202,
-		Parent = card,
-	})
-	corner(iconHolder, 9)
-
 	make("TextLabel", {
-		Text = "S",
-		Font = Enum.Font.GothamBold,
-		TextSize = 15,
-		TextColor3 = C.White,
-		BackgroundTransparency = 1,
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = 203,
-		Parent = iconHolder,
-	})
-	make("ImageLabel", {
-		Image = normalizeAssetId(opts.Logo or self._logoAsset),
-		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(3, 3),
-		Size = UDim2.new(1, -6, 1, -6),
-		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 204,
-		Parent = iconHolder,
-	})
-	local typeDot = make("Frame", {
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, 2, 1, 2),
-		Size = UDim2.fromOffset(10, 10),
-		BackgroundColor3 = style.Color,
-		ZIndex = 205,
-		Parent = iconHolder,
-	})
-	circle(typeDot)
-	local dotStroke = stroke(typeDot, C.CardBg)
-	dotStroke.Thickness = 2
-
-	make("TextLabel", {
-		Text = tostring(opts.Title or style.Name),
-		Font = Enum.Font.GothamBold,
-		TextSize = 13,
+		Text = titleText,
+		Font = Enum.Font.GothamMedium,
+		TextSize = 12,
 		TextColor3 = C.White,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(64, 12),
-		Size = UDim2.new(1, -100, 0, 18),
+		Position = UDim2.fromOffset(12, 9),
+		Size = UDim2.new(1, -42, 0, 16),
 		ZIndex = 202,
 		Parent = card,
 	})
 
 	make("TextLabel", {
-		Text = tostring(opts.Content or opts.Description or opts.Message or "Notification"),
+		Text = contentText,
 		Font = Enum.Font.Gotham,
 		TextSize = 11,
 		TextColor3 = C.TextDim,
@@ -873,56 +805,39 @@ function Window:Notify(opts)
 		TextYAlignment = Enum.TextYAlignment.Top,
 		TextWrapped = true,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(64, 32),
-		Size = UDim2.new(1, -82, 0, 34),
+		Position = UDim2.fromOffset(12, 29),
+		Size = UDim2.new(1, -24, 0, 24),
 		ZIndex = 202,
 		Parent = card,
 	})
 
 	local closeButton = make("TextButton", {
 		Text = "×",
-		Font = Enum.Font.GothamMedium,
-		TextSize = 18,
+		Font = Enum.Font.Gotham,
+		TextSize = 14,
 		TextColor3 = C.TextDim,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -8, 0, 7),
-		Size = UDim2.fromOffset(24, 24),
+		Position = UDim2.new(1, -7, 0, 5),
+		Size = UDim2.fromOffset(20, 20),
 		BackgroundTransparency = 1,
 		ZIndex = 204,
 		Parent = card,
 	})
 
-	local progressTrack = make("Frame", {
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 4, 1, 0),
-		Size = UDim2.new(1, -4, 0, 3),
-		BackgroundColor3 = C.Element,
-		ZIndex = 202,
-		Parent = card,
-	})
-	local progress = make("Frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = style.Color,
-		ZIndex = 203,
-		Parent = progressTrack,
-	})
-
 	local closed = false
-	local progressTween = nil
 	local handle = {}
 
 	local function close(reason)
 		if closed then return end
 		closed = true
-		if progressTween then
-			progressTween:Cancel()
-		end
 		TweenService:Create(card, NOTIFICATION_TWEEN, {
-			Position = UDim2.new(1, 340, 0, 0),
+			Position = UDim2.new(1, 12, 0, 0),
 			GroupTransparency = 1,
 		}):Play()
-		task.delay(0.24, function()
-			if slot then slot:Destroy() end
+		task.delay(0.2, function()
+			if slot and slot.Parent then
+				slot:Destroy()
+			end
 		end)
 		fire(opts.Callback or opts.OnClose, reason or "closed")
 	end
@@ -930,6 +845,7 @@ function Window:Notify(opts)
 	function handle:Close()
 		close("manual")
 	end
+
 	function handle:IsOpen()
 		return not closed
 	end
@@ -950,17 +866,9 @@ function Window:Notify(opts)
 	}):Play()
 
 	if duration > 0 then
-		progressTween = TweenService:Create(
-			progress,
-			TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
-			{ Size = UDim2.new(0, 0, 1, 0) }
-		)
-		progressTween:Play()
 		task.delay(duration, function()
 			close("timeout")
 		end)
-	else
-		progressTrack.Visible = false
 	end
 
 	return handle

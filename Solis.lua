@@ -10,7 +10,7 @@
 local Solis = {}
 Solis.__index = Solis
 
-Solis.Version = "1.2.0"
+Solis.Version = "1.3.0"
 Solis.Icon = "rbxassetid://105894109382235"
 
 local Players = game:GetService("Players")
@@ -86,6 +86,22 @@ local function stroke(color, transparency, thickness)
         Transparency = transparency or 0,
         Thickness = thickness or 1,
     })
+end
+
+local function gradient(topColor, bottomColor, rotation)
+    return create("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, topColor),
+            ColorSequenceKeypoint.new(1, bottomColor),
+        }),
+        Rotation = rotation or 90,
+    })
+end
+
+local function inflateSize(size, offset)
+    offset = offset or 0
+
+    return UDim2.new(size.X.Scale, size.X.Offset + offset, size.Y.Scale, size.Y.Offset + offset)
 end
 
 local function padding(left, top, right, bottom)
@@ -263,7 +279,7 @@ local function selectPage(page)
     end
 
     page.Frame.Visible = true
-    page.Button.BackgroundColor3 = window.Theme.SurfaceLight
+    page.Button.BackgroundColor3 = window.Theme.SurfaceHover
     page.Button.TextColor3 = window.Theme.Text
     tab.ActivePage = page
 end
@@ -273,7 +289,7 @@ local function selectTab(tab)
 
     for _, item in ipairs(window.Tabs) do
         item.Button.BackgroundColor3 = window.Theme.Surface
-        item.Button.BackgroundTransparency = 0.12
+        item.Button.BackgroundTransparency = 0.08
         item.TitleLabel.TextColor3 = window.Theme.Muted
         item.IconFrame.BackgroundColor3 = window.Theme.SurfaceLight
         item.IconFrame.BackgroundTransparency = 1
@@ -288,7 +304,7 @@ local function selectTab(tab)
     end
 
     tab.Button.BackgroundTransparency = 0
-    tab.Button.BackgroundColor3 = window.Theme.SurfaceLight
+    tab.Button.BackgroundColor3 = window.Theme.SurfaceHover
     tab.TitleLabel.TextColor3 = window.Theme.Text
     tab.IconFrame.BackgroundColor3 = window.Theme.SurfaceHover
     tab.IconFrame.BackgroundTransparency = 1
@@ -339,7 +355,8 @@ local function createControlText(section, row, title, description)
         Text = title or "Control",
         Position = UDim2.new(0, 0, 0, description and 4 or 0),
         Size = UDim2.new(1, -168, 0, 18),
-        TextSize = 13,
+        TextSize = 12,
+        Font = Enum.Font.GothamSemibold,
         Color = theme.Text,
     })
 
@@ -350,6 +367,7 @@ local function createControlText(section, row, title, description)
             Position = UDim2.new(0, 0, 0, 23),
             Size = UDim2.new(1, -168, 0, 17),
             TextSize = 11,
+            Font = Enum.Font.Gotham,
             Color = theme.Muted,
         })
     end
@@ -380,6 +398,20 @@ function Solis:CreateWindow(options)
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     })
 
+    local shadow = create("Frame", {
+        Parent = screenGui,
+        Name = "Shadow",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = inflateSize(size, 18),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundTransparency = 0.78,
+        BorderSizePixel = 0,
+        ZIndex = 0,
+    }, {
+        corner(16),
+    })
+
     local main = create("Frame", {
         Parent = screenGui,
         Name = "Main",
@@ -389,10 +421,13 @@ function Solis:CreateWindow(options)
         BackgroundColor3 = theme.Background,
         BorderSizePixel = 0,
         ClipsDescendants = true,
+        ZIndex = 1,
     }, {
         corner(12),
-        stroke(theme.Border, 0.2, 1),
+        stroke(theme.Border, 0.22, 1),
     })
+
+    gradient(Color3.fromRGB(16, 16, 18), Color3.fromRGB(8, 8, 9), 90).Parent = main
 
     local sidebar = create("Frame", {
         Parent = main,
@@ -503,6 +538,7 @@ function Solis:CreateWindow(options)
         Position = UDim2.fromOffset(48, 5),
         Size = UDim2.new(1, -48, 0, 18),
         TextSize = 13,
+        Font = Enum.Font.GothamSemibold,
         Color = theme.Text,
     })
 
@@ -573,6 +609,7 @@ function Solis:CreateWindow(options)
         Position = UDim2.fromOffset(38, 1),
         Size = UDim2.new(1, -108, 0, 18),
         TextSize = 12,
+        Font = Enum.Font.GothamSemibold,
         Color = theme.Text,
     })
 
@@ -582,6 +619,7 @@ function Solis:CreateWindow(options)
         Position = UDim2.fromOffset(38, 18),
         Size = UDim2.new(1, -108, 0, 18),
         TextSize = 10,
+        Font = Enum.Font.Gotham,
         Color = theme.Muted,
     })
 
@@ -701,6 +739,8 @@ function Solis:CreateWindow(options)
         stroke(theme.Border, 0.18, 1),
     })
 
+    gradient(Color3.fromRGB(26, 26, 29), Color3.fromRGB(17, 17, 19), 90).Parent = launcher
+
     create("ImageLabel", {
         Parent = launcher,
         Name = "Icon",
@@ -738,6 +778,7 @@ function Solis:CreateWindow(options)
         PageTabs = pageTabs,
         Content = content,
         Notifications = notifications,
+        Shadow = shadow,
         Launcher = launcher,
         HeaderIcon = headerIcon,
         HeaderTitle = headerTitle,
@@ -812,13 +853,25 @@ function WindowMethods:Minimize()
 
     local launcherX = math.max(12, self.Main.AbsolutePosition.X + 12)
     local launcherY = math.max(12, self.Main.AbsolutePosition.Y + 12)
+    local targetPosition = UDim2.fromOffset(launcherX + 37, launcherY + 26)
+    local targetSize = UDim2.fromOffset(74, 52)
     self.Launcher.Position = UDim2.fromOffset(launcherX, launcherY)
     self.Launcher.BackgroundTransparency = 1
     self.Launcher.Visible = false
+    self.Shadow.Visible = true
+    self.Shadow.Position = self.Main.Position
+    self.Shadow.Size = inflateSize(self.Main.Size, 18)
+    self.Shadow.BackgroundTransparency = 0.78
 
     tween(self.Main, {
-        Position = UDim2.fromOffset(launcherX + 37, launcherY + 26),
-        Size = UDim2.fromOffset(74, 52),
+        Position = targetPosition,
+        Size = targetSize,
+    }, 0.14)
+
+    tween(self.Shadow, {
+        Position = targetPosition,
+        Size = inflateSize(targetSize, 18),
+        BackgroundTransparency = 1,
     }, 0.14)
 
     task.delay(0.14, function()
@@ -827,6 +880,7 @@ function WindowMethods:Minimize()
         end
 
         self.Main.Visible = false
+        self.Shadow.Visible = false
         self.Launcher.Visible = true
         tween(self.Launcher, { BackgroundTransparency = 0 }, 0.12)
     end)
@@ -843,6 +897,8 @@ function WindowMethods:Restore()
     local launcherPosition = self.Launcher.AbsolutePosition
     local launcherSize = self.Launcher.AbsoluteSize
     self.Launcher.Visible = false
+    self.Shadow.Visible = true
+    self.Shadow.BackgroundTransparency = 1
 
     if self.Main then
         self.Main.Visible = true
@@ -851,10 +907,18 @@ function WindowMethods:Restore()
             launcherPosition.Y + (launcherSize.Y / 2)
         )
         self.Main.Size = UDim2.fromOffset(74, 52)
+        self.Shadow.Position = self.Main.Position
+        self.Shadow.Size = inflateSize(self.Main.Size, 18)
 
         tween(self.Main, {
             Position = self.StoredPosition,
             Size = self.StoredSize,
+        }, 0.16)
+
+        tween(self.Shadow, {
+            Position = self.StoredPosition,
+            Size = inflateSize(self.StoredSize, 18),
+            BackgroundTransparency = 0.78,
         }, 0.16)
     end
 end
@@ -925,11 +989,11 @@ function WindowMethods:CreateTab(options, icon)
         Name = "Accent",
         BackgroundColor3 = self.Theme.Accent,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, 10),
-        Size = UDim2.fromOffset(3, 22),
+        Position = UDim2.fromOffset(0, 8),
+        Size = UDim2.fromOffset(4, 24),
         Visible = false,
     }, {
-        corner(2),
+        corner(3),
     })
 
     local iconFrame = create("Frame", {
@@ -959,7 +1023,8 @@ function WindowMethods:CreateTab(options, icon)
         Text = tab.Name,
         Position = UDim2.fromOffset(43, 8),
         Size = UDim2.new(1, -50, 0, 17),
-        TextSize = 12,
+        TextSize = 11,
+        Font = Enum.Font.GothamSemibold,
         Color = self.Theme.Muted,
     })
 
@@ -1109,12 +1174,15 @@ function TabMethods:CreatePage(name)
         Text = page.Name,
         TextColor3 = window.Theme.Muted,
         TextSize = 10,
-        Font = Enum.Font.Gotham,
+        Font = Enum.Font.GothamSemibold,
         AutoButtonColor = false,
         Visible = false,
     }, {
         corner(6),
+        stroke(window.Theme.Border, 0.45, 1),
     })
+
+    gradient(Color3.fromRGB(24, 24, 27), Color3.fromRGB(17, 17, 19), 90).Parent = button
 
     local frame = create("ScrollingFrame", {
         Parent = window.Content,
@@ -1204,24 +1272,54 @@ function PageMethods:CreateSection(title)
         Size = UDim2.new(1, -4, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
     }, {
-        corner(7),
-        stroke(self.Window.Theme.Border, 0.3, 1),
-        padding(12, 10, 12, 12),
+        corner(8),
+        stroke(self.Window.Theme.Border, 0.22, 1),
+        padding(14, 12, 14, 12),
     })
 
-    local layout = listLayout(Enum.FillDirection.Vertical, 4)
-    layout.Parent = holder
+    gradient(Color3.fromRGB(24, 24, 27), Color3.fromRGB(16, 16, 18), 90).Parent = holder
 
-    createText(holder, self.Window.Theme, {
+    local holderLayout = listLayout(Enum.FillDirection.Vertical, 8)
+    holderLayout.Parent = holder
+
+    local header = create("Frame", {
+        Parent = holder,
+        Name = "Header",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 20),
+    })
+
+    createText(header, self.Window.Theme, {
         Name = "Title",
         Text = section.Title,
         Size = UDim2.new(1, 0, 0, 20),
-        TextSize = 12,
-        Color = self.Window.Theme.Muted,
+        TextSize = 11,
+        Font = Enum.Font.GothamSemibold,
+        Color = self.Window.Theme.Text,
     })
 
+    create("Frame", {
+        Parent = holder,
+        Name = "Divider",
+        BackgroundColor3 = self.Window.Theme.Border,
+        BackgroundTransparency = 0.7,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, 1),
+    })
+
+    local body = create("Frame", {
+        Parent = holder,
+        Name = "Body",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+    })
+
+    local layout = listLayout(Enum.FillDirection.Vertical, 6)
+    layout.Parent = body
+
     section.Frame = holder
-    section.Content = holder
+    section.Content = body
     section.Layout = layout
 
     table.insert(self.Sections, section)
@@ -1313,19 +1411,22 @@ function SectionMethods:CreateButton(options)
     local button = create("TextButton", {
         Parent = row,
         Name = "Button",
-        BackgroundColor3 = theme.SurfaceLight,
+        BackgroundColor3 = theme.Surface,
         BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 1, 0),
-        Font = Enum.Font.Gotham,
+        Font = Enum.Font.GothamSemibold,
         Text = options.Name or options.Text or options.Title or "Button",
-        TextColor3 = theme.Muted,
-        TextSize = 12,
+        TextColor3 = theme.Text,
+        TextSize = 11,
         AutoButtonColor = false,
     }, {
         corner(7),
+        stroke(theme.Border, 0.36, 1),
     })
 
-    connectHover(button, theme.SurfaceLight, theme.SurfaceHover)
+    gradient(Color3.fromRGB(26, 26, 29), Color3.fromRGB(18, 18, 20), 90).Parent = button
+
+    connectHover(button, theme.Surface, theme.SurfaceHover)
 
     button.MouseButton1Click:Connect(function()
         task.spawn(callback)
@@ -1358,20 +1459,21 @@ function SectionMethods:CreateToggle(options)
         Name = "Track",
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, 0, 0.5, 0),
-        Size = UDim2.fromOffset(31, 18),
+        Size = UDim2.fromOffset(34, 20),
         BackgroundColor3 = value and theme.Accent or theme.SurfaceLight,
         BorderSizePixel = 0,
     }, {
-        corner(9),
+        corner(10),
+        stroke(theme.Border, 0.45, 1),
     })
 
     local knob = create("Frame", {
         Parent = track,
         Name = "Knob",
         AnchorPoint = Vector2.new(0, 0.5),
-        Position = value and UDim2.fromOffset(15, 9) or UDim2.fromOffset(3, 9),
-        Size = UDim2.fromOffset(12, 12),
-        BackgroundColor3 = value and theme.Background or theme.Muted,
+        Position = value and UDim2.fromOffset(16, 10) or UDim2.fromOffset(4, 10),
+        Size = UDim2.fromOffset(14, 14),
+        BackgroundColor3 = value and theme.Text or theme.Muted,
         BorderSizePixel = 0,
     }, {
         corner(6),
@@ -1384,8 +1486,8 @@ function SectionMethods:CreateToggle(options)
         setFlag(window, options.Flag, value, control)
         tween(track, { BackgroundColor3 = value and theme.Accent or theme.SurfaceLight }, 0.14)
         tween(knob, {
-            Position = value and UDim2.fromOffset(15, 9) or UDim2.fromOffset(3, 9),
-            BackgroundColor3 = value and theme.Background or theme.Muted,
+            Position = value and UDim2.fromOffset(16, 10) or UDim2.fromOffset(4, 10),
+            BackgroundColor3 = value and theme.Text or theme.Muted,
         }, 0.14)
         task.spawn(callback, value)
     end
@@ -1436,7 +1538,8 @@ function SectionMethods:CreateSlider(options)
         Position = UDim2.new(1, 0, 0, 3),
         Size = UDim2.fromOffset(80, 18),
         TextSize = 11,
-        Color = theme.Muted,
+        Font = Enum.Font.GothamSemibold,
+        Color = theme.Text,
         TextXAlignment = Enum.TextXAlignment.Right,
     })
 
@@ -1445,11 +1548,12 @@ function SectionMethods:CreateSlider(options)
         Name = "Bar",
         AnchorPoint = Vector2.new(0, 1),
         Position = UDim2.new(0, 0, 1, -8),
-        Size = UDim2.new(1, 0, 0, 4),
-        BackgroundColor3 = theme.SurfaceLight,
+        Size = UDim2.new(1, 0, 0, 5),
+        BackgroundColor3 = theme.Border,
         BorderSizePixel = 0,
     }, {
-        corner(2),
+        corner(3),
+        stroke(theme.Border, 0.55, 1),
     })
 
     local fill = create("Frame", {
@@ -1459,7 +1563,7 @@ function SectionMethods:CreateSlider(options)
         BorderSizePixel = 0,
         Size = UDim2.fromScale((value - min) / range, 1),
     }, {
-        corner(2),
+        corner(3),
     })
 
     local knob = create("Frame", {
@@ -1467,11 +1571,12 @@ function SectionMethods:CreateSlider(options)
         Name = "Knob",
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale((value - min) / range, 0.5),
-        Size = UDim2.fromOffset(11, 11),
+        Size = UDim2.fromOffset(13, 13),
         BackgroundColor3 = theme.Text,
         BorderSizePixel = 0,
     }, {
         corner(6),
+        stroke(theme.Border, 0.45, 1),
     })
 
     local dragging = false
@@ -1550,28 +1655,31 @@ function SectionMethods:CreateDropdown(options)
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, 0, 0, 5),
         Size = UDim2.fromOffset(150, 28),
-        BackgroundColor3 = theme.SurfaceLight,
+        BackgroundColor3 = theme.Surface,
         BorderSizePixel = 0,
-        Font = Enum.Font.Gotham,
+        Font = Enum.Font.GothamSemibold,
         Text = tostring(value or "Select"),
-        TextColor3 = theme.Muted,
-        TextSize = 11,
+        TextColor3 = theme.Text,
+        TextSize = 10,
         AutoButtonColor = false,
     }, {
-        corner(6),
+        corner(7),
+        stroke(theme.Border, 0.38, 1),
     })
+
+    gradient(Color3.fromRGB(25, 25, 28), Color3.fromRGB(18, 18, 20), 90).Parent = button
 
     local list = create("Frame", {
         Parent = row,
         Name = "List",
-        BackgroundColor3 = theme.SurfaceLight,
+        BackgroundColor3 = theme.Surface,
         BorderSizePixel = 0,
         Position = UDim2.new(1, -150, 0, 38),
         Size = UDim2.fromOffset(150, 0),
         ClipsDescendants = true,
         Visible = false,
     }, {
-        corner(6),
+        corner(7),
         stroke(theme.Border, 0.35, 1),
         listLayout(Enum.FillDirection.Vertical, 0),
     })
@@ -1589,17 +1697,17 @@ function SectionMethods:CreateDropdown(options)
             local itemButton = create("TextButton", {
                 Parent = list,
                 Name = tostring(item),
-                BackgroundColor3 = theme.SurfaceLight,
+                BackgroundColor3 = theme.Surface,
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, 0, 0, 26),
                 Font = Enum.Font.Gotham,
                 Text = tostring(item),
                 TextColor3 = theme.Muted,
-                TextSize = 11,
+                TextSize = 10,
                 AutoButtonColor = false,
             })
 
-            connectHover(itemButton, theme.SurfaceLight, theme.SurfaceHover)
+            connectHover(itemButton, theme.Surface, theme.SurfaceHover)
 
             itemButton.MouseButton1Click:Connect(function()
                 control:Set(item)
@@ -1641,7 +1749,7 @@ function SectionMethods:CreateDropdown(options)
         setOpen(not open)
     end)
 
-    connectHover(button, theme.SurfaceLight, theme.SurfaceHover)
+    connectHover(button, theme.Surface, theme.SurfaceHover)
     rebuild()
     setFlag(window, options.Flag, value, control)
 
@@ -1669,19 +1777,22 @@ function SectionMethods:CreateInput(options)
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, 0, 0, 5),
         Size = UDim2.fromOffset(150, 28),
-        BackgroundColor3 = theme.SurfaceLight,
+        BackgroundColor3 = theme.Surface,
         BorderSizePixel = 0,
         ClearTextOnFocus = false,
         Font = Enum.Font.Gotham,
         PlaceholderText = options.Placeholder or "",
         PlaceholderColor3 = theme.MutedDark,
         Text = tostring(value),
-        TextColor3 = theme.Muted,
-        TextSize = 11,
+        TextColor3 = theme.Text,
+        TextSize = 10,
     }, {
-        corner(6),
+        corner(7),
+        stroke(theme.Border, 0.38, 1),
         padding(8, 0, 8, 0),
     })
+
+    gradient(Color3.fromRGB(25, 25, 28), Color3.fromRGB(18, 18, 20), 90).Parent = box
 
     local control = {}
 
@@ -1731,16 +1842,19 @@ function SectionMethods:CreateKeybind(options)
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, 0, 0, 5),
         Size = UDim2.fromOffset(150, 28),
-        BackgroundColor3 = theme.SurfaceLight,
+        BackgroundColor3 = theme.Surface,
         BorderSizePixel = 0,
-        Font = Enum.Font.Gotham,
+        Font = Enum.Font.GothamSemibold,
         Text = value.Name,
-        TextColor3 = theme.Muted,
-        TextSize = 11,
+        TextColor3 = theme.Text,
+        TextSize = 10,
         AutoButtonColor = false,
     }, {
-        corner(6),
+        corner(7),
+        stroke(theme.Border, 0.38, 1),
     })
+
+    gradient(Color3.fromRGB(25, 25, 28), Color3.fromRGB(18, 18, 20), 90).Parent = button
 
     local control = {}
 
@@ -1778,7 +1892,7 @@ function SectionMethods:CreateKeybind(options)
         end
     end))
 
-    connectHover(button, theme.SurfaceLight, theme.SurfaceHover)
+    connectHover(button, theme.Surface, theme.SurfaceHover)
     setFlag(window, options.Flag, value, control)
 
     return control

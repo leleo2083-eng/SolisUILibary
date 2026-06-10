@@ -1,7 +1,7 @@
 --[[
     Solis UI Library
-    A dark Roblox Luau UI library with tabs, pages, sections, controls,
-    flags, notifications, and a warm solar accent.
+    A minimal dark Roblox Luau UI library with tabs, pages, sections,
+    reusable controls, flags, notifications, and a muted amber accent.
 
     GitHub usage:
     local Solis = loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_NAME/Solis/main/src/Solis.lua"))()
@@ -10,7 +10,7 @@
 local Solis = {}
 Solis.__index = Solis
 
-Solis.Version = "1.0.0"
+Solis.Version = "1.1.0"
 Solis.Icon = "rbxassetid://105894109382235"
 
 local Players = game:GetService("Players")
@@ -20,17 +20,17 @@ local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 local DefaultTheme = {
-    Background = Color3.fromRGB(8, 9, 10),
-    Sidebar = Color3.fromRGB(11, 12, 13),
-    Surface = Color3.fromRGB(15, 15, 16),
-    SurfaceLight = Color3.fromRGB(25, 25, 27),
-    SurfaceHover = Color3.fromRGB(31, 31, 34),
-    Border = Color3.fromRGB(38, 38, 40),
-    Text = Color3.fromRGB(238, 238, 240),
-    Muted = Color3.fromRGB(141, 141, 148),
-    MutedDark = Color3.fromRGB(82, 82, 88),
-    Accent = Color3.fromRGB(255, 183, 35),
-    AccentSoft = Color3.fromRGB(96, 63, 12),
+    Background = Color3.fromRGB(10, 10, 11),
+    Sidebar = Color3.fromRGB(13, 13, 15),
+    Surface = Color3.fromRGB(18, 18, 20),
+    SurfaceLight = Color3.fromRGB(24, 24, 27),
+    SurfaceHover = Color3.fromRGB(31, 31, 35),
+    Border = Color3.fromRGB(43, 43, 47),
+    Text = Color3.fromRGB(243, 243, 245),
+    Muted = Color3.fromRGB(156, 156, 162),
+    MutedDark = Color3.fromRGB(104, 104, 110),
+    Accent = Color3.fromRGB(214, 156, 82),
+    AccentSoft = Color3.fromRGB(74, 50, 25),
     Success = Color3.fromRGB(94, 220, 132),
     Error = Color3.fromRGB(241, 88, 88),
 }
@@ -117,7 +117,7 @@ local function normalizeIcon(icon)
     end
 
     if typeof(icon) == "string" then
-        if icon:match("^rbxassetid://") or icon:match("^http") then
+        if icon:match("^rbxasset") or icon:match("^http") then
             return icon
         end
 
@@ -125,7 +125,7 @@ local function normalizeIcon(icon)
             return "rbxassetid://" .. icon
         end
 
-        return icon
+        return Solis.Icon
     end
 
     return Solis.Icon
@@ -271,7 +271,7 @@ local function selectTab(tab)
 
     for _, item in ipairs(window.Tabs) do
         item.Button.BackgroundColor3 = window.Theme.Surface
-        item.Button.BackgroundTransparency = 0.18
+        item.Button.BackgroundTransparency = 0.12
         item.TitleLabel.TextColor3 = window.Theme.Muted
         item.IconFrame.BackgroundColor3 = window.Theme.SurfaceLight
 
@@ -282,7 +282,7 @@ local function selectTab(tab)
     end
 
     tab.Button.BackgroundTransparency = 0
-    tab.Button.BackgroundColor3 = window.Theme.Surface
+    tab.Button.BackgroundColor3 = window.Theme.SurfaceLight
     tab.TitleLabel.TextColor3 = window.Theme.Text
     tab.IconFrame.BackgroundColor3 = window.Theme.SurfaceHover
     window.HeaderIcon.Image = tab.Icon
@@ -350,11 +350,11 @@ function Solis:CreateWindow(options)
 
     local theme = mergeTheme(options.Theme)
     local guiParent = options.Parent or parentGui()
-    local name = options.Name or "Solis"
-    local subtitle = options.Subtitle or "Roblox UI Library"
+    local title = options.Title or options.Name or "Solis"
+    local footer = options.Footer or options.Subtitle or "Roblox UI Library"
     local size = options.Size or UDim2.fromOffset(650, 430)
     local toggleKey = options.ToggleKey or Enum.KeyCode.RightShift
-    local guiName = "Solis_" .. name:gsub("%W", "")
+    local guiName = "Solis_" .. title:gsub("%W", "")
 
     local oldGui = guiParent:FindFirstChild(guiName)
     if oldGui and options.AllowMultiple ~= true then
@@ -379,17 +379,8 @@ function Solis:CreateWindow(options)
         BackgroundColor3 = theme.Background,
         BorderSizePixel = 0,
     }, {
-        corner(8),
-        stroke(theme.Border, 0.15, 1),
-    })
-
-    create("UIGradient", {
-        Parent = main,
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(13, 14, 15)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 6, 7)),
-        }),
-        Rotation = 90,
+        corner(6),
+        stroke(theme.Border, 0.2, 1),
     })
 
     local sidebar = create("Frame", {
@@ -416,7 +407,7 @@ function Solis:CreateWindow(options)
         Name = "Brand",
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(14, 14),
-        Size = UDim2.new(1, -28, 0, 36),
+        Size = UDim2.new(1, -28, 0, 34),
     })
 
     local brandIconFrame = create("Frame", {
@@ -424,10 +415,10 @@ function Solis:CreateWindow(options)
         Name = "IconFrame",
         BackgroundColor3 = theme.SurfaceLight,
         BorderSizePixel = 0,
-        Size = UDim2.fromOffset(30, 30),
+        Size = UDim2.fromOffset(28, 28),
         Position = UDim2.fromOffset(0, 3),
     }, {
-        corner(15),
+        corner(7),
     })
 
     create("ImageLabel", {
@@ -436,25 +427,25 @@ function Solis:CreateWindow(options)
         BackgroundTransparency = 1,
         Image = normalizeIcon(options.Icon or Solis.Icon),
         Position = UDim2.fromOffset(5, 5),
-        Size = UDim2.fromOffset(20, 20),
+        Size = UDim2.fromOffset(18, 18),
         ScaleType = Enum.ScaleType.Fit,
     })
 
     createText(brand, theme, {
         Name = "Name",
-        Text = name,
+        Text = title,
         Position = UDim2.fromOffset(39, 1),
         Size = UDim2.new(1, -39, 0, 18),
-        TextSize = 14,
+        TextSize = 13,
         Color = theme.Text,
     })
 
     createText(brand, theme, {
-        Name = "Subtitle",
-        Text = subtitle,
+        Name = "Footer",
+        Text = footer,
         Position = UDim2.fromOffset(39, 18),
         Size = UDim2.new(1, -39, 0, 15),
-        TextSize = 11,
+        TextSize = 10,
         Color = theme.Muted,
     })
 
@@ -485,7 +476,7 @@ function Solis:CreateWindow(options)
         Name = "Header",
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(14, 12),
-        Size = UDim2.new(1, -28, 0, 46),
+        Size = UDim2.new(1, -28, 0, 44),
     })
 
     local headerIconFrame = create("Frame", {
@@ -493,10 +484,10 @@ function Solis:CreateWindow(options)
         Name = "IconFrame",
         BackgroundColor3 = theme.SurfaceLight,
         BorderSizePixel = 0,
-        Size = UDim2.fromOffset(28, 28),
+        Size = UDim2.fromOffset(26, 26),
         Position = UDim2.fromOffset(0, 4),
     }, {
-        corner(14),
+        corner(7),
     })
 
     local headerIcon = create("ImageLabel", {
@@ -505,25 +496,25 @@ function Solis:CreateWindow(options)
         BackgroundTransparency = 1,
         Image = normalizeIcon(options.Icon or Solis.Icon),
         Position = UDim2.fromOffset(5, 5),
-        Size = UDim2.fromOffset(18, 18),
+        Size = UDim2.fromOffset(16, 16),
         ScaleType = Enum.ScaleType.Fit,
     })
 
     local headerTitle = createText(header, theme, {
         Name = "Title",
-        Text = name,
+        Text = title,
         Position = UDim2.fromOffset(38, 1),
         Size = UDim2.new(1, -108, 0, 18),
-        TextSize = 13,
+        TextSize = 12,
         Color = theme.Text,
     })
 
     local headerSubtitle = createText(header, theme, {
-        Name = "Subtitle",
-        Text = subtitle,
+        Name = "Footer",
+        Text = footer,
         Position = UDim2.fromOffset(38, 18),
         Size = UDim2.new(1, -108, 0, 18),
-        TextSize = 11,
+        TextSize = 10,
         Color = theme.Muted,
     })
 
@@ -534,11 +525,11 @@ function Solis:CreateWindow(options)
         BackgroundColor3 = theme.Surface,
         BorderSizePixel = 0,
         Position = UDim2.new(1, 0, 0, 4),
-        Size = UDim2.fromOffset(28, 28),
+        Size = UDim2.fromOffset(26, 26),
         Font = Enum.Font.GothamBold,
         Text = "x",
         TextColor3 = theme.Muted,
-        TextSize = 14,
+        TextSize = 12,
         AutoButtonColor = false,
     }, {
         corner(6),
@@ -551,12 +542,12 @@ function Solis:CreateWindow(options)
         AnchorPoint = Vector2.new(1, 0),
         BackgroundColor3 = theme.Surface,
         BorderSizePixel = 0,
-        Position = UDim2.new(1, -34, 0, 4),
-        Size = UDim2.fromOffset(28, 28),
+        Position = UDim2.new(1, -32, 0, 4),
+        Size = UDim2.fromOffset(26, 26),
         Font = Enum.Font.GothamBold,
         Text = "-",
         TextColor3 = theme.Muted,
-        TextSize = 18,
+        TextSize = 16,
         AutoButtonColor = false,
     }, {
         corner(6),
@@ -570,8 +561,8 @@ function Solis:CreateWindow(options)
         Parent = content,
         Name = "PageTabs",
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(14, 59),
-        Size = UDim2.new(1, -28, 0, 28),
+        Position = UDim2.fromOffset(14, 58),
+        Size = UDim2.new(1, -28, 0, 26),
     }, {
         listLayout(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Left),
     })
@@ -582,7 +573,7 @@ function Solis:CreateWindow(options)
         BackgroundColor3 = theme.Border,
         BackgroundTransparency = 0.6,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, 88),
+        Position = UDim2.fromOffset(0, 86),
         Size = UDim2.new(1, 0, 0, 1),
     })
 
@@ -598,8 +589,10 @@ function Solis:CreateWindow(options)
     })
 
     local window = setmetatable({
-        Name = name,
-        Subtitle = subtitle,
+        Title = title,
+        Footer = footer,
+        Name = title,
+        Subtitle = footer,
         Gui = screenGui,
         Main = main,
         Sidebar = sidebar,
@@ -677,6 +670,18 @@ function WindowMethods:SetVisible(visible)
     end
 end
 
+function WindowMethods:Show()
+    self:SetVisible(true)
+end
+
+function WindowMethods:Hide()
+    self:SetVisible(false)
+end
+
+function WindowMethods:Toggle()
+    self:SetVisible(not self.Visible)
+end
+
 function WindowMethods:Destroy()
     for _, connection in ipairs(self.Connections) do
         if connection.Disconnect then
@@ -689,8 +694,15 @@ function WindowMethods:Destroy()
     end
 end
 
-function WindowMethods:CreateTab(options)
-    options = options or {}
+function WindowMethods:CreateTab(options, icon)
+    if typeof(options) == "string" then
+        options = {
+            Name = options,
+            Icon = icon,
+        }
+    else
+        options = options or {}
+    end
 
     local tab = setmetatable({
         Window = self,
@@ -705,14 +717,14 @@ function WindowMethods:CreateTab(options)
         Parent = self.TabList,
         Name = tab.Name,
         BackgroundColor3 = self.Theme.Surface,
-        BackgroundTransparency = 0.18,
+        BackgroundTransparency = 0.12,
         BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 0, 46),
+        Size = UDim2.new(1, 0, 0, 42),
         Text = "",
         AutoButtonColor = false,
     }, {
-        corner(7),
-        stroke(self.Theme.Border, 0.65, 1),
+        corner(6),
+        stroke(self.Theme.Border, 0.7, 1),
     })
 
     local iconFrame = create("Frame", {
@@ -720,10 +732,10 @@ function WindowMethods:CreateTab(options)
         Name = "IconFrame",
         BackgroundColor3 = self.Theme.SurfaceLight,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(10, 10),
-        Size = UDim2.fromOffset(26, 26),
+        Position = UDim2.fromOffset(10, 9),
+        Size = UDim2.fromOffset(24, 24),
     }, {
-        corner(13),
+        corner(6),
     })
 
     create("ImageLabel", {
@@ -732,15 +744,15 @@ function WindowMethods:CreateTab(options)
         BackgroundTransparency = 1,
         Image = tab.Icon,
         Position = UDim2.fromOffset(5, 5),
-        Size = UDim2.fromOffset(16, 16),
+        Size = UDim2.fromOffset(14, 14),
         ScaleType = Enum.ScaleType.Fit,
     })
 
     local title = createText(button, self.Theme, {
         Name = "Title",
         Text = tab.Name,
-        Position = UDim2.fromOffset(45, 9),
-        Size = UDim2.new(1, -52, 0, 17),
+        Position = UDim2.fromOffset(43, 8),
+        Size = UDim2.new(1, -50, 0, 17),
         TextSize = 12,
         Color = self.Theme.Muted,
     })
@@ -748,8 +760,8 @@ function WindowMethods:CreateTab(options)
     createText(button, self.Theme, {
         Name = "Subtitle",
         Text = tab.Subtitle,
-        Position = UDim2.fromOffset(45, 25),
-        Size = UDim2.new(1, -52, 0, 14),
+        Position = UDim2.fromOffset(43, 24),
+        Size = UDim2.new(1, -50, 0, 13),
         TextSize = 10,
         Color = self.Theme.MutedDark,
     })
@@ -886,10 +898,10 @@ function TabMethods:CreatePage(name)
         Name = page.Name,
         BackgroundColor3 = window.Theme.Surface,
         BorderSizePixel = 0,
-        Size = UDim2.fromOffset(math.max(66, (#page.Name * 7) + 22), 25),
+        Size = UDim2.fromOffset(math.max(66, (#page.Name * 7) + 22), 24),
         Text = page.Name,
         TextColor3 = window.Theme.Muted,
-        TextSize = 11,
+        TextSize = 10,
         Font = Enum.Font.Gotham,
         AutoButtonColor = false,
         Visible = false,
@@ -902,8 +914,8 @@ function TabMethods:CreatePage(name)
         Name = page.Name,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(14, 97),
-        Size = UDim2.new(1, -28, 1, -110),
+        Position = UDim2.fromOffset(14, 94),
+        Size = UDim2.new(1, -28, 1, -106),
         ScrollBarThickness = 3,
         ScrollBarImageColor3 = window.Theme.MutedDark,
         CanvasSize = UDim2.fromOffset(0, 0),
@@ -963,6 +975,10 @@ end
 
 function TabMethods:CreateInput(options)
     return self:CreateSection(options and options.Section or "Main"):CreateInput(options)
+end
+
+function TabMethods:CreateKeybind(options)
+    return self:CreateSection(options and options.Section or "Main"):CreateKeybind(options)
 end
 
 function PageMethods:CreateSection(title)
@@ -1084,7 +1100,7 @@ end
 function SectionMethods:CreateButton(options)
     options = options or {}
     local theme = self.Window.Theme
-    local callback = options.Callback or function() end
+    local callback = options.Callback or options.Func or function() end
     local row = createSectionRow(self, 34, "Button")
 
     local button = create("TextButton", {
@@ -1094,7 +1110,7 @@ function SectionMethods:CreateButton(options)
         BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 1, 0),
         Font = Enum.Font.Gotham,
-        Text = options.Name or options.Title or "Button",
+        Text = options.Name or options.Text or options.Title or "Button",
         TextColor3 = theme.Muted,
         TextSize = 12,
         AutoButtonColor = false,
@@ -1120,7 +1136,7 @@ function SectionMethods:CreateToggle(options)
     local value = options.Default == true
     local row = createSectionRow(self, options.Description and 48 or 36, "Toggle")
 
-    createControlText(self, row, options.Name or options.Title or "Toggle", options.Description)
+    createControlText(self, row, options.Name or options.Text or options.Title or "Toggle", options.Description)
 
     local hitbox = create("TextButton", {
         Parent = row,
@@ -1192,14 +1208,19 @@ function SectionMethods:CreateSlider(options)
     local callback = options.Callback or function() end
     local min = options.Min or options.Minimum or 0
     local max = options.Max or options.Maximum or 100
+    if max < min then
+        min, max = max, min
+    end
+
     local step = options.Step or options.Increment or 1
-    local decimals = options.Decimals or (step < 1 and 2 or 0)
+    local range = math.max(max - min, 0.0001)
+    local decimals = options.Decimals or options.Rounding or (step < 1 and 2 or 0)
     local suffix = options.Suffix or ""
     local value = math.clamp(options.Default or min, min, max)
     value = roundToStep(value, step)
 
     local row = createSectionRow(self, 62, "Slider")
-    createControlText(self, row, options.Name or options.Title or "Slider", options.Description)
+    createControlText(self, row, options.Name or options.Text or options.Title or "Slider", options.Description)
 
     local valueLabel = createText(row, theme, {
         Name = "Value",
@@ -1229,7 +1250,7 @@ function SectionMethods:CreateSlider(options)
         Name = "Fill",
         BackgroundColor3 = theme.Accent,
         BorderSizePixel = 0,
-        Size = UDim2.fromScale((value - min) / (max - min), 1),
+        Size = UDim2.fromScale((value - min) / range, 1),
     }, {
         corner(2),
     })
@@ -1238,7 +1259,7 @@ function SectionMethods:CreateSlider(options)
         Parent = bar,
         Name = "Knob",
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale((value - min) / (max - min), 0.5),
+        Position = UDim2.fromScale((value - min) / range, 0.5),
         Size = UDim2.fromOffset(11, 11),
         BackgroundColor3 = theme.Text,
         BorderSizePixel = 0,
@@ -1250,7 +1271,7 @@ function SectionMethods:CreateSlider(options)
     local control = {}
 
     local function updateVisual()
-        local alpha = (value - min) / (max - min)
+        local alpha = (value - min) / range
         alpha = math.clamp(alpha, 0, 1)
         valueLabel.Text = formatNumber(value, decimals) .. suffix
         fill.Size = UDim2.fromScale(alpha, 1)
@@ -1259,7 +1280,7 @@ function SectionMethods:CreateSlider(options)
 
     local function setFromPosition(x)
         local alpha = math.clamp((x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-        local rawValue = min + ((max - min) * alpha)
+        local rawValue = min + (range * alpha)
         control:Set(rawValue)
     end
 
@@ -1314,7 +1335,7 @@ function SectionMethods:CreateDropdown(options)
     local open = false
 
     local row = createSectionRow(self, 48, "Dropdown")
-    createControlText(self, row, options.Name or options.Title or "Dropdown", options.Description)
+    createControlText(self, row, options.Name or options.Text or options.Title or "Dropdown", options.Description)
 
     local button = create("TextButton", {
         Parent = row,
@@ -1433,7 +1454,7 @@ function SectionMethods:CreateInput(options)
     local value = options.Default or ""
     local row = createSectionRow(self, options.Description and 50 or 38, "Input")
 
-    createControlText(self, row, options.Name or options.Title or "Input", options.Description)
+    createControlText(self, row, options.Name or options.Text or options.Title or "Input", options.Description)
 
     local box = create("TextBox", {
         Parent = row,
@@ -1495,7 +1516,7 @@ function SectionMethods:CreateKeybind(options)
     local waiting = false
     local row = createSectionRow(self, options.Description and 50 or 38, "Keybind")
 
-    createControlText(self, row, options.Name or options.Title or "Keybind", options.Description)
+    createControlText(self, row, options.Name or options.Text or options.Title or "Keybind", options.Description)
 
     local button = create("TextButton", {
         Parent = row,
@@ -1555,5 +1576,43 @@ function SectionMethods:CreateKeybind(options)
 
     return control
 end
+
+WindowMethods.AddTab = WindowMethods.CreateTab
+WindowMethods.AddKeyTab = WindowMethods.CreateTab
+WindowMethods.AddNotification = WindowMethods.Notify
+WindowMethods.Notification = WindowMethods.Notify
+
+TabMethods.AddPage = TabMethods.CreatePage
+TabMethods.AddSection = TabMethods.CreateSection
+TabMethods.AddGroupbox = TabMethods.CreateSection
+TabMethods.AddLeftGroupbox = TabMethods.CreateSection
+TabMethods.AddRightGroupbox = TabMethods.CreateSection
+TabMethods.AddButton = TabMethods.CreateButton
+TabMethods.AddToggle = TabMethods.CreateToggle
+TabMethods.AddSlider = TabMethods.CreateSlider
+TabMethods.AddDropdown = TabMethods.CreateDropdown
+TabMethods.AddInput = TabMethods.CreateInput
+TabMethods.AddKeybind = TabMethods.CreateKeybind
+
+PageMethods.AddSection = PageMethods.CreateSection
+PageMethods.AddGroupbox = PageMethods.CreateSection
+PageMethods.AddLeftGroupbox = PageMethods.CreateSection
+PageMethods.AddRightGroupbox = PageMethods.CreateSection
+PageMethods.AddButton = PageMethods.CreateButton
+PageMethods.AddToggle = PageMethods.CreateToggle
+PageMethods.AddSlider = PageMethods.CreateSlider
+PageMethods.AddDropdown = PageMethods.CreateDropdown
+PageMethods.AddInput = PageMethods.CreateInput
+PageMethods.AddKeybind = PageMethods.CreateKeybind
+
+SectionMethods.AddLabel = SectionMethods.CreateLabel
+SectionMethods.AddParagraph = SectionMethods.CreateParagraph
+SectionMethods.AddDivider = SectionMethods.CreateDivider
+SectionMethods.AddButton = SectionMethods.CreateButton
+SectionMethods.AddToggle = SectionMethods.CreateToggle
+SectionMethods.AddSlider = SectionMethods.CreateSlider
+SectionMethods.AddDropdown = SectionMethods.CreateDropdown
+SectionMethods.AddInput = SectionMethods.CreateInput
+SectionMethods.AddKeybind = SectionMethods.CreateKeybind
 
 return Solis

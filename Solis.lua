@@ -1,4 +1,4 @@
--- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; dark 50% startup overlay types “Solis” letter by letter, then sweeps the title smoothly from white to orange; single-image FPS polyline.
+-- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; dark 50% startup overlay types “Solis” letter by letter, then reveals a smooth orange layer from left to right; single-image FPS polyline.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -45,7 +45,8 @@
 		LoadingIconSize = 96 -- logo above the title
 		LoadingText = "Solis" -- title typed letter by letter
 		LoadingTextStartColor = Color3.fromRGB(255, 255, 255) -- optional
-		LoadingTextEndColor = Color3.fromRGB(255, 132, 38) -- optional orange sweep
+		LoadingTextEndColor = Color3.fromRGB(255, 132, 38) -- optional orange reveal
+		LoadingColorTransitionDuration = 0.9 -- smooth white-to-orange reveal speed
 		LoadingOverlayTransparency = 0.5 -- 50% transparent black fullscreen overlay
 ]]
 
@@ -56,6 +57,7 @@ local Players          = game:GetService("Players")
 local Stats            = game:GetService("Stats")
 local RunService       = game:GetService("RunService")
 local AssetService     = game:GetService("AssetService")
+local TextService      = game:GetService("TextService")
 
 local DEFAULT_LOGO = "rbxassetid://105894109382235"
 local TWEEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -401,7 +403,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-dark-type-orange-sweep",
+	Version = "2.0.3-profile-fps-orange-reveal-v2",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -578,11 +580,16 @@ function Library:CreateWindow(opts)
 		0,
 		0.9
 	)
+	local colorTransitionDuration = math.clamp(
+		tonumber(opts.LoadingColorTransitionDuration) or 0.9,
+		0.35,
+		2.5
+	)
 
 	local loadingComplete = not loadingEnabled
 	local loadingMotionComplete = not loadingEnabled
 	local loadingLayer, loadingContent, loadingLogo, loadingLogoScale
-	local loadingLetters = {}
+	local loadingTitleLabel, loadingTitleScale, orangeRevealClip, orangeTitleLabel
 
 	if loadingEnabled then
 		loadingLayer = make("CanvasGroup", {
@@ -624,51 +631,78 @@ function Library:CreateWindow(opts)
 			Parent = loadingLogo,
 		})
 
+		local measured = TextService:GetTextSize(
+			loadingText,
+			54,
+			Enum.Font.GothamBold,
+			Vector2.new(1000, 76)
+		)
+		local titleWidth = math.max(math.ceil(measured.X) + 10, 80)
+
 		local titleHolder = make("Frame", {
 			Name = "LoadingTitle",
-			Size = UDim2.new(1, 0, 0, 76),
-			Position = UDim2.new(0, 0, 0, 132),
+			Size = UDim2.fromOffset(titleWidth, 76),
+			Position = UDim2.new(0.5, 0, 0, 132),
+			AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			ZIndex = 502,
 			Parent = loadingContent,
 		})
 
-		make("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			HorizontalAlignment = Enum.HorizontalAlignment.Center,
-			VerticalAlignment = Enum.VerticalAlignment.Center,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 1),
+		loadingTitleScale = make("UIScale", {
+			Scale = 0.94,
 			Parent = titleHolder,
 		})
 
-		for index = 1, #loadingText do
-			local character = string.sub(loadingText, index, index)
-			local letter = make("TextLabel", {
-				Name = "Letter" .. index,
-				Text = character,
-				Font = Enum.Font.GothamBold,
-				TextSize = 54,
-				TextColor3 = loadingTextStartColor,
-				TextTransparency = 1,
-				BackgroundTransparency = 1,
-				AutomaticSize = Enum.AutomaticSize.X,
-				Size = UDim2.new(0, 0, 1, 0),
-				LayoutOrder = index,
-				ZIndex = 503,
-				Parent = titleHolder,
-			})
+		loadingTitleLabel = make("TextLabel", {
+			Name = "WhiteTitle",
+			Text = "",
+			Font = Enum.Font.GothamBold,
+			TextSize = 54,
+			TextColor3 = loadingTextStartColor,
+			TextTransparency = 0,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1),
+			ZIndex = 503,
+			Parent = titleHolder,
+		})
 
-			local letterScale = make("UIScale", {
-				Scale = 0.68,
-				Parent = letter,
-			})
+		orangeRevealClip = make("Frame", {
+			Name = "OrangeReveal",
+			Size = UDim2.fromOffset(0, 76),
+			Position = UDim2.fromOffset(0, 0),
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			ZIndex = 504,
+			Parent = titleHolder,
+		})
 
-			table.insert(loadingLetters, {
-				Label = letter,
-				Scale = letterScale,
-			})
-		end
+		orangeTitleLabel = make("TextLabel", {
+			Name = "OrangeTitle",
+			Text = loadingText,
+			Font = Enum.Font.GothamBold,
+			TextSize = 54,
+			TextColor3 = loadingTextEndColor,
+			TextTransparency = 0,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(titleWidth, 76),
+			Position = UDim2.fromOffset(0, 0),
+			ZIndex = 505,
+			Parent = orangeRevealClip,
+		})
+
+		make("UIGradient", {
+			Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, loadingTextEndColor:Lerp(Color3.new(1, 1, 1), 0.18)),
+				ColorSequenceKeypoint.new(1, loadingTextEndColor),
+			}),
+			Rotation = 0,
+			Parent = orangeTitleLabel,
+		})
 
 		task.spawn(function()
 			TweenService:Create(
@@ -689,78 +723,54 @@ function Library:CreateWindow(opts)
 				{ Scale = 1 }
 			):Play()
 
+			TweenService:Create(
+				loadingTitleScale,
+				TweenInfo.new(0.46, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+				{ Scale = 1 }
+			):Play()
+
 			task.wait(0.28)
 
-			local availableTypingTime = math.max(loadingDuration - 1.38, 0.35)
-			local letterDelay = #loadingLetters > 0
-				and math.clamp(availableTypingTime / #loadingLetters, 0.07, 0.22)
-				or 0
+			local characterCount = math.max(#loadingText, 1)
+			local availableTypingTime = math.max(loadingDuration - colorTransitionDuration - 1.18, 0.35)
+			local letterDelay = math.clamp(availableTypingTime / characterCount, 0.07, 0.22)
 
-			for _, data in ipairs(loadingLetters) do
+			for index = 1, #loadingText do
 				if not loadingLayer or not loadingLayer.Parent then
 					return
 				end
 
+				loadingTitleLabel.Text = string.sub(loadingText, 1, index)
+				loadingTitleScale.Scale = 0.985
 				TweenService:Create(
-					data.Label,
-					TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-					{ TextTransparency = 0 }
-				):Play()
-
-				TweenService:Create(
-					data.Scale,
-					TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+					loadingTitleScale,
+					TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 					{ Scale = 1 }
 				):Play()
 
 				task.wait(letterDelay)
 			end
 
-			-- Sweep the completed word from white to orange from left to right.
-			-- Each letter receives a tiny scale pulse so the color change feels
-			-- intentional without adding a glow, background, or extra UI element.
-			task.wait(0.08)
-			for _, data in ipairs(loadingLetters) do
-				if not loadingLayer or not loadingLayer.Parent then
-					return
-				end
+			task.wait(0.1)
 
-				TweenService:Create(
-					data.Label,
-					TweenInfo.new(0.42, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-					{ TextColor3 = loadingTextEndColor }
-				):Play()
+			-- The orange copy is clipped and revealed over the white title. This is
+			-- one continuous left-to-right transition instead of recoloring letters
+			-- one at a time, so the result reads as a smooth white-to-orange sweep.
+			local revealTween = TweenService:Create(
+				orangeRevealClip,
+				TweenInfo.new(colorTransitionDuration, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut),
+				{ Size = UDim2.fromOffset(titleWidth, 76) }
+			)
+			revealTween:Play()
+			revealTween.Completed:Wait()
 
-				TweenService:Create(
-					data.Scale,
-					TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-					{ Scale = 1.055 }
-				):Play()
-
-				local scaleObject = data.Scale
-				task.delay(0.16, function()
-					if scaleObject and scaleObject.Parent then
-						TweenService:Create(
-							scaleObject,
-							TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-							{ Scale = 1 }
-						):Play()
-					end
-				end)
-
-				task.wait(0.055)
-			end
-			task.wait(0.32)
-
-			-- A subtle final settle keeps the loader alive briefly after the last
-			-- letter without introducing another spinner or progress indicator.
 			TweenService:Create(
 				loadingLogoScale,
-				TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-				{ Scale = 0.94 }
+				TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+				{ Scale = 0.95 }
 			):Play()
 
-			task.wait(0.42)
+			task.wait(0.34)
 			loadingMotionComplete = true
 		end)
 	end

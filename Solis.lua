@@ -10,7 +10,7 @@
 local Solis = {}
 Solis.__index = Solis
 
-Solis.Version = "1.1.0"
+Solis.Version = "1.1.1"
 Solis.Icon = "rbxassetid://105894109382235"
 
 local Players = game:GetService("Players")
@@ -73,8 +73,10 @@ local function create(className, properties, children)
 end
 
 local function corner(radius)
+    local roundness = (radius or 6) + 3
+
     return create("UICorner", {
-        CornerRadius = UDim.new(0, radius or 6),
+        CornerRadius = UDim.new(0, roundness),
     })
 end
 
@@ -274,6 +276,7 @@ local function selectTab(tab)
         item.Button.BackgroundTransparency = 0.12
         item.TitleLabel.TextColor3 = window.Theme.Muted
         item.IconFrame.BackgroundColor3 = window.Theme.SurfaceLight
+        item.IconFrame.BackgroundTransparency = 1
 
         for _, page in ipairs(item.Pages) do
             page.Frame.Visible = false
@@ -285,6 +288,7 @@ local function selectTab(tab)
     tab.Button.BackgroundColor3 = window.Theme.SurfaceLight
     tab.TitleLabel.TextColor3 = window.Theme.Text
     tab.IconFrame.BackgroundColor3 = window.Theme.SurfaceHover
+    tab.IconFrame.BackgroundTransparency = 1
     window.HeaderIcon.Image = tab.Icon
     window.HeaderTitle.Text = tab.Name
     window.HeaderSubtitle.Text = tab.Subtitle
@@ -407,15 +411,16 @@ function Solis:CreateWindow(options)
         Name = "Brand",
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(14, 14),
-        Size = UDim2.new(1, -28, 0, 34),
+        Size = UDim2.new(1, -28, 0, 44),
     })
 
     local brandIconFrame = create("Frame", {
         Parent = brand,
         Name = "IconFrame",
         BackgroundColor3 = theme.SurfaceLight,
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Size = UDim2.fromOffset(28, 28),
+        Size = UDim2.fromOffset(38, 38),
         Position = UDim2.fromOffset(0, 3),
     }, {
         corner(7),
@@ -426,16 +431,16 @@ function Solis:CreateWindow(options)
         Name = "Icon",
         BackgroundTransparency = 1,
         Image = normalizeIcon(options.Icon or Solis.Icon),
-        Position = UDim2.fromOffset(5, 5),
-        Size = UDim2.fromOffset(18, 18),
+        Position = UDim2.fromOffset(2, 2),
+        Size = UDim2.fromOffset(34, 34),
         ScaleType = Enum.ScaleType.Fit,
     })
 
     createText(brand, theme, {
         Name = "Name",
         Text = title,
-        Position = UDim2.fromOffset(39, 1),
-        Size = UDim2.new(1, -39, 0, 18),
+        Position = UDim2.fromOffset(48, 5),
+        Size = UDim2.new(1, -48, 0, 18),
         TextSize = 13,
         Color = theme.Text,
     })
@@ -443,8 +448,8 @@ function Solis:CreateWindow(options)
     createText(brand, theme, {
         Name = "Footer",
         Text = footer,
-        Position = UDim2.fromOffset(39, 18),
-        Size = UDim2.new(1, -39, 0, 15),
+        Position = UDim2.fromOffset(48, 22),
+        Size = UDim2.new(1, -48, 0, 15),
         TextSize = 10,
         Color = theme.Muted,
     })
@@ -454,8 +459,8 @@ function Solis:CreateWindow(options)
         Name = "Tabs",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(14, 62),
-        Size = UDim2.new(1, -28, 1, -76),
+        Position = UDim2.fromOffset(14, 72),
+        Size = UDim2.new(1, -28, 1, -86),
         ScrollBarThickness = 0,
         CanvasSize = UDim2.fromOffset(0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -483,6 +488,7 @@ function Solis:CreateWindow(options)
         Parent = header,
         Name = "IconFrame",
         BackgroundColor3 = theme.SurfaceLight,
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Size = UDim2.fromOffset(26, 26),
         Position = UDim2.fromOffset(0, 4),
@@ -731,6 +737,7 @@ function WindowMethods:CreateTab(options, icon)
         Parent = button,
         Name = "IconFrame",
         BackgroundColor3 = self.Theme.SurfaceLight,
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(10, 9),
         Size = UDim2.fromOffset(24, 24),

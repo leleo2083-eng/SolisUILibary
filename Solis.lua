@@ -1,3 +1,4 @@
+-- PROFILE V2 VERIFIED: no visible K hint or X close button in the profile panel.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -389,7 +390,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-clean",
+	Version = "2.0.3-profile-v2",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},

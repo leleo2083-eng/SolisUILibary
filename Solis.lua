@@ -392,7 +392,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-no-detail-badges",
+	Version = "2.0.3-profile-fps-no-badges-actually-fixed",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -506,25 +506,49 @@ function Library:CreateWindow(opts)
 	local logoAsset = normalizeAssetId(opts.Logo or DEFAULT_LOGO)
 	local windowSize = opts.Size or UDim2.fromOffset(700, 490)
 	local windowPosition = opts.Position or UDim2.fromScale(0.5, 0.5)
+	local guiName = opts.GuiName or "SolisUI"
+
+	-- Resolve the parent before creating the UI. Re-running an updated script can
+	-- otherwise leave the previous ScreenGui visible, making removed elements
+	-- appear as though they are still part of the new version.
+	local targetParent
+	if typeof(opts.Parent) == "Instance" then
+		targetParent = opts.Parent
+	else
+		pcall(function()
+			targetParent = (gethui and gethui()) or game:GetService("CoreGui")
+		end)
+		if not targetParent then
+			targetParent = Players.LocalPlayer:WaitForChild("PlayerGui")
+		end
+	end
+
+	local function removeExistingGui(parent)
+		if opts.ReplaceExisting == false or not parent then return end
+		for _, child in ipairs(parent:GetChildren()) do
+			if child:IsA("ScreenGui") and child.Name == guiName then
+				child:Destroy()
+			end
+		end
+	end
+
+	removeExistingGui(targetParent)
 
 	local screenGui = make("ScreenGui", {
-		Name = opts.GuiName or "SolisUI",
+		Name = guiName,
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 		DisplayOrder = opts.DisplayOrder or 10,
 	})
 
-	-- Optional explicit parent; otherwise executor/CoreGui first and PlayerGui fallback.
-	if typeof(opts.Parent) == "Instance" then
-		screenGui.Parent = opts.Parent
-	else
-		local ok = pcall(function()
-			screenGui.Parent = (gethui and gethui()) or game:GetService("CoreGui")
-		end)
-		if not ok then
-			screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-		end
+	local parented = pcall(function()
+		screenGui.Parent = targetParent
+	end)
+	if not parented then
+		targetParent = Players.LocalPlayer:WaitForChild("PlayerGui")
+		removeExistingGui(targetParent)
+		screenGui.Parent = targetParent
 	end
 	table.insert(Library._windows, screenGui)
 

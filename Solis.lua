@@ -10,7 +10,7 @@
 local Solis = {}
 Solis.__index = Solis
 
-Solis.Version = "1.1.2"
+Solis.Version = "1.1.3"
 Solis.Icon = "rbxassetid://105894109382235"
 
 local Players = game:GetService("Players")
@@ -277,6 +277,9 @@ local function selectTab(tab)
         item.TitleLabel.TextColor3 = window.Theme.Muted
         item.IconFrame.BackgroundColor3 = window.Theme.SurfaceLight
         item.IconFrame.BackgroundTransparency = 1
+        if item.AccentBar then
+            item.AccentBar.Visible = false
+        end
 
         for _, page in ipairs(item.Pages) do
             page.Frame.Visible = false
@@ -289,6 +292,9 @@ local function selectTab(tab)
     tab.TitleLabel.TextColor3 = window.Theme.Text
     tab.IconFrame.BackgroundColor3 = window.Theme.SurfaceHover
     tab.IconFrame.BackgroundTransparency = 1
+    if tab.AccentBar then
+        tab.AccentBar.Visible = true
+    end
     window.HeaderIcon.Image = tab.Icon
     window.HeaderTitle.Text = tab.Name
     window.HeaderSubtitle.Text = tab.Subtitle
@@ -382,30 +388,73 @@ function Solis:CreateWindow(options)
         Size = size,
         BackgroundColor3 = theme.Background,
         BorderSizePixel = 0,
+        ClipsDescendants = true,
     }, {
-        corner(6),
+        corner(12),
         stroke(theme.Border, 0.2, 1),
     })
 
     local sidebar = create("Frame", {
         Parent = main,
         Name = "Sidebar",
-        BackgroundColor3 = theme.Sidebar,
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Size = UDim2.new(0, 176, 1, 0),
+    })
+
+    local sidebarRadius = 18
+
+    create("Frame", {
+        Parent = sidebar,
+        Name = "SidebarTopLeft",
+        BackgroundColor3 = theme.Sidebar,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.fromOffset(sidebarRadius * 2, sidebarRadius * 2),
     }, {
-        corner(6),
+        corner(sidebarRadius),
     })
 
     create("Frame", {
         Parent = sidebar,
-        Name = "InnerEdgeFill",
-        AnchorPoint = Vector2.new(1, 0),
+        Name = "SidebarBottomLeft",
+        AnchorPoint = Vector2.new(0, 1),
         BackgroundColor3 = theme.Sidebar,
         BorderSizePixel = 0,
-        Position = UDim2.new(1, 0, 0, 0),
-        Size = UDim2.new(0, 18, 1, 0),
+        Position = UDim2.new(0, 0, 1, 0),
+        Size = UDim2.fromOffset(sidebarRadius * 2, sidebarRadius * 2),
+    }, {
+        corner(sidebarRadius),
     })
+
+    create("Frame", {
+        Parent = sidebar,
+        Name = "SidebarTopFill",
+        BackgroundColor3 = theme.Sidebar,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(sidebarRadius, 0),
+        Size = UDim2.new(1, -sidebarRadius, 0, sidebarRadius),
+    })
+
+    create("Frame", {
+        Parent = sidebar,
+        Name = "SidebarMiddleFill",
+        BackgroundColor3 = theme.Sidebar,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(0, sidebarRadius),
+        Size = UDim2.new(1, 0, 1, -(sidebarRadius * 2)),
+    })
+
+    create("Frame", {
+        Parent = sidebar,
+        Name = "SidebarBottomFill",
+        AnchorPoint = Vector2.new(0, 1),
+        BackgroundColor3 = theme.Sidebar,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, sidebarRadius, 1, 0),
+        Size = UDim2.new(1, -sidebarRadius, 0, sidebarRadius),
+    })
+
 
     create("Frame", {
         Parent = sidebar,
@@ -484,8 +533,8 @@ function Solis:CreateWindow(options)
         Parent = main,
         Name = "Content",
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(176, 0),
-        Size = UDim2.new(1, -176, 1, 0),
+        Position = UDim2.fromOffset(176, 1),
+        Size = UDim2.new(1, -177, 1, -2),
     })
 
     local header = create("Frame", {
@@ -745,6 +794,18 @@ function WindowMethods:CreateTab(options, icon)
         stroke(self.Theme.Border, 0.7, 1),
     })
 
+    local accentBar = create("Frame", {
+        Parent = button,
+        Name = "Accent",
+        BackgroundColor3 = self.Theme.Accent,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(0, 10),
+        Size = UDim2.fromOffset(3, 22),
+        Visible = false,
+    }, {
+        corner(2),
+    })
+
     local iconFrame = create("Frame", {
         Parent = button,
         Name = "IconFrame",
@@ -788,6 +849,7 @@ function WindowMethods:CreateTab(options, icon)
     tab.Button = button
     tab.TitleLabel = title
     tab.IconFrame = iconFrame
+    tab.AccentBar = accentBar
 
     button.MouseButton1Click:Connect(function()
         selectTab(tab)

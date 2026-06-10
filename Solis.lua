@@ -10,7 +10,7 @@
 local Solis = {}
 Solis.__index = Solis
 
-Solis.Version = "1.1.1"
+Solis.Version = "1.1.2"
 Solis.Icon = "rbxassetid://105894109382235"
 
 local Players = game:GetService("Players")
@@ -393,6 +393,18 @@ function Solis:CreateWindow(options)
         BackgroundColor3 = theme.Sidebar,
         BorderSizePixel = 0,
         Size = UDim2.new(0, 176, 1, 0),
+    }, {
+        corner(6),
+    })
+
+    create("Frame", {
+        Parent = sidebar,
+        Name = "InnerEdgeFill",
+        AnchorPoint = Vector2.new(1, 0),
+        BackgroundColor3 = theme.Sidebar,
+        BorderSizePixel = 0,
+        Position = UDim2.new(1, 0, 0, 0),
+        Size = UDim2.new(0, 18, 1, 0),
     })
 
     create("Frame", {

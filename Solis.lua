@@ -392,7 +392,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-single-line",
+	Version = "2.0.3-profile-fps-no-detail-badges",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -891,25 +891,7 @@ function Library:CreateWindow(opts)
 			ZIndex = 152,
 			Parent = details,
 		})
-		local icon = make("Frame", {
-			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.new(0, 12, 0.5, 0),
-			Size = UDim2.fromOffset(24, 24),
-			BackgroundColor3 = C.BadgeIdle,
-			ZIndex = 153,
-			Parent = row,
-		})
-		corner(icon, 6)
-		make("TextLabel", {
-			Text = string.sub(labelText, 1, 1),
-			Font = Enum.Font.GothamBold,
-			TextSize = 9,
-			TextColor3 = C.TextGray,
-			BackgroundTransparency = 1,
-			Size = UDim2.fromScale(1, 1),
-			ZIndex = 154,
-			Parent = icon,
-		})
+
 		make("TextLabel", {
 			Text = labelText,
 			Font = Enum.Font.GothamMedium,
@@ -917,11 +899,12 @@ function Library:CreateWindow(opts)
 			TextColor3 = C.TextDim,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(46, 0),
-			Size = UDim2.new(0.46, -46, 1, 0),
+			Position = UDim2.fromOffset(16, 0),
+			Size = UDim2.new(0.46, -16, 1, 0),
 			ZIndex = 153,
 			Parent = row,
 		})
+
 		local valueLabel = make("TextLabel", {
 			Text = valueText,
 			Font = Enum.Font.GothamMedium,
@@ -931,19 +914,21 @@ function Library:CreateWindow(opts)
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			BackgroundTransparency = 1,
 			Position = UDim2.new(0.46, 0, 0, 0),
-			Size = UDim2.new(0.54, -14, 1, 0),
+			Size = UDim2.new(0.54, -16, 1, 0),
 			ZIndex = 153,
 			Parent = row,
 		})
+
 		if index < 3 then
 			make("Frame", {
-				Position = UDim2.new(0, 46, 1, -1),
-				Size = UDim2.new(1, -60, 0, 1),
+				Position = UDim2.new(0, 16, 1, -1),
+				Size = UDim2.new(1, -32, 0, 1),
 				BackgroundColor3 = C.Border,
 				ZIndex = 153,
 				Parent = row,
 			})
 		end
+
 		return valueLabel
 	end
 

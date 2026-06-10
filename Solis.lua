@@ -387,7 +387,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.0",
+	Version = "2.0.1",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -473,6 +473,11 @@ function Library:Notify(opts)
 	end
 	warn("[Solis UI] create a window before calling Library:Notify")
 	return nil
+end
+
+-- Compatibility spelling for scripts that used `Notification` instead.
+function Library:Notification(opts)
+	return self:Notify(opts)
 end
 
 function Library:DestroyAll()
@@ -715,6 +720,23 @@ function Library:CreateWindow(opts)
 		_tabs = {},
 		_activeTab = nil,
 	}, Window)
+
+	-- Bind Notify directly onto every returned window as well as exposing it
+	-- through the Window metatable. Some executors/loaders have returned a
+	-- plain copied table and dropped its metatable, which caused
+	-- `attempt to call missing method 'Notify' of table`. This closure keeps
+	-- notifications working with both colon and dot call styles even then.
+	window.Notify = function(selfOrOptions, maybeOptions)
+		local notificationOptions
+		if selfOrOptions == window then
+			notificationOptions = maybeOptions
+		else
+			notificationOptions = selfOrOptions
+		end
+		return Window.Notify(window, notificationOptions)
+	end
+	window.Notification = window.Notify -- backwards-compatible alias
+
 	table.insert(Library._windowObjects, window)
 
 	if opts.Visible == false then

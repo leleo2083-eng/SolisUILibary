@@ -43,10 +43,12 @@ local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local GuiService       = game:GetService("GuiService")
 local Players          = game:GetService("Players")
+local Stats            = game:GetService("Stats")
 
 local DEFAULT_LOGO = "rbxassetid://105894109382235"
 local TWEEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local NOTIFICATION_TWEEN = TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local PROFILE_TWEEN = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
 local NOTIFICATION_STYLES = {
 	info = {
@@ -681,7 +683,326 @@ function Library:CreateWindow(opts)
 		Parent = notificationHolder,
 	})
 
-	local window = setmetatable({
+	-- Slide-in user profile --------------------------------------------------
+	-- Kept at ScreenGui level so the animation is not clipped by Main.
+	local localPlayer = Players.LocalPlayer
+	local profileKey = typeof(opts.ProfileKey) == "EnumItem" and opts.ProfileKey or Enum.KeyCode.K
+	local profileKeyName = string.gsub(tostring(profileKey), "Enum.KeyCode.", "")
+	local profileWidth = math.max(260, tonumber(opts.ProfileWidth) or 300)
+	local profileOpenPosition = UDim2.new(1, -18, 0.5, 0)
+	local profileClosedPosition = UDim2.new(1, profileWidth + 28, 0.5, 0)
+	local profileOpen = false
+	local window
+
+	local profilePanel = make("CanvasGroup", {
+		Name = "UserProfile",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = profileClosedPosition,
+		Size = UDim2.fromOffset(profileWidth, 360),
+		BackgroundColor3 = C.CardBg,
+		GroupTransparency = 1,
+		ClipsDescendants = true,
+		ZIndex = 150,
+		Parent = screenGui,
+	})
+	corner(profilePanel, 12)
+	stroke(profilePanel, C.Border)
+
+	local profileHeader = make("Frame", {
+		Size = UDim2.new(1, 0, 0, 54),
+		BackgroundTransparency = 1,
+		ZIndex = 151,
+		Parent = profilePanel,
+	})
+	make("TextLabel", {
+		Text = opts.ProfileTitle or "USER PROFILE",
+		Font = Enum.Font.GothamBold,
+		TextSize = 12,
+		TextColor3 = C.White,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(16, 0),
+		Size = UDim2.new(1, -94, 1, 0),
+		ZIndex = 152,
+		Parent = profileHeader,
+	})
+
+	local keyBadge = make("Frame", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -42, 0.5, 0),
+		Size = UDim2.fromOffset(26, 22),
+		BackgroundColor3 = C.Element,
+		ZIndex = 152,
+		Parent = profileHeader,
+	})
+	corner(keyBadge, 6)
+	make("TextLabel", {
+		Text = profileKeyName,
+		Font = Enum.Font.GothamBold,
+		TextSize = 10,
+		TextColor3 = C.TextGray,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 153,
+		Parent = keyBadge,
+	})
+
+	local profileClose = make("TextButton", {
+		Text = "×",
+		Font = Enum.Font.Gotham,
+		TextSize = 18,
+		TextColor3 = C.TextDim,
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -12, 0.5, 0),
+		Size = UDim2.fromOffset(22, 22),
+		BackgroundTransparency = 1,
+		ZIndex = 153,
+		Parent = profileHeader,
+	})
+	make("Frame", {
+		Position = UDim2.new(0, 0, 1, -1),
+		Size = UDim2.new(1, 0, 0, 1),
+		BackgroundColor3 = C.Border,
+		ZIndex = 151,
+		Parent = profileHeader,
+	})
+
+	local avatarHolder = make("Frame", {
+		Position = UDim2.fromOffset(16, 72),
+		Size = UDim2.fromOffset(76, 76),
+		BackgroundColor3 = C.Element,
+		ZIndex = 151,
+		Parent = profilePanel,
+	})
+	circle(avatarHolder)
+	stroke(avatarHolder, C.Border)
+
+	local avatar = make("ImageLabel", {
+		Name = "Avatar",
+		Image = "",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(3, 3),
+		Size = UDim2.new(1, -6, 1, -6),
+		ScaleType = Enum.ScaleType.Crop,
+		ZIndex = 152,
+		Parent = avatarHolder,
+	})
+	circle(avatar)
+
+	local onlineDot = make("Frame", {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -1, 1, -1),
+		Size = UDim2.fromOffset(14, 14),
+		BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
+		ZIndex = 154,
+		Parent = avatarHolder,
+	})
+	circle(onlineDot)
+	stroke(onlineDot, C.CardBg)
+
+	make("TextLabel", {
+		Text = localPlayer and localPlayer.DisplayName or "Player",
+		Font = Enum.Font.GothamBold,
+		TextSize = 17,
+		TextColor3 = C.White,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(108, 78),
+		Size = UDim2.new(1, -124, 0, 23),
+		ZIndex = 152,
+		Parent = profilePanel,
+	})
+	make("TextLabel", {
+		Text = localPlayer and ("@" .. localPlayer.Name) or "@unknown",
+		Font = Enum.Font.GothamMedium,
+		TextSize = 11,
+		TextColor3 = C.TextDim,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(108, 103),
+		Size = UDim2.new(1, -124, 0, 16),
+		ZIndex = 152,
+		Parent = profilePanel,
+	})
+
+	local connectedBadge = make("Frame", {
+		Position = UDim2.fromOffset(108, 126),
+		Size = UDim2.fromOffset(88, 22),
+		BackgroundColor3 = C.Element,
+		ZIndex = 152,
+		Parent = profilePanel,
+	})
+	corner(connectedBadge, 6)
+	local connectedDot = make("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 8, 0.5, 0),
+		Size = UDim2.fromOffset(6, 6),
+		BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
+		ZIndex = 153,
+		Parent = connectedBadge,
+	})
+	circle(connectedDot)
+	make("TextLabel", {
+		Text = "CONNECTED",
+		Font = Enum.Font.GothamBold,
+		TextSize = 8,
+		TextColor3 = C.TextGray,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(21, 0),
+		Size = UDim2.new(1, -25, 1, 0),
+		ZIndex = 153,
+		Parent = connectedBadge,
+	})
+
+	local details = make("Frame", {
+		Position = UDim2.fromOffset(16, 168),
+		Size = UDim2.new(1, -32, 0, 132),
+		BackgroundColor3 = C.Element,
+		ZIndex = 151,
+		Parent = profilePanel,
+	})
+	corner(details, 9)
+	stroke(details, C.Border)
+
+	local function addProfileDetail(index, labelText, valueText)
+		local y = (index - 1) * 44
+		make("TextLabel", {
+			Text = labelText,
+			Font = Enum.Font.GothamMedium,
+			TextSize = 10,
+			TextColor3 = C.TextDim,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(12, y),
+			Size = UDim2.new(0.46, -12, 0, 44),
+			ZIndex = 152,
+			Parent = details,
+		})
+		local valueLabel = make("TextLabel", {
+			Text = valueText,
+			Font = Enum.Font.GothamMedium,
+			TextSize = 11,
+			TextColor3 = C.White,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			BackgroundTransparency = 1,
+			Position = UDim2.new(0.46, 0, 0, y),
+			Size = UDim2.new(0.54, -12, 0, 44),
+			ZIndex = 152,
+			Parent = details,
+		})
+		if index < 3 then
+			make("Frame", {
+				Position = UDim2.new(0, 12, 0, y + 43),
+				Size = UDim2.new(1, -24, 0, 1),
+				BackgroundColor3 = C.Border,
+				ZIndex = 152,
+				Parent = details,
+			})
+		end
+		return valueLabel
+	end
+
+	addProfileDetail(1, "USER ID", localPlayer and tostring(localPlayer.UserId) or "N/A")
+	addProfileDetail(2, "ACCOUNT AGE", localPlayer and (tostring(localPlayer.AccountAge) .. " days") or "N/A")
+	local pingLabel = addProfileDetail(3, "PING", "-- ms")
+
+	local footer = make("Frame", {
+		Position = UDim2.fromOffset(16, 316),
+		Size = UDim2.new(1, -32, 0, 28),
+		BackgroundTransparency = 1,
+		ZIndex = 151,
+		Parent = profilePanel,
+	})
+	make("TextLabel", {
+		Text = "Press " .. profileKeyName .. " to close",
+		Font = Enum.Font.Gotham,
+		TextSize = 10,
+		TextColor3 = C.TextDim,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		BackgroundTransparency = 1,
+		Size = UDim2.new(0.7, 0, 1, 0),
+		ZIndex = 152,
+		Parent = footer,
+	})
+	make("TextLabel", {
+		Text = "SOLIS",
+		Font = Enum.Font.GothamBold,
+		TextSize = 9,
+		TextColor3 = C.TextDim,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		BackgroundTransparency = 1,
+		Position = UDim2.new(0.7, 0, 0, 0),
+		Size = UDim2.new(0.3, 0, 1, 0),
+		ZIndex = 152,
+		Parent = footer,
+	})
+
+	local function setProfileVisible(visible, instant)
+		profileOpen = visible == true
+		local targetPosition = profileOpen and profileOpenPosition or profileClosedPosition
+		local targetTransparency = profileOpen and 0 or 1
+		if instant then
+			profilePanel.Position = targetPosition
+			profilePanel.GroupTransparency = targetTransparency
+		else
+			TweenService:Create(profilePanel, PROFILE_TWEEN, {
+				Position = targetPosition,
+				GroupTransparency = targetTransparency,
+			}):Play()
+		end
+		if window then
+			window._profileOpen = profileOpen
+		end
+		return profileOpen
+	end
+
+	profileClose.MouseEnter:Connect(function()
+		tween(profileClose, { TextColor3 = C.White })
+	end)
+	profileClose.MouseLeave:Connect(function()
+		tween(profileClose, { TextColor3 = C.TextDim })
+	end)
+	profileClose.MouseButton1Click:Connect(function()
+		setProfileVisible(false)
+	end)
+
+	if localPlayer then
+		task.spawn(function()
+			local ok, image = pcall(function()
+				return Players:GetUserThumbnailAsync(
+					localPlayer.UserId,
+					Enum.ThumbnailType.HeadShot,
+					Enum.ThumbnailSize.Size420x420
+				)
+			end)
+			if ok and avatar and avatar.Parent then
+				avatar.Image = image
+			end
+		end)
+	end
+
+	task.spawn(function()
+		while screenGui and screenGui.Parent do
+			local text = "N/A"
+			local ok, value = pcall(function()
+				local item = Stats.Network.ServerStatsItem["Data Ping"]
+				return item:GetValue()
+			end)
+			if ok and type(value) == "number" then
+				text = tostring(math.floor(value + 0.5)) .. " ms"
+			end
+			if pingLabel and pingLabel.Parent then
+				pingLabel.Text = text
+			end
+			task.wait(1)
+		end
+	end)
+
+	window = setmetatable({
 		ScreenGui = screenGui,
 		Main = main,
 		Logo = brandLogo,
@@ -690,6 +1011,11 @@ function Library:CreateWindow(opts)
 		_content = content,
 		_notificationHolder = notificationHolder,
 		_notificationOrder = 0,
+		_profilePanel = profilePanel,
+		_profileKey = profileKey,
+		_profileOpen = profileOpen,
+		_setProfileVisible = setProfileVisible,
+		_connections = {},
 		_noDrag = noDrag,
 		_tabs = {},
 		_activeTab = nil,
@@ -711,6 +1037,17 @@ function Library:CreateWindow(opts)
 	end
 	window.Notification = window.Notify -- backwards-compatible alias
 
+	local profileKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed or UserInputService:GetFocusedTextBox() then
+			return
+		end
+		if input.KeyCode == profileKey
+			and Library._windowObjects[#Library._windowObjects] == window then
+			window:ToggleProfile()
+		end
+	end)
+	table.insert(window._connections, profileKeyConnection)
+
 	table.insert(Library._windowObjects, window)
 
 	if opts.Visible == false then
@@ -727,6 +1064,18 @@ end
 function Window:Toggle()
 	self.ScreenGui.Enabled = not self.ScreenGui.Enabled
 	return self.ScreenGui.Enabled
+end
+
+function Window:SetProfileVisible(visible)
+	if not self._setProfileVisible then
+		return false
+	end
+	self._profileOpen = self._setProfileVisible(visible == true)
+	return self._profileOpen
+end
+
+function Window:ToggleProfile()
+	return self:SetProfileVisible(not self._profileOpen)
 end
 
 function Window:SetLogo(assetId)
@@ -875,6 +1224,11 @@ function Window:Notify(opts)
 end
 
 function Window:Destroy()
+	for _, connection in ipairs(self._connections or {}) do
+		connection:Disconnect()
+	end
+	table.clear(self._connections or {})
+
 	local index = table.find(Library._windows, self.ScreenGui)
 	if index then
 		table.remove(Library._windows, index)

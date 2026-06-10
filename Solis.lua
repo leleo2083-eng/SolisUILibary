@@ -1,4 +1,4 @@
--- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; loader icon appears first and spins twice; single-image FPS polyline.
+-- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; large smooth loader icon appears first and spins twice; single-image FPS polyline.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -41,7 +41,8 @@
 
 	CreateWindow loading options:
 		LoadingAnimation = true -- set false to disable
-		LoadingDuration = 1.25 -- time for two complete rotations
+		LoadingDuration = 1.55 -- time for two smooth complete rotations
+		LoadingIconSize = 138 -- startup icon size in pixels
 ]]
 
 local TweenService     = game:GetService("TweenService")
@@ -396,7 +397,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-loader-first",
+	Version = "2.0.3-profile-fps-loader-large-smooth",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -560,7 +561,8 @@ function Library:CreateWindow(opts)
 	-- This makes the supplied icon the first visible UI element when the script
 	-- executes. The main window stays hidden until the icon finishes two turns.
 	local loadingEnabled = opts.LoadingAnimation ~= false
-	local loadingDuration = math.clamp(tonumber(opts.LoadingDuration) or 1.25, 0.5, 4)
+	local loadingDuration = math.clamp(tonumber(opts.LoadingDuration) or 1.55, 0.7, 4)
+	local loadingIconSize = math.clamp(math.floor(tonumber(opts.LoadingIconSize) or 138), 96, 220)
 	local loadingComplete = not loadingEnabled
 	local loadingLayer, loadingIcon, loadingScale, loadingRotateTween
 
@@ -580,9 +582,10 @@ function Library:CreateWindow(opts)
 			Name = "LoadingLogo",
 			Image = logoAsset,
 			BackgroundTransparency = 1,
+			ImageTransparency = 1,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(82, 82),
+			Size = UDim2.fromOffset(loadingIconSize, loadingIconSize),
 			ScaleType = Enum.ScaleType.Fit,
 			Rotation = 0,
 			ZIndex = 501,
@@ -590,17 +593,37 @@ function Library:CreateWindow(opts)
 		})
 
 		loadingScale = make("UIScale", {
-			Scale = 0.68,
+			Scale = 0.42,
 			Parent = loadingIcon,
 		})
 
-		-- Start both tweens immediately, before any of the normal UI is created.
-		TweenService:Create(loadingScale, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Scale = 1,
-		}):Play()
+		-- Fade and pop the larger icon in, then gently settle its scale while
+		-- one eased 720-degree tween performs exactly two smooth rotations.
+		TweenService:Create(
+			loadingIcon,
+			TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ ImageTransparency = 0 }
+		):Play()
+
+		TweenService:Create(
+			loadingScale,
+			TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{ Scale = 1.08 }
+		):Play()
+
+		task.delay(0.34, function()
+			if loadingScale and loadingScale.Parent then
+				TweenService:Create(
+					loadingScale,
+					TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+					{ Scale = 1 }
+				):Play()
+			end
+		end)
+
 		loadingRotateTween = TweenService:Create(
 			loadingIcon,
-			TweenInfo.new(loadingDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut),
+			TweenInfo.new(loadingDuration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
 			{ Rotation = 720 }
 		)
 		loadingRotateTween:Play()
@@ -1611,8 +1634,8 @@ function Library:CreateWindow(opts)
 			local fadeOut = TweenService:Create(loadingLayer, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 				GroupTransparency = 1,
 			})
-			local popOut = TweenService:Create(loadingScale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-				Scale = 1.18,
+			local popOut = TweenService:Create(loadingScale, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+				Scale = 1.12,
 			})
 			fadeOut:Play()
 			popOut:Play()

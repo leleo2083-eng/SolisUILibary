@@ -10,7 +10,7 @@
 local Solis = {}
 Solis.__index = Solis
 
-Solis.Version = "1.3.0"
+Solis.Version = "1.1.2"
 Solis.Icon = "rbxassetid://105894109382235"
 
 local Players = game:GetService("Players")
@@ -86,22 +86,6 @@ local function stroke(color, transparency, thickness)
         Transparency = transparency or 0,
         Thickness = thickness or 1,
     })
-end
-
-local function gradient(topColor, bottomColor, rotation)
-    return create("UIGradient", {
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, topColor),
-            ColorSequenceKeypoint.new(1, bottomColor),
-        }),
-        Rotation = rotation or 90,
-    })
-end
-
-local function inflateSize(size, offset)
-    offset = offset or 0
-
-    return UDim2.new(size.X.Scale, size.X.Offset + offset, size.Y.Scale, size.Y.Offset + offset)
 end
 
 local function padding(left, top, right, bottom)
@@ -279,7 +263,7 @@ local function selectPage(page)
     end
 
     page.Frame.Visible = true
-    page.Button.BackgroundColor3 = window.Theme.SurfaceHover
+    page.Button.BackgroundColor3 = window.Theme.SurfaceLight
     page.Button.TextColor3 = window.Theme.Text
     tab.ActivePage = page
 end
@@ -289,13 +273,10 @@ local function selectTab(tab)
 
     for _, item in ipairs(window.Tabs) do
         item.Button.BackgroundColor3 = window.Theme.Surface
-        item.Button.BackgroundTransparency = 0.08
+        item.Button.BackgroundTransparency = 0.12
         item.TitleLabel.TextColor3 = window.Theme.Muted
         item.IconFrame.BackgroundColor3 = window.Theme.SurfaceLight
         item.IconFrame.BackgroundTransparency = 1
-        if item.AccentBar then
-            item.AccentBar.Visible = false
-        end
 
         for _, page in ipairs(item.Pages) do
             page.Frame.Visible = false
@@ -304,13 +285,10 @@ local function selectTab(tab)
     end
 
     tab.Button.BackgroundTransparency = 0
-    tab.Button.BackgroundColor3 = window.Theme.SurfaceHover
+    tab.Button.BackgroundColor3 = window.Theme.SurfaceLight
     tab.TitleLabel.TextColor3 = window.Theme.Text
     tab.IconFrame.BackgroundColor3 = window.Theme.SurfaceHover
     tab.IconFrame.BackgroundTransparency = 1
-    if tab.AccentBar then
-        tab.AccentBar.Visible = true
-    end
     window.HeaderIcon.Image = tab.Icon
     window.HeaderTitle.Text = tab.Name
     window.HeaderSubtitle.Text = tab.Subtitle
@@ -355,8 +333,7 @@ local function createControlText(section, row, title, description)
         Text = title or "Control",
         Position = UDim2.new(0, 0, 0, description and 4 or 0),
         Size = UDim2.new(1, -168, 0, 18),
-        TextSize = 12,
-        Font = Enum.Font.GothamSemibold,
+        TextSize = 13,
         Color = theme.Text,
     })
 
@@ -367,7 +344,6 @@ local function createControlText(section, row, title, description)
             Position = UDim2.new(0, 0, 0, 23),
             Size = UDim2.new(1, -168, 0, 17),
             TextSize = 11,
-            Font = Enum.Font.Gotham,
             Color = theme.Muted,
         })
     end
@@ -398,20 +374,6 @@ function Solis:CreateWindow(options)
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     })
 
-    local shadow = create("Frame", {
-        Parent = screenGui,
-        Name = "Shadow",
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = inflateSize(size, 18),
-        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-        BackgroundTransparency = 0.78,
-        BorderSizePixel = 0,
-        ZIndex = 0,
-    }, {
-        corner(16),
-    })
-
     local main = create("Frame", {
         Parent = screenGui,
         Name = "Main",
@@ -420,76 +382,30 @@ function Solis:CreateWindow(options)
         Size = size,
         BackgroundColor3 = theme.Background,
         BorderSizePixel = 0,
-        ClipsDescendants = true,
-        ZIndex = 1,
     }, {
-        corner(12),
-        stroke(theme.Border, 0.22, 1),
+        corner(6),
+        stroke(theme.Border, 0.2, 1),
     })
-
-    gradient(Color3.fromRGB(16, 16, 18), Color3.fromRGB(8, 8, 9), 90).Parent = main
 
     local sidebar = create("Frame", {
         Parent = main,
         Name = "Sidebar",
-        BackgroundTransparency = 1,
+        BackgroundColor3 = theme.Sidebar,
         BorderSizePixel = 0,
         Size = UDim2.new(0, 176, 1, 0),
-    })
-
-    local sidebarRadius = 18
-
-    create("Frame", {
-        Parent = sidebar,
-        Name = "SidebarTopLeft",
-        BackgroundColor3 = theme.Sidebar,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.fromOffset(sidebarRadius * 2, sidebarRadius * 2),
     }, {
-        corner(sidebarRadius),
+        corner(6),
     })
 
     create("Frame", {
         Parent = sidebar,
-        Name = "SidebarBottomLeft",
-        AnchorPoint = Vector2.new(0, 1),
+        Name = "InnerEdgeFill",
+        AnchorPoint = Vector2.new(1, 0),
         BackgroundColor3 = theme.Sidebar,
         BorderSizePixel = 0,
-        Position = UDim2.new(0, 0, 1, 0),
-        Size = UDim2.fromOffset(sidebarRadius * 2, sidebarRadius * 2),
-    }, {
-        corner(sidebarRadius),
+        Position = UDim2.new(1, 0, 0, 0),
+        Size = UDim2.new(0, 18, 1, 0),
     })
-
-    create("Frame", {
-        Parent = sidebar,
-        Name = "SidebarTopFill",
-        BackgroundColor3 = theme.Sidebar,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(sidebarRadius, 0),
-        Size = UDim2.new(1, -sidebarRadius, 0, sidebarRadius),
-    })
-
-    create("Frame", {
-        Parent = sidebar,
-        Name = "SidebarMiddleFill",
-        BackgroundColor3 = theme.Sidebar,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, sidebarRadius),
-        Size = UDim2.new(1, 0, 1, -(sidebarRadius * 2)),
-    })
-
-    create("Frame", {
-        Parent = sidebar,
-        Name = "SidebarBottomFill",
-        AnchorPoint = Vector2.new(0, 1),
-        BackgroundColor3 = theme.Sidebar,
-        BorderSizePixel = 0,
-        Position = UDim2.new(0, sidebarRadius, 1, 0),
-        Size = UDim2.new(1, -sidebarRadius, 0, sidebarRadius),
-    })
-
 
     create("Frame", {
         Parent = sidebar,
@@ -538,7 +454,6 @@ function Solis:CreateWindow(options)
         Position = UDim2.fromOffset(48, 5),
         Size = UDim2.new(1, -48, 0, 18),
         TextSize = 13,
-        Font = Enum.Font.GothamSemibold,
         Color = theme.Text,
     })
 
@@ -569,8 +484,8 @@ function Solis:CreateWindow(options)
         Parent = main,
         Name = "Content",
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(176, 1),
-        Size = UDim2.new(1, -177, 1, -2),
+        Position = UDim2.fromOffset(176, 0),
+        Size = UDim2.new(1, -176, 1, 0),
     })
 
     local header = create("Frame", {
@@ -609,7 +524,6 @@ function Solis:CreateWindow(options)
         Position = UDim2.fromOffset(38, 1),
         Size = UDim2.new(1, -108, 0, 18),
         TextSize = 12,
-        Font = Enum.Font.GothamSemibold,
         Color = theme.Text,
     })
 
@@ -619,7 +533,6 @@ function Solis:CreateWindow(options)
         Position = UDim2.fromOffset(38, 18),
         Size = UDim2.new(1, -108, 0, 18),
         TextSize = 10,
-        Font = Enum.Font.Gotham,
         Color = theme.Muted,
     })
 
@@ -632,7 +545,7 @@ function Solis:CreateWindow(options)
         Position = UDim2.new(1, 0, 0, 4),
         Size = UDim2.fromOffset(26, 26),
         Font = Enum.Font.GothamBold,
-        Text = "",
+        Text = "x",
         TextColor3 = theme.Muted,
         TextSize = 12,
         AutoButtonColor = false,
@@ -640,21 +553,6 @@ function Solis:CreateWindow(options)
         corner(6),
         stroke(theme.Border, 0.25, 1),
     })
-
-    for index, rotation in ipairs({ 45, -45 }) do
-        create("Frame", {
-            Parent = closeButton,
-            Name = "Line" .. index,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            BackgroundColor3 = theme.Muted,
-            BorderSizePixel = 0,
-            Position = UDim2.fromScale(0.5, 0.5),
-            Rotation = rotation,
-            Size = UDim2.fromOffset(11, 1),
-        }, {
-            corner(1),
-        })
-    end
 
     local hideButton = create("TextButton", {
         Parent = header,
@@ -665,7 +563,7 @@ function Solis:CreateWindow(options)
         Position = UDim2.new(1, -32, 0, 4),
         Size = UDim2.fromOffset(26, 26),
         Font = Enum.Font.GothamBold,
-        Text = "",
+        Text = "-",
         TextColor3 = theme.Muted,
         TextSize = 16,
         AutoButtonColor = false,
@@ -673,20 +571,6 @@ function Solis:CreateWindow(options)
         corner(6),
         stroke(theme.Border, 0.25, 1),
     })
-
-    for index = 1, 2 do
-        create("Frame", {
-            Parent = hideButton,
-            Name = "Line" .. index,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            BackgroundColor3 = theme.Muted,
-            BorderSizePixel = 0,
-            Position = UDim2.fromScale(0.5, index == 1 and 0.42 or 0.58),
-            Size = UDim2.fromOffset(11, 1),
-        }, {
-            corner(1),
-        })
-    end
 
     connectHover(closeButton, theme.Surface, theme.SurfaceHover)
     connectHover(hideButton, theme.Surface, theme.SurfaceHover)
@@ -722,50 +606,6 @@ function Solis:CreateWindow(options)
         listLayout(Enum.FillDirection.Vertical, 10, Enum.HorizontalAlignment.Right),
     })
 
-    local launcher = create("TextButton", {
-        Parent = screenGui,
-        Name = "Launcher",
-        AnchorPoint = Vector2.new(0, 0),
-        BackgroundColor3 = theme.Surface,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(22, 22),
-        Size = UDim2.fromOffset(74, 52),
-        Text = "",
-        AutoButtonColor = false,
-        Visible = false,
-    }, {
-        corner(14),
-        stroke(theme.Border, 0.18, 1),
-    })
-
-    gradient(Color3.fromRGB(26, 26, 29), Color3.fromRGB(17, 17, 19), 90).Parent = launcher
-
-    create("ImageLabel", {
-        Parent = launcher,
-        Name = "Icon",
-        BackgroundTransparency = 1,
-        Image = normalizeIcon(options.Icon or Solis.Icon),
-        Position = UDim2.fromOffset(9, 9),
-        Size = UDim2.fromOffset(34, 34),
-        ScaleType = Enum.ScaleType.Fit,
-    })
-
-    for index = 1, 3 do
-        create("Frame", {
-            Parent = launcher,
-            Name = "MenuLine" .. index,
-            BackgroundColor3 = theme.Muted,
-            BorderSizePixel = 0,
-            Position = UDim2.fromOffset(51, 15 + ((index - 1) * 9)),
-            Size = UDim2.fromOffset(13, 2),
-        }, {
-            corner(2),
-        })
-    end
-
-    connectHover(launcher, theme.Surface, theme.SurfaceHover)
-
     local window = setmetatable({
         Title = title,
         Footer = footer,
@@ -778,8 +618,6 @@ function Solis:CreateWindow(options)
         PageTabs = pageTabs,
         Content = content,
         Notifications = notifications,
-        Shadow = shadow,
-        Launcher = launcher,
         HeaderIcon = headerIcon,
         HeaderTitle = headerTitle,
         HeaderSubtitle = headerSubtitle,
@@ -789,9 +627,7 @@ function Solis:CreateWindow(options)
         Options = {},
         Connections = {},
         Visible = true,
-        Minimized = false,
         StoredSize = size,
-        StoredPosition = main.Position,
     }, { __index = WindowMethods })
 
     closeButton.MouseButton1Click:Connect(function()
@@ -799,11 +635,7 @@ function Solis:CreateWindow(options)
     end)
 
     hideButton.MouseButton1Click:Connect(function()
-        window:Minimize()
-    end)
-
-    launcher.MouseButton1Click:Connect(function()
-        window:Restore()
+        window:SetVisible(false)
     end)
 
     if toggleKey then
@@ -813,11 +645,7 @@ function Solis:CreateWindow(options)
             end
 
             if input.KeyCode == toggleKey then
-                if window.Visible then
-                    window:Minimize()
-                else
-                    window:Restore()
-                end
+                window:SetVisible(not window.Visible)
             end
         end))
     end
@@ -826,117 +654,50 @@ function Solis:CreateWindow(options)
         table.insert(window.Connections, connection)
     end
 
-    for _, connection in ipairs(makeDraggable(launcher, { launcher })) do
-        table.insert(window.Connections, connection)
-    end
-
     return window
 end
 
 function WindowMethods:SetVisible(visible)
+    self.Visible = visible
+
     if visible then
-        self:Restore()
-    else
-        self:Minimize()
-    end
-end
-
-function WindowMethods:Minimize()
-    if self.Minimized then
-        return
-    end
-
-    self.Visible = false
-    self.Minimized = true
-    self.StoredSize = self.Main.Size
-    self.StoredPosition = self.Main.Position
-
-    local launcherX = math.max(12, self.Main.AbsolutePosition.X + 12)
-    local launcherY = math.max(12, self.Main.AbsolutePosition.Y + 12)
-    local targetPosition = UDim2.fromOffset(launcherX + 37, launcherY + 26)
-    local targetSize = UDim2.fromOffset(74, 52)
-    self.Launcher.Position = UDim2.fromOffset(launcherX, launcherY)
-    self.Launcher.BackgroundTransparency = 1
-    self.Launcher.Visible = false
-    self.Shadow.Visible = true
-    self.Shadow.Position = self.Main.Position
-    self.Shadow.Size = inflateSize(self.Main.Size, 18)
-    self.Shadow.BackgroundTransparency = 0.78
-
-    tween(self.Main, {
-        Position = targetPosition,
-        Size = targetSize,
-    }, 0.14)
-
-    tween(self.Shadow, {
-        Position = targetPosition,
-        Size = inflateSize(targetSize, 18),
-        BackgroundTransparency = 1,
-    }, 0.14)
-
-    task.delay(0.14, function()
-        if not self.Minimized or not self.Main then
-            return
-        end
-
-        self.Main.Visible = false
-        self.Shadow.Visible = false
-        self.Launcher.Visible = true
-        tween(self.Launcher, { BackgroundTransparency = 0 }, 0.12)
-    end)
-end
-
-function WindowMethods:Restore()
-    if self.Visible then
-        return
-    end
-
-    self.Visible = true
-    self.Minimized = false
-
-    local launcherPosition = self.Launcher.AbsolutePosition
-    local launcherSize = self.Launcher.AbsoluteSize
-    self.Launcher.Visible = false
-    self.Shadow.Visible = true
-    self.Shadow.BackgroundTransparency = 1
-
-    if self.Main then
         self.Main.Visible = true
-        self.Main.Position = UDim2.fromOffset(
-            launcherPosition.X + (launcherSize.X / 2),
-            launcherPosition.Y + (launcherSize.Y / 2)
+        self.Main.Size = UDim2.new(
+            self.StoredSize.X.Scale,
+            self.StoredSize.X.Offset,
+            self.StoredSize.Y.Scale,
+            0
         )
-        self.Main.Size = UDim2.fromOffset(74, 52)
-        self.Shadow.Position = self.Main.Position
-        self.Shadow.Size = inflateSize(self.Main.Size, 18)
-
+        tween(self.Main, { Size = self.StoredSize }, 0.16)
+    else
+        self.StoredSize = self.Main.Size
         tween(self.Main, {
-            Position = self.StoredPosition,
-            Size = self.StoredSize,
-        }, 0.16)
+            Size = UDim2.new(
+                self.StoredSize.X.Scale,
+                self.StoredSize.X.Offset,
+                self.StoredSize.Y.Scale,
+                0
+            ),
+        }, 0.12)
 
-        tween(self.Shadow, {
-            Position = self.StoredPosition,
-            Size = inflateSize(self.StoredSize, 18),
-            BackgroundTransparency = 0.78,
-        }, 0.16)
+        task.delay(0.12, function()
+            if not self.Visible and self.Main then
+                self.Main.Visible = false
+            end
+        end)
     end
 end
 
 function WindowMethods:Show()
-    self:Restore()
+    self:SetVisible(true)
 end
 
 function WindowMethods:Hide()
-    self:Minimize()
+    self:SetVisible(false)
 end
 
 function WindowMethods:Toggle()
-    if self.Visible then
-        self:Minimize()
-    else
-        self:Restore()
-    end
+    self:SetVisible(not self.Visible)
 end
 
 function WindowMethods:Destroy()
@@ -984,18 +745,6 @@ function WindowMethods:CreateTab(options, icon)
         stroke(self.Theme.Border, 0.7, 1),
     })
 
-    local accentBar = create("Frame", {
-        Parent = button,
-        Name = "Accent",
-        BackgroundColor3 = self.Theme.Accent,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, 8),
-        Size = UDim2.fromOffset(4, 24),
-        Visible = false,
-    }, {
-        corner(3),
-    })
-
     local iconFrame = create("Frame", {
         Parent = button,
         Name = "IconFrame",
@@ -1023,8 +772,7 @@ function WindowMethods:CreateTab(options, icon)
         Text = tab.Name,
         Position = UDim2.fromOffset(43, 8),
         Size = UDim2.new(1, -50, 0, 17),
-        TextSize = 11,
-        Font = Enum.Font.GothamSemibold,
+        TextSize = 12,
         Color = self.Theme.Muted,
     })
 
@@ -1040,7 +788,6 @@ function WindowMethods:CreateTab(options, icon)
     tab.Button = button
     tab.TitleLabel = title
     tab.IconFrame = iconFrame
-    tab.AccentBar = accentBar
 
     button.MouseButton1Click:Connect(function()
         selectTab(tab)
@@ -1174,15 +921,12 @@ function TabMethods:CreatePage(name)
         Text = page.Name,
         TextColor3 = window.Theme.Muted,
         TextSize = 10,
-        Font = Enum.Font.GothamSemibold,
+        Font = Enum.Font.Gotham,
         AutoButtonColor = false,
         Visible = false,
     }, {
         corner(6),
-        stroke(window.Theme.Border, 0.45, 1),
     })
-
-    gradient(Color3.fromRGB(24, 24, 27), Color3.fromRGB(17, 17, 19), 90).Parent = button
 
     local frame = create("ScrollingFrame", {
         Parent = window.Content,
@@ -1272,54 +1016,24 @@ function PageMethods:CreateSection(title)
         Size = UDim2.new(1, -4, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
     }, {
-        corner(8),
-        stroke(self.Window.Theme.Border, 0.22, 1),
-        padding(14, 12, 14, 12),
+        corner(7),
+        stroke(self.Window.Theme.Border, 0.3, 1),
+        padding(12, 10, 12, 12),
     })
 
-    gradient(Color3.fromRGB(24, 24, 27), Color3.fromRGB(16, 16, 18), 90).Parent = holder
+    local layout = listLayout(Enum.FillDirection.Vertical, 4)
+    layout.Parent = holder
 
-    local holderLayout = listLayout(Enum.FillDirection.Vertical, 8)
-    holderLayout.Parent = holder
-
-    local header = create("Frame", {
-        Parent = holder,
-        Name = "Header",
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 20),
-    })
-
-    createText(header, self.Window.Theme, {
+    createText(holder, self.Window.Theme, {
         Name = "Title",
         Text = section.Title,
         Size = UDim2.new(1, 0, 0, 20),
-        TextSize = 11,
-        Font = Enum.Font.GothamSemibold,
-        Color = self.Window.Theme.Text,
+        TextSize = 12,
+        Color = self.Window.Theme.Muted,
     })
-
-    create("Frame", {
-        Parent = holder,
-        Name = "Divider",
-        BackgroundColor3 = self.Window.Theme.Border,
-        BackgroundTransparency = 0.7,
-        BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 0, 1),
-    })
-
-    local body = create("Frame", {
-        Parent = holder,
-        Name = "Body",
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-    })
-
-    local layout = listLayout(Enum.FillDirection.Vertical, 6)
-    layout.Parent = body
 
     section.Frame = holder
-    section.Content = body
+    section.Content = holder
     section.Layout = layout
 
     table.insert(self.Sections, section)
@@ -1411,22 +1125,19 @@ function SectionMethods:CreateButton(options)
     local button = create("TextButton", {
         Parent = row,
         Name = "Button",
-        BackgroundColor3 = theme.Surface,
+        BackgroundColor3 = theme.SurfaceLight,
         BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 1, 0),
-        Font = Enum.Font.GothamSemibold,
+        Font = Enum.Font.Gotham,
         Text = options.Name or options.Text or options.Title or "Button",
-        TextColor3 = theme.Text,
-        TextSize = 11,
+        TextColor3 = theme.Muted,
+        TextSize = 12,
         AutoButtonColor = false,
     }, {
         corner(7),
-        stroke(theme.Border, 0.36, 1),
     })
 
-    gradient(Color3.fromRGB(26, 26, 29), Color3.fromRGB(18, 18, 20), 90).Parent = button
-
-    connectHover(button, theme.Surface, theme.SurfaceHover)
+    connectHover(button, theme.SurfaceLight, theme.SurfaceHover)
 
     button.MouseButton1Click:Connect(function()
         task.spawn(callback)
@@ -1459,21 +1170,20 @@ function SectionMethods:CreateToggle(options)
         Name = "Track",
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, 0, 0.5, 0),
-        Size = UDim2.fromOffset(34, 20),
+        Size = UDim2.fromOffset(31, 18),
         BackgroundColor3 = value and theme.Accent or theme.SurfaceLight,
         BorderSizePixel = 0,
     }, {
-        corner(10),
-        stroke(theme.Border, 0.45, 1),
+        corner(9),
     })
 
     local knob = create("Frame", {
         Parent = track,
         Name = "Knob",
         AnchorPoint = Vector2.new(0, 0.5),
-        Position = value and UDim2.fromOffset(16, 10) or UDim2.fromOffset(4, 10),
-        Size = UDim2.fromOffset(14, 14),
-        BackgroundColor3 = value and theme.Text or theme.Muted,
+        Position = value and UDim2.fromOffset(15, 9) or UDim2.fromOffset(3, 9),
+        Size = UDim2.fromOffset(12, 12),
+        BackgroundColor3 = value and theme.Background or theme.Muted,
         BorderSizePixel = 0,
     }, {
         corner(6),
@@ -1486,8 +1196,8 @@ function SectionMethods:CreateToggle(options)
         setFlag(window, options.Flag, value, control)
         tween(track, { BackgroundColor3 = value and theme.Accent or theme.SurfaceLight }, 0.14)
         tween(knob, {
-            Position = value and UDim2.fromOffset(16, 10) or UDim2.fromOffset(4, 10),
-            BackgroundColor3 = value and theme.Text or theme.Muted,
+            Position = value and UDim2.fromOffset(15, 9) or UDim2.fromOffset(3, 9),
+            BackgroundColor3 = value and theme.Background or theme.Muted,
         }, 0.14)
         task.spawn(callback, value)
     end
@@ -1538,8 +1248,7 @@ function SectionMethods:CreateSlider(options)
         Position = UDim2.new(1, 0, 0, 3),
         Size = UDim2.fromOffset(80, 18),
         TextSize = 11,
-        Font = Enum.Font.GothamSemibold,
-        Color = theme.Text,
+        Color = theme.Muted,
         TextXAlignment = Enum.TextXAlignment.Right,
     })
 
@@ -1548,12 +1257,11 @@ function SectionMethods:CreateSlider(options)
         Name = "Bar",
         AnchorPoint = Vector2.new(0, 1),
         Position = UDim2.new(0, 0, 1, -8),
-        Size = UDim2.new(1, 0, 0, 5),
-        BackgroundColor3 = theme.Border,
+        Size = UDim2.new(1, 0, 0, 4),
+        BackgroundColor3 = theme.SurfaceLight,
         BorderSizePixel = 0,
     }, {
-        corner(3),
-        stroke(theme.Border, 0.55, 1),
+        corner(2),
     })
 
     local fill = create("Frame", {
@@ -1563,7 +1271,7 @@ function SectionMethods:CreateSlider(options)
         BorderSizePixel = 0,
         Size = UDim2.fromScale((value - min) / range, 1),
     }, {
-        corner(3),
+        corner(2),
     })
 
     local knob = create("Frame", {
@@ -1571,12 +1279,11 @@ function SectionMethods:CreateSlider(options)
         Name = "Knob",
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale((value - min) / range, 0.5),
-        Size = UDim2.fromOffset(13, 13),
+        Size = UDim2.fromOffset(11, 11),
         BackgroundColor3 = theme.Text,
         BorderSizePixel = 0,
     }, {
         corner(6),
-        stroke(theme.Border, 0.45, 1),
     })
 
     local dragging = false
@@ -1655,31 +1362,28 @@ function SectionMethods:CreateDropdown(options)
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, 0, 0, 5),
         Size = UDim2.fromOffset(150, 28),
-        BackgroundColor3 = theme.Surface,
+        BackgroundColor3 = theme.SurfaceLight,
         BorderSizePixel = 0,
-        Font = Enum.Font.GothamSemibold,
+        Font = Enum.Font.Gotham,
         Text = tostring(value or "Select"),
-        TextColor3 = theme.Text,
-        TextSize = 10,
+        TextColor3 = theme.Muted,
+        TextSize = 11,
         AutoButtonColor = false,
     }, {
-        corner(7),
-        stroke(theme.Border, 0.38, 1),
+        corner(6),
     })
-
-    gradient(Color3.fromRGB(25, 25, 28), Color3.fromRGB(18, 18, 20), 90).Parent = button
 
     local list = create("Frame", {
         Parent = row,
         Name = "List",
-        BackgroundColor3 = theme.Surface,
+        BackgroundColor3 = theme.SurfaceLight,
         BorderSizePixel = 0,
         Position = UDim2.new(1, -150, 0, 38),
         Size = UDim2.fromOffset(150, 0),
         ClipsDescendants = true,
         Visible = false,
     }, {
-        corner(7),
+        corner(6),
         stroke(theme.Border, 0.35, 1),
         listLayout(Enum.FillDirection.Vertical, 0),
     })
@@ -1697,17 +1401,17 @@ function SectionMethods:CreateDropdown(options)
             local itemButton = create("TextButton", {
                 Parent = list,
                 Name = tostring(item),
-                BackgroundColor3 = theme.Surface,
+                BackgroundColor3 = theme.SurfaceLight,
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, 0, 0, 26),
                 Font = Enum.Font.Gotham,
                 Text = tostring(item),
                 TextColor3 = theme.Muted,
-                TextSize = 10,
+                TextSize = 11,
                 AutoButtonColor = false,
             })
 
-            connectHover(itemButton, theme.Surface, theme.SurfaceHover)
+            connectHover(itemButton, theme.SurfaceLight, theme.SurfaceHover)
 
             itemButton.MouseButton1Click:Connect(function()
                 control:Set(item)
@@ -1749,7 +1453,7 @@ function SectionMethods:CreateDropdown(options)
         setOpen(not open)
     end)
 
-    connectHover(button, theme.Surface, theme.SurfaceHover)
+    connectHover(button, theme.SurfaceLight, theme.SurfaceHover)
     rebuild()
     setFlag(window, options.Flag, value, control)
 
@@ -1777,22 +1481,19 @@ function SectionMethods:CreateInput(options)
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, 0, 0, 5),
         Size = UDim2.fromOffset(150, 28),
-        BackgroundColor3 = theme.Surface,
+        BackgroundColor3 = theme.SurfaceLight,
         BorderSizePixel = 0,
         ClearTextOnFocus = false,
         Font = Enum.Font.Gotham,
         PlaceholderText = options.Placeholder or "",
         PlaceholderColor3 = theme.MutedDark,
         Text = tostring(value),
-        TextColor3 = theme.Text,
-        TextSize = 10,
+        TextColor3 = theme.Muted,
+        TextSize = 11,
     }, {
-        corner(7),
-        stroke(theme.Border, 0.38, 1),
+        corner(6),
         padding(8, 0, 8, 0),
     })
-
-    gradient(Color3.fromRGB(25, 25, 28), Color3.fromRGB(18, 18, 20), 90).Parent = box
 
     local control = {}
 
@@ -1842,19 +1543,16 @@ function SectionMethods:CreateKeybind(options)
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, 0, 0, 5),
         Size = UDim2.fromOffset(150, 28),
-        BackgroundColor3 = theme.Surface,
+        BackgroundColor3 = theme.SurfaceLight,
         BorderSizePixel = 0,
-        Font = Enum.Font.GothamSemibold,
+        Font = Enum.Font.Gotham,
         Text = value.Name,
-        TextColor3 = theme.Text,
-        TextSize = 10,
+        TextColor3 = theme.Muted,
+        TextSize = 11,
         AutoButtonColor = false,
     }, {
-        corner(7),
-        stroke(theme.Border, 0.38, 1),
+        corner(6),
     })
-
-    gradient(Color3.fromRGB(25, 25, 28), Color3.fromRGB(18, 18, 20), 90).Parent = button
 
     local control = {}
 
@@ -1892,7 +1590,7 @@ function SectionMethods:CreateKeybind(options)
         end
     end))
 
-    connectHover(button, theme.Surface, theme.SurfaceHover)
+    connectHover(button, theme.SurfaceLight, theme.SurfaceHover)
     setFlag(window, options.Flag, value, control)
 
     return control

@@ -1,6 +1,7 @@
 --[[
 	Solis UI — single-file Roblox UI library
-	Pure Instance.new; no external assets or dependencies.
+	Pure Instance.new with a built-in branded layout and toast notifications.
+	The default logo uses Roblox asset 105894109382235 and can be overridden.
 
 	GitHub import:
 		local Library = loadstring(game:HttpGet(
@@ -26,9 +27,15 @@
 		Library:SetTheme("OLED")
 		Library:SetTheme(customThemeTable)
 
+	Notifications:
+		Window:Notify({ Title, Content, Type, Duration, Callback })
+		Library:Notify({ Title, Content, Type, Duration, Callback })
+		Types: "Info", "Success", "Warning", "Error"
+
 	Window helpers:
 		Window:SetVisible(boolean)
 		Window:Toggle()
+		Window:SetLogo(assetId)
 		Window:Destroy()
 ]]
 
@@ -37,7 +44,28 @@ local UserInputService = game:GetService("UserInputService")
 local GuiService       = game:GetService("GuiService")
 local Players          = game:GetService("Players")
 
+local DEFAULT_LOGO = "rbxassetid://105894109382235"
 local TWEEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local NOTIFICATION_TWEEN = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+
+local NOTIFICATION_STYLES = {
+	info = {
+		Name = "Info",
+		Color = Color3.fromRGB(92, 164, 255),
+	},
+	success = {
+		Name = "Success",
+		Color = Color3.fromRGB(91, 201, 126),
+	},
+	warning = {
+		Name = "Warning",
+		Color = Color3.fromRGB(244, 188, 73),
+	},
+	error = {
+		Name = "Error",
+		Color = Color3.fromRGB(242, 103, 103),
+	},
+}
 
 --------------------------------------------------------------------------------
 -- Palette (fully monochrome)
@@ -229,6 +257,28 @@ local function fire(callback, ...)
 	end
 end
 
+local function normalizeAssetId(value)
+	if value == nil or value == "" then
+		return DEFAULT_LOGO
+	end
+	if type(value) == "number" then
+		return "rbxassetid://" .. tostring(math.floor(value))
+	end
+	local text = tostring(value)
+	if string.match(text, "^rbxassetid://")
+		or string.match(text, "^rbxthumb://")
+		or string.match(text, "^https?://") then
+		return text
+	end
+	local id = string.match(text, "%d+")
+	return id and ("rbxassetid://" .. id) or DEFAULT_LOGO
+end
+
+local function getNotificationStyle(kind)
+	local key = string.lower(tostring(kind or "Info"))
+	return NOTIFICATION_STYLES[key] or NOTIFICATION_STYLES.info
+end
+
 -- True only if the gui and every GuiObject ancestor is visible.
 local function guiVisible(gui)
 	local node = gui
@@ -337,9 +387,11 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "1.0.0",
+	Version = "2.0.0",
 	Themes = THEMES,
+	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
+	_windowObjects = {},
 	_currentTheme = "Dark",
 }
 local Window = {}  Window.__index = Window
@@ -412,6 +464,17 @@ function Library:GetTheme()
 	return Library._currentTheme
 end
 
+function Library:Notify(opts)
+	for index = #Library._windowObjects, 1, -1 do
+		local window = Library._windowObjects[index]
+		if window and window.ScreenGui and window.ScreenGui.Parent then
+			return window:Notify(opts)
+		end
+	end
+	warn("[Solis UI] create a window before calling Library:Notify")
+	return nil
+end
+
 function Library:DestroyAll()
 	local windows = table.clone(Library._windows)
 	for _, screenGui in ipairs(windows) do
@@ -420,6 +483,7 @@ function Library:DestroyAll()
 		end
 	end
 	table.clear(Library._windows)
+	table.clear(Library._windowObjects or {})
 end
 
 --------------------------------------------------------------------------------
@@ -429,12 +493,16 @@ end
 function Library:CreateWindow(opts)
 	opts = opts or {}
 
+	local logoAsset = normalizeAssetId(opts.Logo or DEFAULT_LOGO)
+	local windowSize = opts.Size or UDim2.fromOffset(700, 490)
+	local windowPosition = opts.Position or UDim2.fromScale(0.5, 0.5)
+
 	local screenGui = make("ScreenGui", {
 		Name = opts.GuiName or "SolisUI",
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-		DisplayOrder = 10,
+		DisplayOrder = opts.DisplayOrder or 10,
 	})
 
 	-- Optional explicit parent; otherwise executor/CoreGui first and PlayerGui fallback.
@@ -450,16 +518,44 @@ function Library:CreateWindow(opts)
 	end
 	table.insert(Library._windows, screenGui)
 
-	local main = make("Frame", {
-		Name = "Main",
-		Size = opts.Size or UDim2.fromOffset(680, 475),
-		Position = opts.Position or UDim2.fromScale(0.5, 0.5),
+	-- Soft drop shadow drawn without another image asset.
+	local shadow = make("Frame", {
+		Name = "Shadow",
+		Size = windowSize,
+		Position = UDim2.new(
+			windowPosition.X.Scale, windowPosition.X.Offset,
+			windowPosition.Y.Scale, windowPosition.Y.Offset + 8
+		),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = C.WindowBg,
+		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+		BackgroundTransparency = 0.55,
+		ZIndex = 1,
 		Parent = screenGui,
 	})
-	corner(main, 10)
+	-- Never theme the shadow even when the active theme uses pure black.
+	shadow:SetAttribute("Theme_BackgroundColor3", nil)
+	corner(shadow, 13)
+
+	local main = make("Frame", {
+		Name = "Main",
+		Size = windowSize,
+		Position = windowPosition,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = C.WindowBg,
+		ClipsDescendants = true,
+		ZIndex = 2,
+		Parent = screenGui,
+	})
+	corner(main, 12)
 	stroke(main, C.Border)
+
+	main:GetPropertyChangedSignal("Position"):Connect(function()
+		local pos = main.Position
+		shadow.Position = UDim2.new(pos.X.Scale, pos.X.Offset, pos.Y.Scale, pos.Y.Offset + 8)
+	end)
+	main:GetPropertyChangedSignal("Size"):Connect(function()
+		shadow.Size = main.Size
+	end)
 
 	-- Regions that must never start a window drag: nav buttons, sub-tab
 	-- pills, content pages and open dropdown lists register themselves here.
@@ -468,40 +564,112 @@ function Library:CreateWindow(opts)
 
 	-- Left sidebar -----------------------------------------------------------
 	local sidebar = make("Frame", {
-		Size = UDim2.new(0, 180, 1, 0),
+		Size = UDim2.new(0, 190, 1, 0),
 		BackgroundTransparency = 1,
 		Parent = main,
 	})
 
+	local brand = make("Frame", {
+		Name = "Brand",
+		Position = UDim2.fromOffset(12, 12),
+		Size = UDim2.new(1, -24, 0, 54),
+		BackgroundColor3 = C.CardBg,
+		Parent = sidebar,
+	})
+	corner(brand, 10)
+	stroke(brand, C.Border)
+
+	local logoHolder = make("Frame", {
+		Position = UDim2.fromOffset(9, 9),
+		Size = UDim2.fromOffset(36, 36),
+		BackgroundColor3 = C.Element,
+		Parent = brand,
+	})
+	corner(logoHolder, 9)
+
 	make("TextLabel", {
-		Text = opts.Name or "Menu",
-		Font = Enum.Font.GothamMedium,
+		Text = "S",
+		Font = Enum.Font.GothamBold,
+		TextSize = 15,
+		TextColor3 = C.White,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		Parent = logoHolder,
+	})
+
+	local brandLogo = make("ImageLabel", {
+		Name = "Logo",
+		Image = logoAsset,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(3, 3),
+		Size = UDim2.new(1, -6, 1, -6),
+		ScaleType = Enum.ScaleType.Fit,
+		Parent = logoHolder,
+	})
+
+	make("TextLabel", {
+		Text = opts.Name or "Solis UI",
+		Font = Enum.Font.GothamBold,
 		TextSize = 13,
+		TextColor3 = C.White,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(54, 9),
+		Size = UDim2.new(1, -62, 0, 17),
+		Parent = brand,
+	})
+
+	make("TextLabel", {
+		Text = opts.BrandSubtitle or ("SOLIS LIBRARY  •  v" .. Library.Version),
+		Font = Enum.Font.GothamMedium,
+		TextSize = 9,
 		TextColor3 = C.TextDim,
 		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(16, 16),
-		Size = UDim2.new(1, -32, 0, 14),
-		Parent = sidebar,
+		Position = UDim2.fromOffset(54, 28),
+		Size = UDim2.new(1, -62, 0, 13),
+		Parent = brand,
 	})
 
 	local navList = make("Frame", {
-		Position = UDim2.fromOffset(0, 50),
-		Size = UDim2.new(1, 0, 1, -50),
+		Position = UDim2.fromOffset(0, 78),
+		Size = UDim2.new(1, 0, 1, -112),
 		BackgroundTransparency = 1,
 		Parent = sidebar,
 	})
-	pad(navList, 0, 12, 12, 12)
+	pad(navList, 0, 8, 12, 12)
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 6),
+		Padding = UDim.new(0, 7),
 		Parent = navList,
+	})
+
+	local statusDot = make("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 16, 1, -19),
+		Size = UDim2.fromOffset(6, 6),
+		BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
+		Parent = sidebar,
+	})
+	circle(statusDot)
+	make("TextLabel", {
+		Text = opts.StatusText or "Solis is ready",
+		Font = Enum.Font.GothamMedium,
+		TextSize = 10,
+		TextColor3 = C.TextDim,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		BackgroundTransparency = 1,
+		Position = UDim2.new(0, 28, 1, -27),
+		Size = UDim2.new(1, -40, 0, 16),
+		Parent = sidebar,
 	})
 
 	-- Vertical separator
 	make("Frame", {
-		Position = UDim2.fromOffset(180, 0),
+		Position = UDim2.fromOffset(190, 0),
 		Size = UDim2.new(0, 1, 1, 0),
 		BackgroundColor3 = C.Border,
 		Parent = main,
@@ -509,21 +677,45 @@ function Library:CreateWindow(opts)
 
 	-- Right content area -----------------------------------------------------
 	local content = make("Frame", {
-		Position = UDim2.fromOffset(181, 0),
-		Size = UDim2.new(1, -181, 1, 0),
+		Position = UDim2.fromOffset(191, 0),
+		Size = UDim2.new(1, -191, 1, 0),
 		BackgroundTransparency = 1,
 		Parent = main,
+	})
+
+	-- Notifications are outside the main window so they remain unclipped.
+	local notificationHolder = make("Frame", {
+		Name = "Notifications",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -18, 0, 18),
+		Size = UDim2.new(0, 340, 1, -36),
+		BackgroundTransparency = 1,
+		ZIndex = 200,
+		Parent = screenGui,
+	})
+	make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 10),
+		Parent = notificationHolder,
 	})
 
 	local window = setmetatable({
 		ScreenGui = screenGui,
 		Main = main,
+		Shadow = shadow,
+		Logo = brandLogo,
+		_logoAsset = logoAsset,
 		_navList = navList,
 		_content = content,
+		_notificationHolder = notificationHolder,
+		_notificationOrder = 0,
 		_noDrag = noDrag,
 		_tabs = {},
 		_activeTab = nil,
 	}, Window)
+	table.insert(Library._windowObjects, window)
 
 	if opts.Visible == false then
 		screenGui.Enabled = false
@@ -541,10 +733,225 @@ function Window:Toggle()
 	return self.ScreenGui.Enabled
 end
 
+function Window:SetLogo(assetId)
+	self._logoAsset = normalizeAssetId(assetId)
+	if self.Logo then
+		self.Logo.Image = self._logoAsset
+	end
+	return self._logoAsset
+end
+
+function Window:Notify(opts)
+	if type(opts) == "string" then
+		opts = { Content = opts }
+	end
+	opts = opts or {}
+
+	local holder = self._notificationHolder
+	if not holder or not holder.Parent then
+		return nil
+	end
+
+	local style = getNotificationStyle(opts.Type)
+	local duration = tonumber(opts.Duration)
+	if duration == nil then duration = 4 end
+	duration = math.max(duration, 0)
+	self._notificationOrder = self._notificationOrder + 1
+
+	local slot = make("Frame", {
+		Name = "NotificationSlot",
+		Size = UDim2.new(1, 0, 0, 82),
+		BackgroundTransparency = 1,
+		LayoutOrder = self._notificationOrder,
+		ZIndex = 200,
+		Parent = holder,
+	})
+
+	local card = make("CanvasGroup", {
+		Name = style.Name .. "Notification",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 340, 0, 0),
+		Size = UDim2.new(1, -10, 1, 0),
+		BackgroundColor3 = C.CardBg,
+		GroupTransparency = 1,
+		ClipsDescendants = true,
+		ZIndex = 201,
+		Parent = slot,
+	})
+	corner(card, 11)
+	stroke(card, C.Border)
+
+	make("Frame", {
+		Size = UDim2.new(0, 4, 1, 0),
+		BackgroundColor3 = style.Color,
+		ZIndex = 202,
+		Parent = card,
+	})
+
+	local iconHolder = make("Frame", {
+		Position = UDim2.fromOffset(14, 14),
+		Size = UDim2.fromOffset(38, 38),
+		BackgroundColor3 = C.Element,
+		ZIndex = 202,
+		Parent = card,
+	})
+	corner(iconHolder, 9)
+
+	make("TextLabel", {
+		Text = "S",
+		Font = Enum.Font.GothamBold,
+		TextSize = 15,
+		TextColor3 = C.White,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 203,
+		Parent = iconHolder,
+	})
+	make("ImageLabel", {
+		Image = normalizeAssetId(opts.Logo or self._logoAsset),
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(3, 3),
+		Size = UDim2.new(1, -6, 1, -6),
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 204,
+		Parent = iconHolder,
+	})
+	local typeDot = make("Frame", {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, 2, 1, 2),
+		Size = UDim2.fromOffset(10, 10),
+		BackgroundColor3 = style.Color,
+		ZIndex = 205,
+		Parent = iconHolder,
+	})
+	circle(typeDot)
+	local dotStroke = stroke(typeDot, C.CardBg)
+	dotStroke.Thickness = 2
+
+	make("TextLabel", {
+		Text = tostring(opts.Title or style.Name),
+		Font = Enum.Font.GothamBold,
+		TextSize = 13,
+		TextColor3 = C.White,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(64, 12),
+		Size = UDim2.new(1, -100, 0, 18),
+		ZIndex = 202,
+		Parent = card,
+	})
+
+	make("TextLabel", {
+		Text = tostring(opts.Content or opts.Description or opts.Message or "Notification"),
+		Font = Enum.Font.Gotham,
+		TextSize = 11,
+		TextColor3 = C.TextDim,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextWrapped = true,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(64, 32),
+		Size = UDim2.new(1, -82, 0, 34),
+		ZIndex = 202,
+		Parent = card,
+	})
+
+	local closeButton = make("TextButton", {
+		Text = "×",
+		Font = Enum.Font.GothamMedium,
+		TextSize = 18,
+		TextColor3 = C.TextDim,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -8, 0, 7),
+		Size = UDim2.fromOffset(24, 24),
+		BackgroundTransparency = 1,
+		ZIndex = 204,
+		Parent = card,
+	})
+
+	local progressTrack = make("Frame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 4, 1, 0),
+		Size = UDim2.new(1, -4, 0, 3),
+		BackgroundColor3 = C.Element,
+		ZIndex = 202,
+		Parent = card,
+	})
+	local progress = make("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = style.Color,
+		ZIndex = 203,
+		Parent = progressTrack,
+	})
+
+	local closed = false
+	local progressTween = nil
+	local handle = {}
+
+	local function close(reason)
+		if closed then return end
+		closed = true
+		if progressTween then
+			progressTween:Cancel()
+		end
+		TweenService:Create(card, NOTIFICATION_TWEEN, {
+			Position = UDim2.new(1, 340, 0, 0),
+			GroupTransparency = 1,
+		}):Play()
+		task.delay(0.24, function()
+			if slot then slot:Destroy() end
+		end)
+		fire(opts.Callback or opts.OnClose, reason or "closed")
+	end
+
+	function handle:Close()
+		close("manual")
+	end
+	function handle:IsOpen()
+		return not closed
+	end
+
+	closeButton.MouseEnter:Connect(function()
+		tween(closeButton, { TextColor3 = C.White })
+	end)
+	closeButton.MouseLeave:Connect(function()
+		tween(closeButton, { TextColor3 = C.TextDim })
+	end)
+	closeButton.MouseButton1Click:Connect(function()
+		close("manual")
+	end)
+
+	TweenService:Create(card, NOTIFICATION_TWEEN, {
+		Position = UDim2.new(1, 0, 0, 0),
+		GroupTransparency = 0,
+	}):Play()
+
+	if duration > 0 then
+		progressTween = TweenService:Create(
+			progress,
+			TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+			{ Size = UDim2.new(0, 0, 1, 0) }
+		)
+		progressTween:Play()
+		task.delay(duration, function()
+			close("timeout")
+		end)
+	else
+		progressTrack.Visible = false
+	end
+
+	return handle
+end
+
 function Window:Destroy()
 	local index = table.find(Library._windows, self.ScreenGui)
 	if index then
 		table.remove(Library._windows, index)
+	end
+	local objectIndex = table.find(Library._windowObjects, self)
+	if objectIndex then
+		table.remove(Library._windowObjects, objectIndex)
 	end
 	if self.ScreenGui then
 		self.ScreenGui:Destroy()

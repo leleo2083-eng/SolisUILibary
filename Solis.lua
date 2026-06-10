@@ -1,4 +1,4 @@
--- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; large smooth loader icon appears first and spins twice; single-image FPS polyline.
+-- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; extra-large loader appears first and performs one continuous two-turn spin; single-image FPS polyline.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -41,8 +41,8 @@
 
 	CreateWindow loading options:
 		LoadingAnimation = true -- set false to disable
-		LoadingDuration = 1.55 -- time for two smooth complete rotations
-		LoadingIconSize = 138 -- startup icon size in pixels
+		LoadingDuration = 1.8 -- time for one continuous two-turn rotation
+		LoadingIconSize = 210 -- extra-large startup icon size in pixels
 ]]
 
 local TweenService     = game:GetService("TweenService")
@@ -397,7 +397,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-loader-large-smooth",
+	Version = "2.0.3-profile-fps-loader-XL-smooth-v2",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -561,8 +561,9 @@ function Library:CreateWindow(opts)
 	-- This makes the supplied icon the first visible UI element when the script
 	-- executes. The main window stays hidden until the icon finishes two turns.
 	local loadingEnabled = opts.LoadingAnimation ~= false
-	local loadingDuration = math.clamp(tonumber(opts.LoadingDuration) or 1.55, 0.7, 4)
-	local loadingIconSize = math.clamp(math.floor(tonumber(opts.LoadingIconSize) or 138), 96, 220)
+	local loadingDuration = math.clamp(tonumber(opts.LoadingDuration) or 1.8, 1.0, 4)
+	-- Keep the loader genuinely large even when an older example still passes 138.
+	local loadingIconSize = math.clamp(math.floor(tonumber(opts.LoadingIconSize) or 210), 180, 300)
 	local loadingComplete = not loadingEnabled
 	local loadingLayer, loadingIcon, loadingScale, loadingRotateTween
 
@@ -570,7 +571,8 @@ function Library:CreateWindow(opts)
 		loadingLayer = make("CanvasGroup", {
 			Name = "StartupLoader",
 			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
+			BackgroundColor3 = Color3.fromRGB(9, 9, 9),
+			BackgroundTransparency = 0.08,
 			GroupTransparency = 0,
 			ZIndex = 500,
 			Parent = screenGui,
@@ -593,29 +595,30 @@ function Library:CreateWindow(opts)
 		})
 
 		loadingScale = make("UIScale", {
-			Scale = 0.42,
+			Scale = 0.18,
 			Parent = loadingIcon,
 		})
 
-		-- Fade and pop the larger icon in, then gently settle its scale while
-		-- one eased 720-degree tween performs exactly two smooth rotations.
+		-- The icon enters first, settles at full size, then performs a single
+		-- uninterrupted linear 720-degree spin. Linear motion avoids the uneven
+		-- speed and sluggish endpoints of the previous sine rotation.
 		TweenService:Create(
 			loadingIcon,
-			TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 			{ ImageTransparency = 0 }
 		):Play()
 
 		TweenService:Create(
 			loadingScale,
-			TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-			{ Scale = 1.08 }
+			TweenInfo.new(0.30, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{ Scale = 1.12 }
 		):Play()
 
-		task.delay(0.34, function()
+		task.delay(0.30, function()
 			if loadingScale and loadingScale.Parent then
 				TweenService:Create(
 					loadingScale,
-					TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+					TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
 					{ Scale = 1 }
 				):Play()
 			end
@@ -623,10 +626,16 @@ function Library:CreateWindow(opts)
 
 		loadingRotateTween = TweenService:Create(
 			loadingIcon,
-			TweenInfo.new(loadingDuration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+			TweenInfo.new(loadingDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut),
 			{ Rotation = 720 }
 		)
-		loadingRotateTween:Play()
+		-- Give the pop-in a brief head start so the full-size icon is clearly
+		-- visible before the two-turn loading spin begins.
+		task.delay(0.10, function()
+			if loadingRotateTween and loadingIcon and loadingIcon.Parent then
+				loadingRotateTween:Play()
+			end
+		end)
 	end
 
 	local main = make("Frame", {

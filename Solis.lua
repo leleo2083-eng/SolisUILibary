@@ -1,4 +1,4 @@
--- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; dark 50% startup overlay types “Solis” letter by letter beneath the supplied logo; single-image FPS polyline.
+-- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; dark 50% startup overlay types “Solis” letter by letter, then sweeps the title smoothly from white to orange; single-image FPS polyline.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -44,6 +44,8 @@
 		LoadingDuration = 2.2 -- total startup sequence duration
 		LoadingIconSize = 96 -- logo above the title
 		LoadingText = "Solis" -- title typed letter by letter
+		LoadingTextStartColor = Color3.fromRGB(255, 255, 255) -- optional
+		LoadingTextEndColor = Color3.fromRGB(255, 132, 38) -- optional orange sweep
 		LoadingOverlayTransparency = 0.5 -- 50% transparent black fullscreen overlay
 ]]
 
@@ -399,7 +401,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-dark-type-loader",
+	Version = "2.0.3-profile-fps-dark-type-orange-sweep",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -565,6 +567,12 @@ function Library:CreateWindow(opts)
 	local loadingDuration = math.clamp(tonumber(opts.LoadingDuration) or 2.2, 1.2, 6)
 	local loadingIconSize = math.clamp(math.floor(tonumber(opts.LoadingIconSize) or 96), 56, 180)
 	local loadingText = tostring(opts.LoadingText or "Solis")
+	local loadingTextStartColor = typeof(opts.LoadingTextStartColor) == "Color3"
+		and opts.LoadingTextStartColor
+		or Color3.fromRGB(255, 255, 255)
+	local loadingTextEndColor = typeof(opts.LoadingTextEndColor) == "Color3"
+		and opts.LoadingTextEndColor
+		or Color3.fromRGB(255, 132, 38)
 	local overlayTransparency = math.clamp(
 		tonumber(opts.LoadingOverlayTransparency) or 0.5,
 		0,
@@ -641,7 +649,7 @@ function Library:CreateWindow(opts)
 				Text = character,
 				Font = Enum.Font.GothamBold,
 				TextSize = 54,
-				TextColor3 = C.White,
+				TextColor3 = loadingTextStartColor,
 				TextTransparency = 1,
 				BackgroundTransparency = 1,
 				AutomaticSize = Enum.AutomaticSize.X,
@@ -683,7 +691,7 @@ function Library:CreateWindow(opts)
 
 			task.wait(0.28)
 
-			local availableTypingTime = math.max(loadingDuration - 0.82, 0.4)
+			local availableTypingTime = math.max(loadingDuration - 1.38, 0.35)
 			local letterDelay = #loadingLetters > 0
 				and math.clamp(availableTypingTime / #loadingLetters, 0.07, 0.22)
 				or 0
@@ -707,6 +715,42 @@ function Library:CreateWindow(opts)
 
 				task.wait(letterDelay)
 			end
+
+			-- Sweep the completed word from white to orange from left to right.
+			-- Each letter receives a tiny scale pulse so the color change feels
+			-- intentional without adding a glow, background, or extra UI element.
+			task.wait(0.08)
+			for _, data in ipairs(loadingLetters) do
+				if not loadingLayer or not loadingLayer.Parent then
+					return
+				end
+
+				TweenService:Create(
+					data.Label,
+					TweenInfo.new(0.42, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+					{ TextColor3 = loadingTextEndColor }
+				):Play()
+
+				TweenService:Create(
+					data.Scale,
+					TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ Scale = 1.055 }
+				):Play()
+
+				local scaleObject = data.Scale
+				task.delay(0.16, function()
+					if scaleObject and scaleObject.Parent then
+						TweenService:Create(
+							scaleObject,
+							TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+							{ Scale = 1 }
+						):Play()
+					end
+				end)
+
+				task.wait(0.055)
+			end
+			task.wait(0.32)
 
 			-- A subtle final settle keeps the loader alive briefly after the last
 			-- letter without introducing another spinner or progress indicator.

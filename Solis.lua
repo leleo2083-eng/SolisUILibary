@@ -687,8 +687,7 @@ function Library:CreateWindow(opts)
 	-- Kept at ScreenGui level so the animation is not clipped by Main.
 	local localPlayer = Players.LocalPlayer
 	local profileKey = typeof(opts.ProfileKey) == "EnumItem" and opts.ProfileKey or Enum.KeyCode.K
-	local profileKeyName = string.gsub(tostring(profileKey), "Enum.KeyCode.", "")
-	local profileWidth = math.max(260, tonumber(opts.ProfileWidth) or 300)
+	local profileWidth = math.max(280, tonumber(opts.ProfileWidth) or 312)
 	local profileOpenPosition = UDim2.new(1, -18, 0.5, 0)
 	local profileClosedPosition = UDim2.new(1, profileWidth + 28, 0.5, 0)
 	local profileOpen = false
@@ -698,81 +697,81 @@ function Library:CreateWindow(opts)
 		Name = "UserProfile",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = profileClosedPosition,
-		Size = UDim2.fromOffset(profileWidth, 360),
+		Size = UDim2.fromOffset(profileWidth, 382),
 		BackgroundColor3 = C.CardBg,
 		GroupTransparency = 1,
 		ClipsDescendants = true,
 		ZIndex = 150,
 		Parent = screenGui,
 	})
-	corner(profilePanel, 12)
+	corner(profilePanel, 14)
 	stroke(profilePanel, C.Border)
 
+	-- Quiet top accent gives the panel a more intentional silhouette without
+	-- introducing a theme-breaking color.
+	local topAccent = make("Frame", {
+		Size = UDim2.new(1, 0, 0, 3),
+		BackgroundColor3 = C.White,
+		ZIndex = 152,
+		Parent = profilePanel,
+	})
+
 	local profileHeader = make("Frame", {
-		Size = UDim2.new(1, 0, 0, 54),
+		Position = UDim2.fromOffset(0, 3),
+		Size = UDim2.new(1, 0, 0, 65),
 		BackgroundTransparency = 1,
 		ZIndex = 151,
 		Parent = profilePanel,
 	})
 	make("TextLabel", {
-		Text = opts.ProfileTitle or "USER PROFILE",
+		Text = opts.ProfileTitle or "PLAYER PROFILE",
 		Font = Enum.Font.GothamBold,
-		TextSize = 12,
+		TextSize = 13,
 		TextColor3 = C.White,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(16, 0),
-		Size = UDim2.new(1, -94, 1, 0),
+		Position = UDim2.fromOffset(18, 13),
+		Size = UDim2.new(1, -36, 0, 18),
 		ZIndex = 152,
 		Parent = profileHeader,
 	})
-
-	local keyBadge = make("Frame", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -42, 0.5, 0),
-		Size = UDim2.fromOffset(26, 22),
-		BackgroundColor3 = C.Element,
-		ZIndex = 152,
-		Parent = profileHeader,
-	})
-	corner(keyBadge, 6)
 	make("TextLabel", {
-		Text = profileKeyName,
-		Font = Enum.Font.GothamBold,
-		TextSize = 10,
-		TextColor3 = C.TextGray,
-		BackgroundTransparency = 1,
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = 153,
-		Parent = keyBadge,
-	})
-
-	local profileClose = make("TextButton", {
-		Text = "×",
+		Text = "Live session overview",
 		Font = Enum.Font.Gotham,
-		TextSize = 18,
+		TextSize = 10,
 		TextColor3 = C.TextDim,
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -12, 0.5, 0),
-		Size = UDim2.fromOffset(22, 22),
+		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
-		ZIndex = 153,
+		Position = UDim2.fromOffset(18, 34),
+		Size = UDim2.new(1, -36, 0, 15),
+		ZIndex = 152,
 		Parent = profileHeader,
 	})
 	make("Frame", {
-		Position = UDim2.new(0, 0, 1, -1),
-		Size = UDim2.new(1, 0, 0, 1),
+		Position = UDim2.new(0, 18, 1, -1),
+		Size = UDim2.new(1, -36, 0, 1),
 		BackgroundColor3 = C.Border,
 		ZIndex = 151,
 		Parent = profileHeader,
 	})
 
-	local avatarHolder = make("Frame", {
-		Position = UDim2.fromOffset(16, 72),
-		Size = UDim2.fromOffset(76, 76),
+	local identityCard = make("Frame", {
+		Position = UDim2.fromOffset(16, 82),
+		Size = UDim2.new(1, -32, 0, 116),
 		BackgroundColor3 = C.Element,
 		ZIndex = 151,
 		Parent = profilePanel,
+	})
+	corner(identityCard, 11)
+	stroke(identityCard, C.Border)
+
+	local avatarHolder = make("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 14, 0.5, 0),
+		Size = UDim2.fromOffset(76, 76),
+		BackgroundColor3 = C.Badge,
+		ZIndex = 152,
+		Parent = identityCard,
 	})
 	circle(avatarHolder)
 	stroke(avatarHolder, C.Border)
@@ -781,24 +780,32 @@ function Library:CreateWindow(opts)
 		Name = "Avatar",
 		Image = "",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(3, 3),
-		Size = UDim2.new(1, -6, 1, -6),
+		Position = UDim2.fromOffset(4, 4),
+		Size = UDim2.new(1, -8, 1, -8),
 		ScaleType = Enum.ScaleType.Crop,
-		ZIndex = 152,
+		ZIndex = 153,
 		Parent = avatarHolder,
 	})
 	circle(avatar)
 
-	local onlineDot = make("Frame", {
+	local onlineRing = make("Frame", {
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -1, 1, -1),
-		Size = UDim2.fromOffset(14, 14),
-		BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
+		Position = UDim2.new(1, 0, 1, 0),
+		Size = UDim2.fromOffset(18, 18),
+		BackgroundColor3 = C.Element,
 		ZIndex = 154,
 		Parent = avatarHolder,
 	})
+	circle(onlineRing)
+	local onlineDot = make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(10, 10),
+		BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
+		ZIndex = 155,
+		Parent = onlineRing,
+	})
 	circle(onlineDot)
-	stroke(onlineDot, C.CardBg)
 
 	make("TextLabel", {
 		Text = localPlayer and localPlayer.DisplayName or "Player",
@@ -808,10 +815,10 @@ function Library:CreateWindow(opts)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(108, 78),
-		Size = UDim2.new(1, -124, 0, 23),
+		Position = UDim2.fromOffset(105, 22),
+		Size = UDim2.new(1, -119, 0, 23),
 		ZIndex = 152,
-		Parent = profilePanel,
+		Parent = identityCard,
 	})
 	make("TextLabel", {
 		Text = localPlayer and ("@" .. localPlayer.Name) or "@unknown",
@@ -821,23 +828,23 @@ function Library:CreateWindow(opts)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(108, 103),
-		Size = UDim2.new(1, -124, 0, 16),
+		Position = UDim2.fromOffset(105, 47),
+		Size = UDim2.new(1, -119, 0, 16),
 		ZIndex = 152,
-		Parent = profilePanel,
+		Parent = identityCard,
 	})
 
 	local connectedBadge = make("Frame", {
-		Position = UDim2.fromOffset(108, 126),
-		Size = UDim2.fromOffset(88, 22),
-		BackgroundColor3 = C.Element,
+		Position = UDim2.fromOffset(105, 74),
+		Size = UDim2.fromOffset(92, 24),
+		BackgroundColor3 = C.BadgeIdle,
 		ZIndex = 152,
-		Parent = profilePanel,
+		Parent = identityCard,
 	})
-	corner(connectedBadge, 6)
+	corner(connectedBadge, 7)
 	local connectedDot = make("Frame", {
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 8, 0.5, 0),
+		Position = UDim2.new(0, 9, 0.5, 0),
 		Size = UDim2.fromOffset(6, 6),
 		BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
 		ZIndex = 153,
@@ -851,24 +858,63 @@ function Library:CreateWindow(opts)
 		TextColor3 = C.TextGray,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(21, 0),
-		Size = UDim2.new(1, -25, 1, 0),
+		Position = UDim2.fromOffset(22, 0),
+		Size = UDim2.new(1, -27, 1, 0),
 		ZIndex = 153,
 		Parent = connectedBadge,
 	})
 
+	make("TextLabel", {
+		Text = "ACCOUNT DETAILS",
+		Font = Enum.Font.GothamBold,
+		TextSize = 10,
+		TextColor3 = C.TextDim,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(18, 216),
+		Size = UDim2.new(1, -36, 0, 16),
+		ZIndex = 152,
+		Parent = profilePanel,
+	})
+
 	local details = make("Frame", {
-		Position = UDim2.fromOffset(16, 168),
-		Size = UDim2.new(1, -32, 0, 132),
+		Position = UDim2.fromOffset(16, 240),
+		Size = UDim2.new(1, -32, 0, 126),
 		BackgroundColor3 = C.Element,
 		ZIndex = 151,
 		Parent = profilePanel,
 	})
-	corner(details, 9)
+	corner(details, 11)
 	stroke(details, C.Border)
 
 	local function addProfileDetail(index, labelText, valueText)
-		local y = (index - 1) * 44
+		local y = (index - 1) * 42
+		local row = make("Frame", {
+			Position = UDim2.fromOffset(0, y),
+			Size = UDim2.new(1, 0, 0, 42),
+			BackgroundTransparency = 1,
+			ZIndex = 152,
+			Parent = details,
+		})
+		local icon = make("Frame", {
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 12, 0.5, 0),
+			Size = UDim2.fromOffset(24, 24),
+			BackgroundColor3 = C.BadgeIdle,
+			ZIndex = 153,
+			Parent = row,
+		})
+		corner(icon, 6)
+		make("TextLabel", {
+			Text = string.sub(labelText, 1, 1),
+			Font = Enum.Font.GothamBold,
+			TextSize = 9,
+			TextColor3 = C.TextGray,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1),
+			ZIndex = 154,
+			Parent = icon,
+		})
 		make("TextLabel", {
 			Text = labelText,
 			Font = Enum.Font.GothamMedium,
@@ -876,10 +922,10 @@ function Library:CreateWindow(opts)
 			TextColor3 = C.TextDim,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(12, y),
-			Size = UDim2.new(0.46, -12, 0, 44),
-			ZIndex = 152,
-			Parent = details,
+			Position = UDim2.fromOffset(46, 0),
+			Size = UDim2.new(0.46, -46, 1, 0),
+			ZIndex = 153,
+			Parent = row,
 		})
 		local valueLabel = make("TextLabel", {
 			Text = valueText,
@@ -889,18 +935,18 @@ function Library:CreateWindow(opts)
 			TextXAlignment = Enum.TextXAlignment.Right,
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			BackgroundTransparency = 1,
-			Position = UDim2.new(0.46, 0, 0, y),
-			Size = UDim2.new(0.54, -12, 0, 44),
-			ZIndex = 152,
-			Parent = details,
+			Position = UDim2.new(0.46, 0, 0, 0),
+			Size = UDim2.new(0.54, -14, 1, 0),
+			ZIndex = 153,
+			Parent = row,
 		})
 		if index < 3 then
 			make("Frame", {
-				Position = UDim2.new(0, 12, 0, y + 43),
-				Size = UDim2.new(1, -24, 0, 1),
+				Position = UDim2.new(0, 46, 1, -1),
+				Size = UDim2.new(1, -60, 0, 1),
 				BackgroundColor3 = C.Border,
-				ZIndex = 152,
-				Parent = details,
+				ZIndex = 153,
+				Parent = row,
 			})
 		end
 		return valueLabel
@@ -909,37 +955,6 @@ function Library:CreateWindow(opts)
 	addProfileDetail(1, "USER ID", localPlayer and tostring(localPlayer.UserId) or "N/A")
 	addProfileDetail(2, "ACCOUNT AGE", localPlayer and (tostring(localPlayer.AccountAge) .. " days") or "N/A")
 	local pingLabel = addProfileDetail(3, "PING", "-- ms")
-
-	local footer = make("Frame", {
-		Position = UDim2.fromOffset(16, 316),
-		Size = UDim2.new(1, -32, 0, 28),
-		BackgroundTransparency = 1,
-		ZIndex = 151,
-		Parent = profilePanel,
-	})
-	make("TextLabel", {
-		Text = "Press " .. profileKeyName .. " to close",
-		Font = Enum.Font.Gotham,
-		TextSize = 10,
-		TextColor3 = C.TextDim,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		BackgroundTransparency = 1,
-		Size = UDim2.new(0.7, 0, 1, 0),
-		ZIndex = 152,
-		Parent = footer,
-	})
-	make("TextLabel", {
-		Text = "SOLIS",
-		Font = Enum.Font.GothamBold,
-		TextSize = 9,
-		TextColor3 = C.TextDim,
-		TextXAlignment = Enum.TextXAlignment.Right,
-		BackgroundTransparency = 1,
-		Position = UDim2.new(0.7, 0, 0, 0),
-		Size = UDim2.new(0.3, 0, 1, 0),
-		ZIndex = 152,
-		Parent = footer,
-	})
 
 	local function setProfileVisible(visible, instant)
 		profileOpen = visible == true
@@ -960,15 +975,6 @@ function Library:CreateWindow(opts)
 		return profileOpen
 	end
 
-	profileClose.MouseEnter:Connect(function()
-		tween(profileClose, { TextColor3 = C.White })
-	end)
-	profileClose.MouseLeave:Connect(function()
-		tween(profileClose, { TextColor3 = C.TextDim })
-	end)
-	profileClose.MouseButton1Click:Connect(function()
-		setProfileVisible(false)
-	end)
 
 	if localPlayer then
 		task.spawn(function()

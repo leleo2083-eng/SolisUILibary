@@ -1,4 +1,4 @@
--- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; no visible close controls.
+-- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; single-image FPS polyline.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -46,6 +46,7 @@ local GuiService       = game:GetService("GuiService")
 local Players          = game:GetService("Players")
 local Stats            = game:GetService("Stats")
 local RunService       = game:GetService("RunService")
+local AssetService     = game:GetService("AssetService")
 
 local DEFAULT_LOGO = "rbxassetid://105894109382235"
 local TWEEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -391,7 +392,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-bottom-clean",
+	Version = "2.0.3-profile-fps-single-line",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -1134,24 +1135,122 @@ function Library:CreateWindow(opts)
 		})
 	end
 
-	-- Roblox GUI has no native polyline primitive. These thin overlapping
-	-- segments have square ends and render visually as one continuous line.
-	local maxFpsSamples = 32
+	-- The live curve is rasterized into one EditableImage and displayed by one
+	-- ImageLabel. This removes the visible joins created by rotated Frame parts.
+	-- A Frame fallback is kept for clients that do not expose EditableImage.
+	local maxFpsSamples = 48
 	local fpsSamples = {}
+	local graphPixelSize = Vector2.new(
+		math.max(2, math.floor(performanceWidth - 48)),
+		64
+	)
+	local graphImage = make("ImageLabel", {
+		Name = "ContinuousFpsLine",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.fromScale(1, 1),
+		ScaleType = Enum.ScaleType.Stretch,
+		ResampleMode = Enum.ResamplerMode.Default,
+		ZIndex = 153,
+		Parent = graphPlot,
+	})
+
+	local fpsEditableImage = nil
 	local graphSegments = {}
-	for index = 1, maxFpsSamples - 1 do
-		local segment = make("Frame", {
-			Name = "Line" .. index,
-			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.fromOffset(0, 0),
-			Size = UDim2.fromOffset(0, 1),
-			BackgroundColor3 = C.White,
-			BorderSizePixel = 0,
-			Visible = false,
-			ZIndex = 153,
-			Parent = graphPlot,
-		})
-		graphSegments[index] = segment
+	local editableImageReady = false
+	local supportsAntiAliasingArgument = true
+
+	local function ensureFallbackSegments()
+		if #graphSegments > 0 then
+			return
+		end
+		graphImage.Visible = false
+		for index = 1, maxFpsSamples - 1 do
+			local segment = make("Frame", {
+				Name = "FallbackLine" .. index,
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = UDim2.fromOffset(0, 0),
+				Size = UDim2.fromOffset(0, 1),
+				BackgroundColor3 = C.White,
+				BorderSizePixel = 0,
+				Visible = false,
+				ZIndex = 153,
+				Parent = graphPlot,
+			})
+			graphSegments[index] = segment
+		end
+	end
+
+	do
+		local ok, editable = pcall(function()
+			local image = AssetService:CreateEditableImage({ Size = graphPixelSize })
+			graphImage.ImageContent = Content.fromObject(image)
+			return image
+		end)
+		if ok and editable then
+			fpsEditableImage = editable
+			editableImageReady = true
+		else
+			ensureFallbackSegments()
+		end
+	end
+
+	local function clearEditableGraph()
+		if not editableImageReady or not fpsEditableImage then
+			return false
+		end
+		local ok = pcall(function()
+			fpsEditableImage:DrawRectangle(
+				Vector2.zero,
+				graphPixelSize,
+				Color3.new(0, 0, 0),
+				1,
+				Enum.ImageCombineType.Overwrite
+			)
+		end)
+		if not ok then
+			editableImageReady = false
+			ensureFallbackSegments()
+		end
+		return ok
+	end
+
+	local function drawEditableGraphLine(pointA, pointB)
+		if not editableImageReady or not fpsEditableImage then
+			return false
+		end
+
+		if supportsAntiAliasingArgument then
+			local ok = pcall(function()
+				fpsEditableImage:DrawLine(
+					pointA,
+					pointB,
+					C.White,
+					0,
+					Enum.ImageCombineType.Overwrite,
+					Enum.AntiAliasing.Enabled
+				)
+			end)
+			if ok then
+				return true
+			end
+			supportsAntiAliasingArgument = false
+		end
+
+		local ok = pcall(function()
+			fpsEditableImage:DrawLine(
+				pointA,
+				pointB,
+				C.White,
+				0,
+				Enum.ImageCombineType.Overwrite
+			)
+		end)
+		if not ok then
+			editableImageReady = false
+			ensureFallbackSegments()
+		end
+		return ok
 	end
 
 	local statsStrip = make("Frame", {
@@ -1203,7 +1302,11 @@ function Library:CreateWindow(opts)
 	local function redrawFpsGraph()
 		local sampleCount = #fpsSamples
 		local plotSize = graphPlot.AbsoluteSize
+
 		if sampleCount < 2 or plotSize.X <= 1 or plotSize.Y <= 1 then
+			if editableImageReady then
+				clearEditableGraph()
+			end
 			for _, segment in ipairs(graphSegments) do
 				segment.Visible = false
 			end
@@ -1216,8 +1319,38 @@ function Library:CreateWindow(opts)
 		end
 		graphMax = math.max(30, math.ceil(graphMax / 30) * 30)
 
-		local usableHeight = math.max(1, plotSize.Y - 8)
 		local denominator = math.max(sampleCount - 1, 1)
+
+		if editableImageReady and clearEditableGraph() then
+			local width = graphPixelSize.X
+			local height = graphPixelSize.Y
+			local usableWidth = math.max(1, width - 2)
+			local usableHeight = math.max(1, height - 6)
+
+			for index = 1, sampleCount - 1 do
+				local firstValue = fpsSamples[index]
+				local secondValue = fpsSamples[index + 1]
+				local pointA = Vector2.new(
+					1 + ((index - 1) / denominator) * usableWidth,
+					3 + (1 - math.clamp(firstValue / graphMax, 0, 1)) * usableHeight
+				)
+				local pointB = Vector2.new(
+					1 + (index / denominator) * usableWidth,
+					3 + (1 - math.clamp(secondValue / graphMax, 0, 1)) * usableHeight
+				)
+				if not drawEditableGraphLine(pointA, pointB) then
+					break
+				end
+			end
+
+			if editableImageReady then
+				return
+			end
+		end
+
+		-- Compatibility fallback. It is only used when EditableImage is blocked
+		-- by the client; endpoints overlap so the curve still has no gaps.
+		local usableHeight = math.max(1, plotSize.Y - 8)
 		for index, segment in ipairs(graphSegments) do
 			if index < sampleCount then
 				local firstValue = fpsSamples[index]
@@ -1230,7 +1363,7 @@ function Library:CreateWindow(opts)
 				local dy = y2 - y1
 				local length = math.sqrt(dx * dx + dy * dy)
 				segment.Position = UDim2.fromOffset(x1, y1)
-				segment.Size = UDim2.fromOffset(length + 1.5, 1.5)
+				segment.Size = UDim2.fromOffset(length + 2, 1)
 				segment.Rotation = math.deg(math.atan2(dy, dx))
 				segment.Visible = true
 			else
@@ -1336,6 +1469,7 @@ function Library:CreateWindow(opts)
 		_notificationOrder = 0,
 		_profilePanel = profilePanel,
 		_performancePanel = performancePanel,
+		_fpsEditableImage = fpsEditableImage,
 		_profileKey = profileKey,
 		_profileOpen = profileOpen,
 		_setProfileVisible = setProfileVisible,
@@ -1569,6 +1703,13 @@ function Window:Destroy()
 		connection:Disconnect()
 	end
 	table.clear(self._connections or {})
+
+	if self._fpsEditableImage then
+		pcall(function()
+			self._fpsEditableImage:Destroy()
+		end)
+		self._fpsEditableImage = nil
+	end
 
 	local index = table.find(Library._windows, self.ScreenGui)
 	if index then

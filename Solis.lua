@@ -1,6 +1,6 @@
 --[[
 	Solis UI — single-file Roblox UI library
-	Pure Instance.new with a clean branded layout and compact notifications.
+	Pure Instance.new with a built-in branded layout and toast notifications.
 	The default logo uses Roblox asset 105894109382235 and can be overridden.
 
 	GitHub import:
@@ -17,7 +17,7 @@
 		Sub:AddButton({ Name, Callback })
 		Sub:AddInput({ Name, Description, Placeholder, Default, Callback })
 		Sub:AddDropdown({ Name, Description, Options, Default, Callback })
-		Sub:AddSlider({ Name, Min, Max, Default, Step, Suffix, Callback })
+		Sub:AddSlider({ Name, Min, Max, Default, Suffix, Callback })
 
 	Toggle, input, dropdown, and slider handles support :Set(value) and :Get().
 
@@ -42,12 +42,11 @@
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local GuiService       = game:GetService("GuiService")
-local TextService      = game:GetService("TextService")
 local Players          = game:GetService("Players")
 
 local DEFAULT_LOGO = "rbxassetid://105894109382235"
-local TWEEN = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local NOTIFICATION_TWEEN = TweenInfo.new(0.16, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local TWEEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local NOTIFICATION_TWEEN = TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
 local NOTIFICATION_STYLES = {
 	info = {
@@ -280,18 +279,6 @@ local function getNotificationStyle(kind)
 	return NOTIFICATION_STYLES[key] or NOTIFICATION_STYLES.info
 end
 
-local function getTextHeight(text, textSize, width, font)
-	local ok, bounds = pcall(function()
-		return TextService:GetTextSize(
-			tostring(text),
-			textSize,
-			font or Enum.Font.Gotham,
-			Vector2.new(math.max(width, 1), 1000)
-		)
-	end)
-	return ok and bounds.Y or textSize + 2
-end
-
 -- True only if the gui and every GuiObject ancestor is visible.
 local function guiVisible(gui)
 	local node = gui
@@ -400,7 +387,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.1.0-clean",
+	Version = "2.0.3-clean",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -512,7 +499,7 @@ function Library:CreateWindow(opts)
 	opts = opts or {}
 
 	local logoAsset = normalizeAssetId(opts.Logo or DEFAULT_LOGO)
-	local windowSize = opts.Size or UDim2.fromOffset(720, 480)
+	local windowSize = opts.Size or UDim2.fromOffset(700, 490)
 	local windowPosition = opts.Position or UDim2.fromScale(0.5, 0.5)
 
 	local screenGui = make("ScreenGui", {
@@ -546,41 +533,44 @@ function Library:CreateWindow(opts)
 		ZIndex = 2,
 		Parent = screenGui,
 	})
-	corner(main, 10)
+	corner(main, 12)
 	stroke(main, C.Border)
 
-	-- Interactive regions are excluded from window dragging.
+
+	-- Regions that must never start a window drag: nav buttons, sub-tab
+	-- pills, content pages and open dropdown lists register themselves here.
 	local noDrag = {}
 	makeDraggable(main, noDrag)
 
 	-- Left sidebar -----------------------------------------------------------
-	local sidebarWidth = 176
 	local sidebar = make("Frame", {
-		Size = UDim2.new(0, sidebarWidth, 1, 0),
-		BackgroundColor3 = C.CardBg,
+		Size = UDim2.new(0, 190, 1, 0),
+		BackgroundTransparency = 1,
 		Parent = main,
 	})
 
 	local brand = make("Frame", {
 		Name = "Brand",
-		Size = UDim2.new(1, 0, 0, 72),
-		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(12, 12),
+		Size = UDim2.new(1, -24, 0, 54),
+		BackgroundColor3 = C.CardBg,
 		Parent = sidebar,
 	})
+	corner(brand, 10)
+	stroke(brand, C.Border)
 
 	local logoHolder = make("Frame", {
-		Position = UDim2.fromOffset(14, 18),
-		Size = UDim2.fromOffset(34, 34),
+		Position = UDim2.fromOffset(9, 9),
+		Size = UDim2.fromOffset(36, 36),
 		BackgroundColor3 = C.Element,
 		Parent = brand,
 	})
-	corner(logoHolder, 8)
-	stroke(logoHolder, C.Border)
+	corner(logoHolder, 9)
 
 	make("TextLabel", {
 		Text = "S",
 		Font = Enum.Font.GothamBold,
-		TextSize = 14,
+		TextSize = 15,
 		TextColor3 = C.White,
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
@@ -605,47 +595,61 @@ function Library:CreateWindow(opts)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(58, 19),
-		Size = UDim2.new(1, -70, 0, 16),
+		Position = UDim2.fromOffset(54, 9),
+		Size = UDim2.new(1, -62, 0, 17),
 		Parent = brand,
 	})
 
 	make("TextLabel", {
-		Text = opts.BrandSubtitle or ("UI LIBRARY  •  v" .. Library.Version),
+		Text = opts.BrandSubtitle or ("SOLIS LIBRARY  •  v" .. Library.Version),
 		Font = Enum.Font.GothamMedium,
 		TextSize = 9,
 		TextColor3 = C.TextDim,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(58, 37),
-		Size = UDim2.new(1, -70, 0, 12),
+		Position = UDim2.fromOffset(54, 28),
+		Size = UDim2.new(1, -62, 0, 13),
 		Parent = brand,
 	})
 
-	make("Frame", {
-		Position = UDim2.new(0, 12, 0, 71),
-		Size = UDim2.new(1, -24, 0, 1),
-		BackgroundColor3 = C.Border,
-		Parent = sidebar,
-	})
-
 	local navList = make("Frame", {
-		Position = UDim2.fromOffset(0, 84),
-		Size = UDim2.new(1, 0, 1, -96),
+		Position = UDim2.fromOffset(0, 78),
+		Size = UDim2.new(1, 0, 1, -112),
 		BackgroundTransparency = 1,
 		Parent = sidebar,
 	})
-	pad(navList, 0, 8, 10, 10)
+	pad(navList, 0, 8, 12, 12)
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 5),
+		Padding = UDim.new(0, 7),
 		Parent = navList,
 	})
 
+	local statusDot = make("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 16, 1, -19),
+		Size = UDim2.fromOffset(6, 6),
+		BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
+		Parent = sidebar,
+	})
+	circle(statusDot)
+	make("TextLabel", {
+		Text = opts.StatusText or "Solis is ready",
+		Font = Enum.Font.GothamMedium,
+		TextSize = 10,
+		TextColor3 = C.TextDim,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		BackgroundTransparency = 1,
+		Position = UDim2.new(0, 28, 1, -27),
+		Size = UDim2.new(1, -40, 0, 16),
+		Parent = sidebar,
+	})
+
+	-- Vertical separator
 	make("Frame", {
-		Position = UDim2.fromOffset(sidebarWidth, 0),
+		Position = UDim2.fromOffset(190, 0),
 		Size = UDim2.new(0, 1, 1, 0),
 		BackgroundColor3 = C.Border,
 		Parent = main,
@@ -653,18 +657,18 @@ function Library:CreateWindow(opts)
 
 	-- Right content area -----------------------------------------------------
 	local content = make("Frame", {
-		Position = UDim2.fromOffset(sidebarWidth + 1, 0),
-		Size = UDim2.new(1, -(sidebarWidth + 1), 1, 0),
+		Position = UDim2.fromOffset(191, 0),
+		Size = UDim2.new(1, -191, 1, 0),
 		BackgroundTransparency = 1,
 		Parent = main,
 	})
 
-	-- Compact notifications stay outside Main so they are never clipped.
+	-- Notifications are outside the main window so they remain unclipped.
 	local notificationHolder = make("Frame", {
 		Name = "Notifications",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -16, 0, 16),
-		Size = UDim2.new(0, 292, 1, -32),
+		Size = UDim2.new(0, 300, 1, -32),
 		BackgroundTransparency = 1,
 		ZIndex = 200,
 		Parent = screenGui,
@@ -691,8 +695,11 @@ function Library:CreateWindow(opts)
 		_activeTab = nil,
 	}, Window)
 
-	-- Bind Notify directly so it also survives loaders that copy the table and
-	-- drop its metatable. Both colon and dot call styles remain supported.
+	-- Bind Notify directly onto every returned window as well as exposing it
+	-- through the Window metatable. Some executors/loaders have returned a
+	-- plain copied table and dropped its metatable, which caused
+	-- `attempt to call missing method 'Notify' of table`. This closure keeps
+	-- notifications working with both colon and dot call styles even then.
 	window.Notify = function(selfOrOptions, maybeOptions)
 		local notificationOptions
 		if selfOrOptions == window then
@@ -702,7 +709,7 @@ function Library:CreateWindow(opts)
 		end
 		return Window.Notify(window, notificationOptions)
 	end
-	window.Notification = window.Notify
+	window.Notification = window.Notify -- backwards-compatible alias
 
 	table.insert(Library._windowObjects, window)
 
@@ -749,22 +756,22 @@ function Window:Notify(opts)
 
 	local titleText = tostring(opts.Title or style.Name)
 	local contentText = tostring(opts.Content or opts.Description or opts.Message or "Notification")
-	local contentHeight = math.clamp(getTextHeight(contentText, 11, 260, Enum.Font.Gotham), 14, 56)
-	local cardHeight = 38 + contentHeight
 
 	local slot = make("Frame", {
 		Name = "NotificationSlot",
-		Size = UDim2.new(1, 0, 0, cardHeight),
+		Size = UDim2.new(1, 0, 0, 62),
 		BackgroundTransparency = 1,
 		LayoutOrder = self._notificationOrder,
 		ZIndex = 200,
 		Parent = holder,
 	})
 
+	-- Intentionally flat and minimal: no icon, logo, shadow, accent stripe,
+	-- oversized badge, or decorative animation.
 	local card = make("CanvasGroup", {
 		Name = style.Name .. "Notification",
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 8, 0, 0),
+		Position = UDim2.new(1, 12, 0, 0),
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = C.CardBg,
 		GroupTransparency = 1,
@@ -772,7 +779,7 @@ function Window:Notify(opts)
 		ZIndex = 201,
 		Parent = slot,
 	})
-	corner(card, 7)
+	corner(card, 6)
 	stroke(card, C.Border)
 
 	make("TextLabel", {
@@ -783,8 +790,8 @@ function Window:Notify(opts)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(12, 8),
-		Size = UDim2.new(1, -44, 0, 16),
+		Position = UDim2.fromOffset(12, 9),
+		Size = UDim2.new(1, -42, 0, 16),
 		ZIndex = 202,
 		Parent = card,
 	})
@@ -798,8 +805,8 @@ function Window:Notify(opts)
 		TextYAlignment = Enum.TextYAlignment.Top,
 		TextWrapped = true,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(12, 27),
-		Size = UDim2.new(1, -24, 0, contentHeight),
+		Position = UDim2.fromOffset(12, 29),
+		Size = UDim2.new(1, -24, 0, 24),
 		ZIndex = 202,
 		Parent = card,
 	})
@@ -810,8 +817,8 @@ function Window:Notify(opts)
 		TextSize = 14,
 		TextColor3 = C.TextDim,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -7, 0, 4),
-		Size = UDim2.fromOffset(22, 22),
+		Position = UDim2.new(1, -7, 0, 5),
+		Size = UDim2.fromOffset(20, 20),
 		BackgroundTransparency = 1,
 		ZIndex = 204,
 		Parent = card,
@@ -824,10 +831,10 @@ function Window:Notify(opts)
 		if closed then return end
 		closed = true
 		TweenService:Create(card, NOTIFICATION_TWEEN, {
-			Position = UDim2.new(1, 8, 0, 0),
+			Position = UDim2.new(1, 12, 0, 0),
 			GroupTransparency = 1,
 		}):Play()
-		task.delay(0.18, function()
+		task.delay(0.2, function()
 			if slot and slot.Parent then
 				slot:Destroy()
 			end
@@ -888,11 +895,10 @@ function Window:_selectTab(tab)
 
 	if prev then
 		prev._page.Visible = false
-		paint(prev._nav, "BackgroundColor3", "CardBg")
+		paint(prev._nav, "BackgroundColor3", "WindowBg")
 		paint(prev._navLabel, "TextColor3", "TextGray")
 		paint(prev._navBadge, "BackgroundColor3", "BadgeIdle")
 		paint(prev._navIcon, "TextColor3", "TextGray")
-		tween(prev._navIndicator, { BackgroundTransparency = 1 })
 	end
 
 	tab._page.Visible = true
@@ -900,7 +906,6 @@ function Window:_selectTab(tab)
 	paint(tab._navLabel, "TextColor3", "White")
 	paint(tab._navBadge, "BackgroundColor3", "Badge")
 	paint(tab._navIcon, "TextColor3", "White")
-	tween(tab._navIndicator, { BackgroundTransparency = 0 })
 end
 
 function Window:AddTab(opts)
@@ -910,35 +915,26 @@ function Window:AddTab(opts)
 	local icon = opts.Icon or string.upper(string.sub(name, 1, 1))
 	local window = self
 
+	-- Sidebar nav button -------------------------------------------------
 	local nav = make("TextButton", {
 		Text = "",
-		Size = UDim2.new(1, 0, 0, 38),
-		BackgroundColor3 = C.CardBg,
+		Size = UDim2.new(1, 0, 0, 40),
+		BackgroundColor3 = C.WindowBg,
 		Parent = self._navList,
 	})
 	autoOrder(nav)
-	corner(nav, 7)
+	corner(nav, 8)
+	stroke(nav, C.Border)
 	table.insert(window._noDrag, nav)
-
-	local navIndicator = make("Frame", {
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 0, 0.5, 0),
-		Size = UDim2.fromOffset(2, 18),
-		BackgroundColor3 = C.White,
-		BackgroundTransparency = 1,
-		Parent = nav,
-	})
-	corner(navIndicator, 2)
 
 	local navBadge = make("Frame", {
 		Size = UDim2.fromOffset(24, 24),
-		Position = UDim2.new(0, 9, 0.5, 0),
+		Position = UDim2.new(0, 8, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = C.BadgeIdle,
 		Parent = nav,
 	})
-	corner(navBadge, 6)
-
+	circle(navBadge)
 	local navIcon = make("TextLabel", {
 		Text = icon,
 		Font = Enum.Font.GothamBold,
@@ -952,16 +948,16 @@ function Window:AddTab(opts)
 	local navLabel = make("TextLabel", {
 		Text = name,
 		Font = Enum.Font.GothamMedium,
-		TextSize = 12,
+		TextSize = 13,
 		TextColor3 = C.TextGray,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(42, 0),
-		Size = UDim2.new(1, -50, 1, 0),
+		Position = UDim2.fromOffset(40, 0),
+		Size = UDim2.new(1, -48, 1, 0),
 		Parent = nav,
 	})
 
+	-- Tab page -------------------------------------------------------------
 	local page = make("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -975,45 +971,60 @@ function Window:AddTab(opts)
 		Parent = page,
 	})
 
+	local badge = make("Frame", {
+		Size = UDim2.fromOffset(28, 28),
+		Position = UDim2.fromOffset(16, 16),
+		BackgroundColor3 = C.Badge,
+		Parent = header,
+	})
+	circle(badge)
+	make("TextLabel", {
+		Text = icon,
+		Font = Enum.Font.GothamBold,
+		TextSize = 11,
+		TextColor3 = C.White,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		Parent = badge,
+	})
+
 	make("TextLabel", {
 		Text = name,
 		Font = Enum.Font.GothamBold,
-		TextSize = 15,
+		TextSize = 14,
 		TextColor3 = C.White,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(18, 14),
-		Size = UDim2.new(1, -36, 0, 18),
+		Position = UDim2.fromOffset(54, 17),
+		Size = UDim2.new(1, -70, 0, 14),
 		Parent = header,
 	})
-
 	make("TextLabel", {
 		Text = opts.Subtitle or "",
 		Font = Enum.Font.Gotham,
 		TextSize = 11,
 		TextColor3 = C.TextDim,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(18, 36),
-		Size = UDim2.new(1, -36, 0, 14),
+		Position = UDim2.fromOffset(54, 33),
+		Size = UDim2.new(1, -70, 0, 12),
 		Parent = header,
 	})
 
 	local pillRow = make("Frame", {
-		Position = UDim2.fromOffset(18, 57),
-		Size = UDim2.new(1, -36, 0, 24),
+		Position = UDim2.fromOffset(16, 54),
+		Size = UDim2.new(1, -32, 0, 24),
 		BackgroundTransparency = 1,
 		Parent = header,
 	})
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 6),
+		Padding = UDim.new(0, 8),
 		Parent = pillRow,
 	})
 
+	-- Divider under the header section
 	make("Frame", {
 		Position = UDim2.new(0, 0, 1, -1),
 		Size = UDim2.new(1, 0, 0, 1),
@@ -1034,7 +1045,6 @@ function Window:AddTab(opts)
 		_navLabel = navLabel,
 		_navBadge = navBadge,
 		_navIcon = navIcon,
-		_navIndicator = navIndicator,
 		_page = page,
 		_pillRow = pillRow,
 		_pagesHolder = pagesHolder,
@@ -1051,7 +1061,7 @@ function Window:AddTab(opts)
 		end
 	end)
 	nav.MouseLeave:Connect(function()
-		tween(nav, { BackgroundColor3 = window._activeTab == tab and C.NavActive or C.CardBg })
+		tween(nav, { BackgroundColor3 = window._activeTab == tab and C.NavActive or C.WindowBg })
 	end)
 
 	table.insert(self._tabs, tab)
@@ -1088,7 +1098,7 @@ function Tab:AddSubTab(name)
 	local pill = make("TextButton", {
 		Text = name,
 		Font = Enum.Font.GothamMedium,
-		TextSize = 11,
+		TextSize = 12,
 		TextColor3 = C.TextGray,
 		BackgroundColor3 = C.WindowBg,
 		Size = UDim2.new(0, 0, 0, 24),
@@ -1097,7 +1107,7 @@ function Tab:AddSubTab(name)
 	})
 	autoOrder(pill)
 	corner(pill, 6)
-	pad(pill, 0, 0, 11, 11)
+	pad(pill, 0, 0, 12, 12)
 	table.insert(tab._window._noDrag, pill)
 
 	local page = make("ScrollingFrame", {
@@ -1111,16 +1121,21 @@ function Tab:AddSubTab(name)
 		ScrollBarImageColor3 = C.Border,
 		Parent = self._pagesHolder,
 	})
-	pad(page, 14, 16, 16, 16)
+	pad(page, 12, 16, 16, 16)
 	table.insert(tab._window._noDrag, page)
 
-	-- Components are individual flat cards rather than one large nested panel.
+	-- Scale widths inside a ScrollingFrame are relative to the canvas, which
+	-- ignores the page's UIPadding — subtract both side paddings explicitly
+	-- or the card overflows and clips at the right edge.
 	local card = make("Frame", {
 		Size = UDim2.new(1, -32, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
+		BackgroundColor3 = C.CardBg,
 		Parent = page,
 	})
+	corner(card, 10)
+	stroke(card)
+	pad(card, 14, 14, 16, 16)
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1162,43 +1177,37 @@ end
 local function newRow(card, height)
 	local row = make("Frame", {
 		Size = UDim2.new(1, 0, 0, height),
-		BackgroundColor3 = C.CardBg,
+		BackgroundTransparency = 1,
 		Parent = card,
 	})
 	autoOrder(row)
-	corner(row, 8)
-	stroke(row, C.Border)
 	return row
 end
 
--- Label and optional description with consistent inner spacing.
+-- Medium white label + dim description, leaving `rightReserve` px for the control.
 local function rowLabels(row, name, desc, rightReserve)
 	rightReserve = rightReserve or 0
-	local hasDescription = desc ~= nil and tostring(desc) ~= ""
 	make("TextLabel", {
-		Text = tostring(name),
+		Text = name,
 		Font = Enum.Font.GothamMedium,
-		TextSize = 12,
+		TextSize = 13,
 		TextColor3 = C.White,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = hasDescription and UDim2.fromOffset(12, 8) or UDim2.fromOffset(12, 0),
-		Size = hasDescription and UDim2.new(1, -(rightReserve + 24), 0, 15)
-			or UDim2.new(1, -(rightReserve + 24), 1, 0),
+		Position = UDim2.fromOffset(0, 0),
+		Size = desc and UDim2.new(1, -rightReserve, 0, 14) or UDim2.new(1, -rightReserve, 1, 0),
 		Parent = row,
 	})
-	if hasDescription then
+	if desc then
 		make("TextLabel", {
-			Text = tostring(desc),
+			Text = desc,
 			Font = Enum.Font.Gotham,
-			TextSize = 10,
+			TextSize = 11,
 			TextColor3 = C.TextDim,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			TextTruncate = Enum.TextTruncate.AtEnd,
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(12, 26),
-			Size = UDim2.new(1, -(rightReserve + 24), 0, 13),
+			Position = UDim2.fromOffset(0, 16),
+			Size = UDim2.new(1, -rightReserve, 0, 12),
 			Parent = row,
 		})
 	end
@@ -1207,23 +1216,22 @@ end
 function SubTab:AddToggle(opts)
 	opts = opts or {}
 	local value = opts.Default == true
-	local rowHeight = opts.Description and 48 or 38
 
-	local row = newRow(self._card, rowHeight)
-	rowLabels(row, opts.Name or "Toggle", opts.Description, 48)
+	local row = newRow(self._card, 30)
+	rowLabels(row, opts.Name or "Toggle", opts.Description, 44)
 
 	local pill = make("TextButton", {
 		Text = "",
-		Size = UDim2.fromOffset(36, 20),
+		Size = UDim2.fromOffset(34, 18),
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -12, 0.5, 0),
+		Position = UDim2.new(1, 0, 0.5, 0),
 		BackgroundColor3 = C.Badge,
 		Parent = row,
 	})
 	circle(pill)
 
 	local knob = make("Frame", {
-		Size = UDim2.fromOffset(16, 16),
+		Size = UDim2.fromOffset(14, 14),
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 2, 0.5, 0),
 		BackgroundColor3 = C.KnobOff,
@@ -1268,19 +1276,16 @@ function SubTab:AddButton(opts)
 		Text = opts.Name or "Button",
 		Font = Enum.Font.GothamMedium,
 		TextSize = 12,
-		TextColor3 = C.White,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Size = UDim2.new(1, 0, 0, 38),
-		BackgroundColor3 = C.CardBg,
+		TextColor3 = C.TextGray,
+		Size = UDim2.new(1, 0, 0, 28),
+		BackgroundColor3 = C.Element,
 		Parent = self._card,
 	})
 	autoOrder(btn)
-	corner(btn, 8)
-	stroke(btn, C.Border)
-	pad(btn, 0, 0, 12, 12)
+	corner(btn, 6)
 
 	btn.MouseEnter:Connect(function() tween(btn, { BackgroundColor3 = C.ElementHover }) end)
-	btn.MouseLeave:Connect(function() tween(btn, { BackgroundColor3 = C.CardBg }) end)
+	btn.MouseLeave:Connect(function() tween(btn, { BackgroundColor3 = C.Element }) end)
 	btn.MouseButton1Click:Connect(function()
 		fire(opts.Callback)
 	end)
@@ -1290,28 +1295,25 @@ end
 
 function SubTab:AddInput(opts)
 	opts = opts or {}
-	local width = math.max(100, tonumber(opts.Width) or 150)
-	local rowHeight = opts.Description and 48 or 38
 
-	local row = newRow(self._card, rowHeight)
-	rowLabels(row, opts.Name or "Input", opts.Description, width + 12)
+	local row = newRow(self._card, 30)
+	rowLabels(row, opts.Name or "Input", opts.Description, 120)
 
 	local holder = make("Frame", {
-		Size = UDim2.fromOffset(width, 26),
+		Size = UDim2.fromOffset(110, 22),
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -12, 0.5, 0),
+		Position = UDim2.new(1, 0, 0.5, 0),
 		BackgroundColor3 = C.Element,
 		Parent = row,
 	})
 	corner(holder, 6)
-	local holderStroke = stroke(holder, C.Border)
 
 	local box = make("TextBox", {
-		Text = tostring(opts.Default or ""),
+		Text = opts.Default or "",
 		PlaceholderText = opts.Placeholder or "...",
 		PlaceholderColor3 = C.Placeholder,
 		Font = Enum.Font.Gotham,
-		TextSize = 11,
+		TextSize = 12,
 		TextColor3 = C.TextGray,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
@@ -1324,16 +1326,12 @@ function SubTab:AddInput(opts)
 
 	inputIcon(holder)
 
-	box.Focused:Connect(function()
-		tween(holderStroke, { Color = C.TextDim })
-	end)
 	box.FocusLost:Connect(function(enterPressed)
-		tween(holderStroke, { Color = C.Border })
 		fire(opts.Callback, box.Text, enterPressed)
 	end)
 
 	return {
-		Set = function(_, value) box.Text = tostring(value) end,
+		Set = function(_, text) box.Text = tostring(text) end,
 		Get = function() return box.Text end,
 	}
 end
@@ -1342,33 +1340,29 @@ function SubTab:AddDropdown(opts)
 	opts = opts or {}
 	local options = opts.Options or {}
 	local value = opts.Default or options[1] or ""
-	local width = math.max(100, tonumber(opts.Width) or 130)
-	local rowHeight = opts.Description and 48 or 38
 
-	local row = newRow(self._card, rowHeight)
-	rowLabels(row, opts.Name or "Dropdown", opts.Description, width + 12)
+	local row = newRow(self._card, 30)
+	rowLabels(row, opts.Name or "Dropdown", opts.Description, 90)
 
 	local btn = make("TextButton", {
 		Text = "",
-		Size = UDim2.fromOffset(width, 26),
+		Size = UDim2.fromOffset(80, 22),
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -12, 0.5, 0),
+		Position = UDim2.new(1, 0, 0.5, 0),
 		BackgroundColor3 = C.Element,
 		Parent = row,
 	})
 	corner(btn, 6)
-	stroke(btn, C.Border)
 
 	local valueLabel = make("TextLabel", {
-		Text = tostring(value),
+		Text = value,
 		Font = Enum.Font.Gotham,
-		TextSize = 11,
+		TextSize = 12,
 		TextColor3 = C.TextGray,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
 		Position = UDim2.fromOffset(8, 0),
-		Size = UDim2.new(1, -28, 1, 0),
+		Size = UDim2.new(1, -26, 1, 0),
 		Parent = btn,
 	})
 
@@ -1377,26 +1371,22 @@ function SubTab:AddDropdown(opts)
 	local window = self._window
 	local subPage = self._page
 	local tabPage = self._tab._page
-	local optionHeight = 26
-	local visibleOptions = math.min(#options, 8)
-	local listHeight = visibleOptions * optionHeight + math.max(visibleOptions - 1, 0) * 2 + 8
 
-	local list = make("ScrollingFrame", {
+	local listHeight = #options * 22 + math.max(#options - 1, 0) * 2 + 8
+
+	-- The list lives at ScreenGui level: a ScrollingFrame always clips its
+	-- descendants, so an in-card overlay would be cut off at the viewport.
+	local list = make("Frame", {
 		Visible = false,
-		Active = true,
+		Active = true, -- sink clicks landing on the padding between options
 		Position = UDim2.fromOffset(0, 0),
-		Size = UDim2.new(0, width, 0, 0),
-		CanvasSize = UDim2.new(0, 0, 0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = #options > 8 and 2 or 0,
-		ScrollBarImageColor3 = C.Border,
+		Size = UDim2.new(0, 80, 0, 0),
 		BackgroundColor3 = C.Element,
 		ClipsDescendants = true,
 		ZIndex = 100,
 		Parent = window.ScreenGui,
 	})
-	corner(list, 7)
+	corner(list, 6)
 	stroke(list)
 	pad(list, 4, 4, 4, 4)
 	make("UIListLayout", {
@@ -1411,15 +1401,13 @@ function SubTab:AddDropdown(opts)
 	local closeGen = 0
 	local openConns = {}
 
+	-- AbsolutePosition is reported in inset-adjusted space, while offsets
+	-- inside an IgnoreGuiInset ScreenGui are physical screen pixels, so the
+	-- topbar inset must be added back when converting.
 	local function reposition()
 		local inset = GuiService:GetGuiInset()
 		local p, s = btn.AbsolutePosition, btn.AbsoluteSize
-		local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
-		local x = p.X + inset.X + s.X - width
-		local belowY = p.Y + inset.Y + s.Y + 4
-		local aboveY = p.Y + inset.Y - listHeight - 4
-		local y = belowY + listHeight <= viewport.Y - 8 and belowY or math.max(8, aboveY)
-		list.Position = UDim2.fromOffset(x, y)
+		list.Position = UDim2.fromOffset(p.X + inset.X + s.X - 80, p.Y + inset.Y + s.Y + 4)
 	end
 
 	local function setOpen(o)
@@ -1429,7 +1417,10 @@ function SubTab:AddDropdown(opts)
 		if open then
 			reposition()
 			list.Visible = true
-			tween(list, { Size = UDim2.new(0, width, 0, listHeight) })
+			tween(list, { Size = UDim2.new(0, 80, 0, listHeight) })
+			-- follow the button while the window drags or the page scrolls;
+			-- close instead of floating detached once the button is scrolled
+			-- out of the page's visible rect
 			table.insert(openConns, btn:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
 				local bp, bs = btn.AbsolutePosition, btn.AbsoluteSize
 				local pp, ps = subPage.AbsolutePosition, subPage.AbsoluteSize
@@ -1439,6 +1430,7 @@ function SubTab:AddDropdown(opts)
 					reposition()
 				end
 			end))
+			-- close when the sub-tab or tab holding this dropdown is switched away
 			table.insert(openConns, subPage:GetPropertyChangedSignal("Visible"):Connect(function()
 				if not subPage.Visible then setOpen(false) end
 			end))
@@ -1459,9 +1451,10 @@ function SubTab:AddDropdown(opts)
 				conn:Disconnect()
 			end
 			table.clear(openConns)
-			tween(list, { Size = UDim2.new(0, width, 0, 0) })
+			tween(list, { Size = UDim2.new(0, 80, 0, 0) })
 			local gen = closeGen
 			task.delay(0.16, function()
+				-- only hide if no reopen/reclose happened since this close
 				if gen == closeGen and not open then
 					list.Visible = false
 				end
@@ -1471,7 +1464,7 @@ function SubTab:AddDropdown(opts)
 
 	local function select(option, silent)
 		value = option
-		valueLabel.Text = tostring(option)
+		valueLabel.Text = option
 		setOpen(false)
 		if not silent then
 			fire(opts.Callback, option)
@@ -1480,20 +1473,16 @@ function SubTab:AddDropdown(opts)
 
 	for _, option in ipairs(options) do
 		local optBtn = make("TextButton", {
-			Text = tostring(option),
+			Text = option,
 			Font = Enum.Font.Gotham,
-			TextSize = 11,
+			TextSize = 12,
 			TextColor3 = C.TextGray,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextTruncate = Enum.TextTruncate.AtEnd,
-			Size = UDim2.new(1, 0, 0, optionHeight),
+			Size = UDim2.new(1, 0, 0, 22),
 			BackgroundColor3 = C.Element,
-			ZIndex = 101,
 			Parent = list,
 		})
 		autoOrder(optBtn)
-		corner(optBtn, 5)
-		pad(optBtn, 0, 0, 8, 8)
+		corner(optBtn, 4)
 		optBtn.MouseEnter:Connect(function()
 			tween(optBtn, { BackgroundColor3 = C.ElementHover, TextColor3 = C.White })
 		end)
@@ -1519,43 +1508,40 @@ end
 
 function SubTab:AddSlider(opts)
 	opts = opts or {}
-	local min = tonumber(opts.Min) or 0
-	local max = tonumber(opts.Max) or 100
-	if max < min then min, max = max, min end
-	local suffix = tostring(opts.Suffix or "")
-	local step = math.max(tonumber(opts.Step) or 1, 0.000001)
-	local value = math.clamp(tonumber(opts.Default) or min, min, max)
+	local min = opts.Min or 0
+	local max = opts.Max or 100
+	local suffix = opts.Suffix or ""
+	local value = math.clamp(opts.Default or min, min, max)
 
-	local row = newRow(self._card, 54)
+	local row = newRow(self._card, 32)
 
 	make("TextLabel", {
 		Text = opts.Name or "Slider",
 		Font = Enum.Font.GothamMedium,
-		TextSize = 12,
+		TextSize = 13,
 		TextColor3 = C.White,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(12, 8),
-		Size = UDim2.new(0.65, -12, 0, 15),
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.new(0.6, 0, 0, 14),
 		Parent = row,
 	})
 
 	local valueLabel = make("TextLabel", {
 		Text = tostring(value) .. suffix,
 		Font = Enum.Font.Gotham,
-		TextSize = 10,
+		TextSize = 11,
 		TextColor3 = C.TextDim,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(0, 8),
-		Size = UDim2.new(1, -12, 0, 15),
+		Position = UDim2.fromOffset(0, 1),
+		Size = UDim2.new(1, 0, 0, 13),
 		Parent = row,
 	})
 
 	local track = make("Frame", {
-		Position = UDim2.fromOffset(12, 37),
-		Size = UDim2.new(1, -24, 0, 3),
+		Position = UDim2.fromOffset(0, 24),
+		Size = UDim2.new(1, 0, 0, 4),
 		BackgroundColor3 = C.TrackBg,
 		Parent = row,
 	})
@@ -1569,7 +1555,7 @@ function SubTab:AddSlider(opts)
 	circle(fill)
 
 	local knob = make("Frame", {
-		Size = UDim2.fromOffset(10, 10),
+		Size = UDim2.fromOffset(12, 12),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0, 0, 0.5, 0),
 		BackgroundColor3 = C.White,
@@ -1578,26 +1564,19 @@ function SubTab:AddSlider(opts)
 	})
 	circle(knob)
 
+	-- Transparent button capturing presses over the track and knob.
 	local hit = make("TextButton", {
 		Text = "",
 		BackgroundTransparency = 1,
-		Position = UDim2.new(0, 6, 0, 27),
-		Size = UDim2.new(1, -12, 0, 22),
+		Position = UDim2.new(0, -6, 0, 16),
+		Size = UDim2.new(1, 12, 0, 20),
 		Parent = row,
 	})
 
-	local function formatValue(v)
-		if math.abs(v - math.round(v)) < 0.000001 then
-			return tostring(math.round(v))
-		end
-		return string.format("%.2f", v):gsub("0+$", ""):gsub("%.$", "")
-	end
-
 	local function applyValue(v, animate, fireCallback)
-		v = math.clamp(tonumber(v) or min, min, max)
-		value = math.clamp(math.round((v - min) / step) * step + min, min, max)
+		value = math.clamp(math.floor(v + 0.5), min, max)
 		local pct = max > min and (value - min) / (max - min) or 0
-		valueLabel.Text = formatValue(value) .. suffix
+		valueLabel.Text = tostring(value) .. suffix
 		local fillSize = UDim2.new(pct, 0, 1, 0)
 		local knobPos = UDim2.new(pct, 0, 0.5, 0)
 		if animate then

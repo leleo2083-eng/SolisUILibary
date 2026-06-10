@@ -1,4 +1,4 @@
--- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; Arqel-inspired startup speed loader uses the supplied logo; single-image FPS polyline.
+-- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; dark 50% startup overlay types “Solis” letter by letter beneath the supplied logo; single-image FPS polyline.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -41,9 +41,10 @@
 
 	CreateWindow loading options:
 		LoadingAnimation = true -- set false to disable
-		LoadingDuration = 2.8 -- total startup sequence duration
-		LoadingIconSize = 92 -- logo size used by the speed-loader animation
-		LoadingBlur = true -- blur the game behind the loader
+		LoadingDuration = 2.2 -- total startup sequence duration
+		LoadingIconSize = 96 -- logo above the title
+		LoadingText = "Solis" -- title typed letter by letter
+		LoadingOverlayTransparency = 0.5 -- 50% transparent black fullscreen overlay
 ]]
 
 local TweenService     = game:GetService("TweenService")
@@ -53,7 +54,6 @@ local Players          = game:GetService("Players")
 local Stats            = game:GetService("Stats")
 local RunService       = game:GetService("RunService")
 local AssetService     = game:GetService("AssetService")
-local Lighting         = game:GetService("Lighting")
 
 local DEFAULT_LOGO = "rbxassetid://105894109382235"
 local TWEEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -399,7 +399,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-loader-true-transparent-v3",
+	Version = "2.0.3-profile-fps-dark-type-loader",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -559,35 +559,24 @@ function Library:CreateWindow(opts)
 	end
 	table.insert(Library._windows, screenGui)
 
-	-- Create and start the loader BEFORE building the rest of the interface.
-	-- Motion concept adapted from ArqelUi by Cobruhehe (MIT licensed):
-	-- fast background streaks, a logo "ship" with trails, and staged status rows.
-	-- This implementation is rebuilt for Solis and always uses opts.Logo.
+	-- Create the loader before the rest of the interface so nothing from the
+	-- main UI is visible until the startup sequence has completed.
 	local loadingEnabled = opts.LoadingAnimation ~= false
-	local loadingDuration = math.clamp(tonumber(opts.LoadingDuration) or 2.8, 1.8, 6)
-	local loadingIconSize = math.clamp(math.floor(tonumber(opts.LoadingIconSize) or 92), 64, 150)
+	local loadingDuration = math.clamp(tonumber(opts.LoadingDuration) or 2.2, 1.2, 6)
+	local loadingIconSize = math.clamp(math.floor(tonumber(opts.LoadingIconSize) or 96), 56, 180)
+	local loadingText = tostring(opts.LoadingText or "Solis")
+	local overlayTransparency = math.clamp(
+		tonumber(opts.LoadingOverlayTransparency) or 0.5,
+		0,
+		0.9
+	)
+
 	local loadingComplete = not loadingEnabled
 	local loadingMotionComplete = not loadingEnabled
-	local loadingAnimationRunning = false
-	local loadingLayer, loadingLogoRig, loadingLogo, loadingLogoScale, loadingBlur
-	local loadingStreaks, loadingTrails, loadingPhases = {}, {}, {}
+	local loadingLayer, loadingContent, loadingLogo, loadingLogoScale
+	local loadingLetters = {}
 
 	if loadingEnabled then
-		if opts.LoadingBlur ~= false then
-			pcall(function()
-				local blurName = guiName .. "_StartupBlur"
-				local oldBlur = Lighting:FindFirstChild(blurName)
-				if oldBlur then
-					oldBlur:Destroy()
-				end
-
-				loadingBlur = Instance.new("BlurEffect")
-				loadingBlur.Name = blurName
-				loadingBlur.Size = 0
-				loadingBlur.Parent = Lighting
-			end)
-		end
-
 		loadingLayer = make("CanvasGroup", {
 			Name = "StartupLoader",
 			Size = UDim2.fromScale(1, 1),
@@ -598,353 +587,136 @@ function Library:CreateWindow(opts)
 			Parent = screenGui,
 		})
 
-		local speedField = make("Frame", {
-			Name = "SpeedField",
-			Size = UDim2.fromScale(1, 1),
+		loadingContent = make("Frame", {
+			Name = "LoadingContent",
+			Size = UDim2.fromOffset(520, 250),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			ZIndex = 501,
 			Parent = loadingLayer,
 		})
 
-		local streakY = { 0.12, 0.27, 0.43, 0.59, 0.74, 0.88 }
-		local streakWidth = { 0.24, 0.17, 0.31, 0.20, 0.27, 0.15 }
-		local streakSpeed = { 0.78, 0.94, 0.69, 0.86, 0.73, 1.02 }
-
-		for index = 1, #streakY do
-			local streak = make("Frame", {
-				Name = "SpeedStreak" .. index,
-				Size = UDim2.new(streakWidth[index], 0, 0, index % 2 == 0 and 2 or 3),
-				Position = UDim2.new(1.25, 0, streakY[index], 0),
-				AnchorPoint = Vector2.new(0, 0.5),
-				BackgroundColor3 = C.White,
-				BackgroundTransparency = 1,
-				ZIndex = 502,
-				Parent = speedField,
-			})
-			corner(streak, 99)
-
-			make("UIGradient", {
-				Transparency = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 1),
-					NumberSequenceKeypoint.new(0.22, 0.55),
-					NumberSequenceKeypoint.new(1, 0),
-				}),
-				Parent = streak,
-			})
-
-			loadingStreaks[index] = {
-				Frame = streak,
-				Y = streakY[index],
-				Width = streakWidth[index],
-				Speed = streakSpeed[index],
-			}
-		end
-
-		loadingLogoRig = make("Frame", {
-			Name = "LogoShip",
-			Size = UDim2.fromOffset(330, 132),
-			Position = UDim2.new(0.5, 0, 0.36, 0),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			ZIndex = 510,
-			Parent = loadingLayer,
-		})
-
-		-- The loading logo is attached directly to the transparent motion rig.
-		-- There is intentionally no card, glow, holder, stroke, or backdrop behind it.
 		loadingLogo = make("ImageLabel", {
 			Name = "LoadingLogo",
 			Image = logoAsset,
 			Size = UDim2.fromOffset(loadingIconSize, loadingIconSize),
-			Position = UDim2.new(0.67, 0, 0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 74),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			ImageTransparency = 0,
-			ImageColor3 = Color3.fromRGB(255, 255, 255),
+			BorderSizePixel = 0,
+			ImageTransparency = 1,
 			ScaleType = Enum.ScaleType.Fit,
-			Rotation = 0,
-			ZIndex = 512,
-			Parent = loadingLogoRig,
+			ZIndex = 502,
+			Parent = loadingContent,
 		})
-
-		-- Hard-force a transparent ImageLabel surface. Only the image pixels render.
-		loadingLogo.BackgroundTransparency = 1
-		loadingLogo.BorderSizePixel = 0
 
 		loadingLogoScale = make("UIScale", {
 			Scale = 0.72,
 			Parent = loadingLogo,
 		})
 
-		local trailConfigs = {
-			{ Y = 0.24, Width = 78 },
-			{ Y = 0.41, Width = 112 },
-			{ Y = 0.59, Width = 102 },
-			{ Y = 0.76, Width = 70 },
-		}
-
-		for index, config in ipairs(trailConfigs) do
-			local trail = make("Frame", {
-				Name = "LogoTrail" .. index,
-				Size = UDim2.fromOffset(config.Width, index % 2 == 0 and 3 or 2),
-				Position = UDim2.new(0.67, -(loadingIconSize * 0.48), config.Y, 0),
-				AnchorPoint = Vector2.new(1, 0.5),
-				BackgroundColor3 = C.White,
-				BackgroundTransparency = 1,
-				ZIndex = 511,
-				Parent = loadingLogoRig,
-			})
-			corner(trail, 99)
-			make("UIGradient", {
-				Transparency = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 1),
-					NumberSequenceKeypoint.new(0.34, 0.62),
-					NumberSequenceKeypoint.new(1, 0),
-				}),
-				Parent = trail,
-			})
-
-			loadingTrails[index] = {
-				Frame = trail,
-				BaseWidth = config.Width,
-			}
-		end
-
-		local phasesContainer = make("Frame", {
-			Name = "LoadingPhases",
-			Size = UDim2.fromOffset(310, 176),
-			Position = UDim2.new(0.5, 0, 0.67, 0),
-			AnchorPoint = Vector2.new(0.5, 0.5),
+		local titleHolder = make("Frame", {
+			Name = "LoadingTitle",
+			Size = UDim2.new(1, 0, 0, 76),
+			Position = UDim2.new(0, 0, 0, 132),
 			BackgroundTransparency = 1,
-			ZIndex = 510,
-			Parent = loadingLayer,
+			ZIndex = 502,
+			Parent = loadingContent,
 		})
 
 		make("UIListLayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			HorizontalAlignment = Enum.HorizontalAlignment.Left,
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 8),
-			Parent = phasesContainer,
+			Padding = UDim.new(0, 1),
+			Parent = titleHolder,
 		})
 
-		local phaseNames = opts.LoadingSteps or {
-			"Initializing",
-			"Loading player data",
-			"Preparing performance tracker",
-			"Building interface",
-			"Ready",
-		}
-
-		for index = 1, 5 do
-			local row = make("CanvasGroup", {
-				Name = "Phase" .. index,
-				Size = UDim2.new(1, 0, 0, 26),
+		for index = 1, #loadingText do
+			local character = string.sub(loadingText, index, index)
+			local letter = make("TextLabel", {
+				Name = "Letter" .. index,
+				Text = character,
+				Font = Enum.Font.GothamBold,
+				TextSize = 54,
+				TextColor3 = C.White,
+				TextTransparency = 1,
 				BackgroundTransparency = 1,
-				GroupTransparency = 1,
+				AutomaticSize = Enum.AutomaticSize.X,
+				Size = UDim2.new(0, 0, 1, 0),
 				LayoutOrder = index,
-				ZIndex = 511,
-				Parent = phasesContainer,
+				ZIndex = 503,
+				Parent = titleHolder,
 			})
 
-			local dotOuter = make("Frame", {
-				Size = UDim2.fromOffset(16, 16),
-				Position = UDim2.new(0, 0, 0.5, 0),
-				AnchorPoint = Vector2.new(0, 0.5),
-				BackgroundColor3 = C.BadgeIdle,
-				ZIndex = 512,
-				Parent = row,
-			})
-			circle(dotOuter)
-
-			local dot = make("Frame", {
-				Size = UDim2.fromOffset(6, 6),
-				Position = UDim2.fromScale(0.5, 0.5),
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundColor3 = C.TextDim,
-				BackgroundTransparency = 0.2,
-				ZIndex = 513,
-				Parent = dotOuter,
-			})
-			circle(dot)
-
-			local label = make("TextLabel", {
-				Text = tostring(phaseNames[index] or ("Step " .. index)),
-				Font = Enum.Font.GothamMedium,
-				TextSize = 13,
-				TextColor3 = C.TextDim,
-				TextXAlignment = Enum.TextXAlignment.Left,
-				BackgroundTransparency = 1,
-				Position = UDim2.fromOffset(28, 0),
-				Size = UDim2.new(1, -28, 1, 0),
-				ZIndex = 512,
-				Parent = row,
+			local letterScale = make("UIScale", {
+				Scale = 0.68,
+				Parent = letter,
 			})
 
-			loadingPhases[index] = {
-				Row = row,
-				Outer = dotOuter,
-				Dot = dot,
-				Label = label,
-			}
+			table.insert(loadingLetters, {
+				Label = letter,
+				Scale = letterScale,
+			})
 		end
 
-		local function setLoadingPhase(activeIndex)
-			for index, phase in ipairs(loadingPhases) do
-				if index < activeIndex then
-					tween(phase.Outer, { BackgroundColor3 = C.ElementHover })
-					tween(phase.Dot, {
-						BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
-						BackgroundTransparency = 0,
-					})
-					tween(phase.Label, { TextColor3 = C.TextGray })
-				elseif index == activeIndex then
-					tween(phase.Outer, { BackgroundColor3 = C.Badge })
-					tween(phase.Dot, {
-						BackgroundColor3 = C.White,
-						BackgroundTransparency = 0,
-					})
-					tween(phase.Label, { TextColor3 = C.White })
-				else
-					phase.Outer.BackgroundColor3 = C.BadgeIdle
-					phase.Dot.BackgroundColor3 = C.TextDim
-					phase.Dot.BackgroundTransparency = 0.45
-					phase.Label.TextColor3 = C.TextDim
-				end
-			end
-		end
-
-		local function completeLoadingPhases()
-			for _, phase in ipairs(loadingPhases) do
-				tween(phase.Outer, { BackgroundColor3 = C.ElementHover })
-				tween(phase.Dot, {
-					BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
-					BackgroundTransparency = 0,
-				})
-				tween(phase.Label, { TextColor3 = C.TextGray })
-			end
-		end
-
-		local function animateSpeedField()
-			while loadingAnimationRunning and loadingLayer and loadingLayer.Parent do
-				for _, data in ipairs(loadingStreaks) do
-					task.spawn(function()
-						local frame = data.Frame
-						if not frame or not frame.Parent then return end
-
-						frame.Position = UDim2.new(1.25, 0, data.Y, 0)
-						frame.Size = UDim2.new(data.Width, 0, 0, frame.Size.Y.Offset)
-						frame.BackgroundTransparency = 0.52
-
-						TweenService:Create(
-							frame,
-							TweenInfo.new(data.Speed, Enum.EasingStyle.Linear),
-							{
-								Position = UDim2.new(-0.38, 0, data.Y, 0),
-								BackgroundTransparency = 0.94,
-							}
-						):Play()
-					end)
-				end
-				task.wait(0.42)
-			end
-		end
-
-		local function animateLogoTrails()
-			while loadingAnimationRunning and loadingLayer and loadingLayer.Parent do
-				for _, data in ipairs(loadingTrails) do
-					local trail = data.Frame
-					if trail and trail.Parent then
-						TweenService:Create(
-							trail,
-							TweenInfo.new(0.11, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-							{
-								Size = UDim2.fromOffset(
-									data.BaseWidth + math.random(-12, 15),
-									trail.Size.Y.Offset
-								),
-								BackgroundTransparency = 0.12 + math.random() * 0.2,
-							}
-						):Play()
-					end
-				end
-				task.wait(0.1)
-			end
-		end
-
-		local function animateLogoFlight()
-			local direction = 1
-			while loadingAnimationRunning and loadingLogoRig and loadingLogoRig.Parent do
-				direction = -direction
-				TweenService:Create(
-					loadingLogoRig,
-					TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-					{
-						Position = UDim2.new(
-							0.5,
-							direction * 2,
-							0.36,
-							direction
-						),
-					}
-				):Play()
-				task.wait(0.22)
-			end
-		end
-
-		loadingAnimationRunning = true
 		task.spawn(function()
-			if loadingBlur then
-				TweenService:Create(
-					loadingBlur,
-					TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-					{ Size = 20 }
-				):Play()
-			end
-
 			TweenService:Create(
 				loadingLayer,
-				TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-				{ BackgroundTransparency = 0.18 }
+				TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ BackgroundTransparency = overlayTransparency }
 			):Play()
 
-			task.wait(0.16)
+			TweenService:Create(
+				loadingLogo,
+				TweenInfo.new(0.34, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ ImageTransparency = 0 }
+			):Play()
 
 			TweenService:Create(
 				loadingLogoScale,
-				TweenInfo.new(0.44, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+				TweenInfo.new(0.46, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 				{ Scale = 1 }
 			):Play()
 
-			task.spawn(animateSpeedField)
-			task.spawn(animateLogoTrails)
-			task.spawn(animateLogoFlight)
+			task.wait(0.28)
 
-			for index, phase in ipairs(loadingPhases) do
-				task.delay((index - 1) * 0.07, function()
-					if phase.Row and phase.Row.Parent then
-						TweenService:Create(
-							phase.Row,
-							TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-							{ GroupTransparency = 0 }
-						):Play()
-					end
-				end)
+			local availableTypingTime = math.max(loadingDuration - 0.82, 0.4)
+			local letterDelay = #loadingLetters > 0
+				and math.clamp(availableTypingTime / #loadingLetters, 0.07, 0.22)
+				or 0
+
+			for _, data in ipairs(loadingLetters) do
+				if not loadingLayer or not loadingLayer.Parent then
+					return
+				end
+
+				TweenService:Create(
+					data.Label,
+					TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ TextTransparency = 0 }
+				):Play()
+
+				TweenService:Create(
+					data.Scale,
+					TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+					{ Scale = 1 }
+				):Play()
+
+				task.wait(letterDelay)
 			end
+
+			-- A subtle final settle keeps the loader alive briefly after the last
+			-- letter without introducing another spinner or progress indicator.
+			TweenService:Create(
+				loadingLogoScale,
+				TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+				{ Scale = 0.94 }
+			):Play()
 
 			task.wait(0.42)
-
-			local phaseDelay = math.max((loadingDuration - 0.9) / 5, 0.16)
-			for index = 1, 5 do
-				setLoadingPhase(index)
-				task.wait(phaseDelay)
-			end
-
-			completeLoadingPhases()
-			task.wait(0.18)
-
-			loadingAnimationRunning = false
 			loadingMotionComplete = true
 		end)
 	end
@@ -1886,7 +1658,6 @@ function Library:CreateWindow(opts)
 		_profileOpen = profileOpen,
 		_setProfileVisible = setProfileVisible,
 		_connections = {},
-		_loadingBlur = loadingBlur,
 		_noDrag = noDrag,
 		_tabs = {},
 		_activeTab = nil,
@@ -1944,53 +1715,39 @@ function Library:CreateWindow(opts)
 
 	if loadingEnabled and loadingLayer then
 		task.defer(function()
-			-- The loader is created before the rest of the UI. Polling ensures the
-			-- staged animation completes even when interface construction is slow.
 			while not loadingMotionComplete and screenGui.Parent do
 				RunService.Heartbeat:Wait()
 			end
 
 			if not screenGui.Parent or not loadingLayer.Parent then
-				if loadingBlur and loadingBlur.Parent then
-					loadingBlur:Destroy()
-				end
 				return
 			end
 
-			loadingAnimationRunning = false
-
 			local fadeOut = TweenService:Create(
 				loadingLayer,
-				TweenInfo.new(0.36, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+				TweenInfo.new(0.38, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
 				{ GroupTransparency = 1 }
 			)
+
+			local contentExit = loadingContent and TweenService:Create(
+				loadingContent,
+				TweenInfo.new(0.38, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+				{ Position = UDim2.new(0.5, 0, 0.5, -14) }
+			) or nil
+
 			local logoExit = loadingLogoScale and TweenService:Create(
 				loadingLogoScale,
-				TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
-				{ Scale = 0.84 }
-			) or nil
-			local rigExit = loadingLogoRig and TweenService:Create(
-				loadingLogoRig,
-				TweenInfo.new(0.36, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
-				{ Position = UDim2.new(0.5, 52, 0.36, 0) }
-			) or nil
-			local blurOut = loadingBlur and TweenService:Create(
-				loadingBlur,
-				TweenInfo.new(0.34, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-				{ Size = 0 }
+				TweenInfo.new(0.34, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+				{ Scale = 0.82 }
 			) or nil
 
 			fadeOut:Play()
+			if contentExit then contentExit:Play() end
 			if logoExit then logoExit:Play() end
-			if rigExit then rigExit:Play() end
-			if blurOut then blurOut:Play() end
 			fadeOut.Completed:Wait()
 
 			if loadingLayer and loadingLayer.Parent then
 				loadingLayer:Destroy()
-			end
-			if loadingBlur and loadingBlur.Parent then
-				loadingBlur:Destroy()
 			end
 
 			if not screenGui.Parent then
@@ -2182,10 +1939,6 @@ function Window:Destroy()
 	end
 	table.clear(self._connections or {})
 
-	if self._loadingBlur and self._loadingBlur.Parent then
-		self._loadingBlur:Destroy()
-		self._loadingBlur = nil
-	end
 
 	if self._fpsEditableImage then
 		pcall(function()

@@ -1,4 +1,4 @@
--- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; dark 50% startup overlay types “Solis” letter by letter, then reveals a smooth orange layer from left to right; single-image FPS polyline.
+-- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; dark 50% startup overlay types “Solis” letter by letter, then reveals a gold-to-orange finish sampled from the supplied Solis logo; single-image FPS polyline.
 --[[
 	Solis UI — single-file Roblox UI library
 	Pure Instance.new with a built-in branded layout and toast notifications.
@@ -45,7 +45,10 @@
 		LoadingIconSize = 96 -- logo above the title
 		LoadingText = "Solis" -- title typed letter by letter
 		LoadingTextStartColor = Color3.fromRGB(255, 255, 255) -- optional
-		LoadingTextEndColor = Color3.fromRGB(255, 132, 38) -- optional orange reveal
+		LoadingTextHighlightColor = Color3.fromRGB(255, 231, 26) -- logo highlight
+		LoadingTextGoldColor = Color3.fromRGB(255, 183, 1) -- logo gold
+		LoadingTextEndColor = Color3.fromRGB(253, 128, 0) -- main logo orange
+		LoadingTextDeepColor = Color3.fromRGB(228, 87, 0) -- deep logo orange
 		LoadingColorTransitionDuration = 0.9 -- smooth white-to-orange reveal speed
 		LoadingOverlayTransparency = 0.5 -- 50% transparent black fullscreen overlay
 ]]
@@ -403,7 +406,7 @@ end
 --------------------------------------------------------------------------------
 
 local Library = {
-	Version = "2.0.3-profile-fps-orange-reveal-v2",
+	Version = "2.0.3-profile-fps-logo-matched-orange-v3",
 	Themes = THEMES,
 	DefaultLogo = DEFAULT_LOGO,
 	_windows = {},
@@ -572,9 +575,20 @@ function Library:CreateWindow(opts)
 	local loadingTextStartColor = typeof(opts.LoadingTextStartColor) == "Color3"
 		and opts.LoadingTextStartColor
 		or Color3.fromRGB(255, 255, 255)
+	-- These defaults were sampled from the supplied Solis logo so the final
+	-- title uses the same yellow-gold-orange range instead of a generic orange.
+	local loadingTextHighlightColor = typeof(opts.LoadingTextHighlightColor) == "Color3"
+		and opts.LoadingTextHighlightColor
+		or Color3.fromRGB(255, 231, 26)
+	local loadingTextGoldColor = typeof(opts.LoadingTextGoldColor) == "Color3"
+		and opts.LoadingTextGoldColor
+		or Color3.fromRGB(255, 183, 1)
 	local loadingTextEndColor = typeof(opts.LoadingTextEndColor) == "Color3"
 		and opts.LoadingTextEndColor
-		or Color3.fromRGB(255, 132, 38)
+		or Color3.fromRGB(253, 128, 0)
+	local loadingTextDeepColor = typeof(opts.LoadingTextDeepColor) == "Color3"
+		and opts.LoadingTextDeepColor
+		or Color3.fromRGB(228, 87, 0)
 	local overlayTransparency = math.clamp(
 		tonumber(opts.LoadingOverlayTransparency) or 0.5,
 		0,
@@ -697,8 +711,10 @@ function Library:CreateWindow(opts)
 
 		make("UIGradient", {
 			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, loadingTextEndColor:Lerp(Color3.new(1, 1, 1), 0.18)),
-				ColorSequenceKeypoint.new(1, loadingTextEndColor),
+				ColorSequenceKeypoint.new(0.00, loadingTextHighlightColor),
+				ColorSequenceKeypoint.new(0.32, loadingTextGoldColor),
+				ColorSequenceKeypoint.new(0.68, loadingTextEndColor),
+				ColorSequenceKeypoint.new(1.00, loadingTextDeepColor),
 			}),
 			Rotation = 0,
 			Parent = orangeTitleLabel,

@@ -9,7 +9,7 @@ Themes (loaded from themes.lua automatically):
 	Library:SetTheme("Dark")
 	Library:SetTheme("Light")
 	Library:SetTheme("OLED")
-	Library:SetTheme("Solis")   -- background image + warm amber palette
+	Library:SetTheme("Solis")   -- background image + warm amber palette + 50% transparent UI
 
 API:
 	local Window = Library:CreateWindow({ Name = "Menu" })
@@ -43,6 +43,7 @@ local DEFAULT_LOGO       = "rbxassetid://105894109382235"
 local TWEEN              = TweenInfo.new(0.15, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
 local NOTIFICATION_TWEEN = TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 local PROFILE_TWEEN      = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local TRANSPARENCY_TWEEN = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
 local THEMES_URL = "https://raw.githubusercontent.com/leleo2083-eng/SolisUILibary/refs/heads/main/SolisUITheme.lua"
 
@@ -75,6 +76,7 @@ local C = {
 
 local CURRENT_IMAGE              = nil
 local CURRENT_IMAGE_TRANSPARENCY = 0.85
+local CURRENT_UI_TRANSPARENCY    = 0  -- 0 = solid, 0.5 = 50% transparent UI (used by Solis theme)
 
 local THEMES = {
 	Dark = table.clone(C),
@@ -119,6 +121,7 @@ local THEMES = {
 	Solis = {
 		Image             = "https://raw.githubusercontent.com/leleo2083-eng/SolisUILibary/main/Solis.png",
 		ImageTransparency = 0.82,
+		UITransparency    = 0.5,
 		WindowBg     = Color3.fromRGB(10,  8,   5),
 		CardBg       = Color3.fromRGB(15,  12,  7),
 		Border       = Color3.fromRGB(55,  40,  18),
@@ -143,8 +146,10 @@ local THEMES = {
 task.spawn(function()
 	local ok, result = pcall(function() return game:HttpGet(THEMES_URL) end)
 	if not ok or type(result) ~= "string" or result == "" then return end
-	local lOk, fn = pcall(loadstring, result)
-	if not lOk or type(fn) ~= "function" then return end
+	local loader = loadstring or load
+	if not loader then return end
+	local fn = loader(result, "themes.lua")
+	if not fn then return end
 	local cOk, tbl = pcall(fn)
 	if not cOk or type(tbl) ~= "table" then return end
 	for name, palette in pairs(tbl) do
@@ -158,15 +163,10 @@ end)
 local THEME_IMAGE_CACHE = {}
 
 local function executorRequest(url)
-	if request then
-		local r = request({ Url = url, Method = "GET" }); return r and r.Body
-	elseif http_request then
-		local r = http_request({ Url = url, Method = "GET" }); return r and r.Body
-	elseif syn and syn.request then
-		local r = syn.request({ Url = url, Method = "GET" }); return r and r.Body
-	elseif fluxus and fluxus.request then
-		local r = fluxus.request({ Url = url, Method = "GET" }); return r and r.Body
-	end
+	if request then local r = request({ Url = url, Method = "GET" }); return r and r.Body
+	elseif http_request then local r = http_request({ Url = url, Method = "GET" }); return r and r.Body
+	elseif syn and syn.request then local r = syn.request({ Url = url, Method = "GET" }); return r and r.Body
+	elseif fluxus and fluxus.request then local r = fluxus.request({ Url = url, Method = "GET" }); return r and r.Body end
 	local ok, body = pcall(function() return game:HttpGet(url) end)
 	return ok and body or nil
 end
@@ -179,11 +179,7 @@ end
 
 local function resolveThemeImage(imageValue)
 	if type(imageValue) ~= "string" or imageValue == "" then return nil end
-
-	if imageValue:match("^rbxassetid://") or imageValue:match("^rbxthumb://") then
-		return imageValue
-	end
-
+	if imageValue:match("^rbxassetid://") or imageValue:match("^rbxthumb://") then return imageValue end
 	if not imageValue:match("^https?://") then
 		if getcustomasset or getsynasset then
 			local ok, asset = pcall(getCustomAssetFn, imageValue)
@@ -191,37 +187,18 @@ local function resolveThemeImage(imageValue)
 		end
 		return nil
 	end
-
-	if THEME_IMAGE_CACHE[imageValue] then
-		return THEME_IMAGE_CACHE[imageValue]
-	end
-
+	if THEME_IMAGE_CACHE[imageValue] then return THEME_IMAGE_CACHE[imageValue] end
 	if not writefile or (not getcustomasset and not getsynasset) then
-		warn("[Solis UI] Executor does not support writefile/getcustomasset — cannot load remote theme image.")
+		warn("[Solis UI] Executor does not support writefile/getcustomasset.")
 		return nil
 	end
-
 	local fileName = "SolisUI_ThemeBG_" .. tostring(tick()):gsub("%.", "") .. ".png"
-
 	local body = executorRequest(imageValue)
-	if not body or #body < 100 then
-		warn("[Solis UI] Failed to download theme image: " .. imageValue)
-		return nil
-	end
-
+	if not body or #body < 100 then warn("[Solis UI] Failed to download theme image."); return nil end
 	local wOk = pcall(function() writefile(fileName, body) end)
-	if not wOk then
-		warn("[Solis UI] Failed to save theme image: " .. fileName)
-		return nil
-	end
-
+	if not wOk then warn("[Solis UI] Failed to save theme image."); return nil end
 	local aOk, asset = pcall(getCustomAssetFn, fileName)
-	if aOk and asset then
-		THEME_IMAGE_CACHE[imageValue] = asset
-		return asset
-	end
-
-	warn("[Solis UI] Failed to create custom asset: " .. fileName)
+	if aOk and asset then THEME_IMAGE_CACHE[imageValue] = asset; return asset end
 	return nil
 end
 
@@ -234,9 +211,7 @@ end
 rebuildReverse()
 
 -- ── Core helpers ────────────────────────────────────────────────────────────
-local function tween(inst, props)
-	TweenService:Create(inst, TWEEN, props):Play()
-end
+local function tween(inst, props) TweenService:Create(inst, TWEEN, props):Play() end
 
 local function paint(inst, prop, key, instant)
 	inst:SetAttribute("Theme_" .. prop, key)
@@ -254,6 +229,13 @@ local function make(className, props)
 	if inst:IsA("GuiObject") then
 		local key = REVERSE[inst.BackgroundColor3:ToHex()]
 		if key then inst:SetAttribute("Theme_BackgroundColor3", key) end
+		-- Tag instances that should follow the theme's UI transparency.
+		-- Any GuiObject created with a themed background and that is NOT fully
+		-- transparent counts as "UI surface" and will fade with the Solis theme.
+		if key and inst.BackgroundTransparency < 0.9 then
+			inst:SetAttribute("ThemeUIElement", true)
+			inst:SetAttribute("OriginalBgTransparency", inst.BackgroundTransparency)
+		end
 	end
 	if inst:IsA("TextLabel") or inst:IsA("TextButton") or inst:IsA("TextBox") then
 		local key = REVERSE[inst.TextColor3:ToHex()]
@@ -270,6 +252,8 @@ local function make(className, props)
 	if inst:IsA("UIStroke") then
 		local key = REVERSE[inst.Color:ToHex()]
 		if key then inst:SetAttribute("Theme_Color", key) end
+		inst:SetAttribute("ThemeUIStroke", true)
+		inst:SetAttribute("OriginalStrokeTransparency", inst.Transparency)
 	end
 	inst.Parent = props.Parent
 	return inst
@@ -337,9 +321,24 @@ local function inputIcon(parent)
 	return h
 end
 
+-- ── Apply UI transparency to all themed elements in a window ────────────────
+local function applyUITransparency(screenGui, transparency)
+	for _, inst in ipairs(screenGui:GetDescendants()) do
+		if inst:IsA("GuiObject") and inst:GetAttribute("ThemeUIElement") then
+			local orig = inst:GetAttribute("OriginalBgTransparency") or 0
+			local target = math.clamp(orig + transparency, 0, 1)
+			TweenService:Create(inst, TRANSPARENCY_TWEEN, { BackgroundTransparency = target }):Play()
+		elseif inst:IsA("UIStroke") and inst:GetAttribute("ThemeUIStroke") then
+			local orig = inst:GetAttribute("OriginalStrokeTransparency") or 0
+			local target = math.clamp(orig + transparency, 0, 1)
+			TweenService:Create(inst, TRANSPARENCY_TWEEN, { Transparency = target }):Play()
+		end
+	end
+end
+
 -- ══════════════════════════════════════════════════════════════════════════════
 local Library = {
-	Version = "2.1.0-custom-asset-bg", Themes = THEMES, DefaultLogo = DEFAULT_LOGO,
+	Version = "2.2.0-solis-transparent", Themes = THEMES, DefaultLogo = DEFAULT_LOGO,
 	_windows = {}, _windowObjects = {}, _currentTheme = "Dark",
 }
 local Window = {} Window.__index = Window
@@ -357,19 +356,20 @@ function Library:SetTheme(theme)
 			warn(("[Solis UI] unknown theme %q — available: %s"):format(themeName, table.concat(avail, ", ")))
 			return false
 		end
-	elseif type(theme) ~= "table" then
-		warn("[Solis UI] SetTheme expects a theme name or table"); return false
-	end
+	elseif type(theme) ~= "table" then return false end
+
 	for key in pairs(C) do
 		local v = theme[key]
-		if v ~= nil and typeof(v) ~= "Color3" then warn(("[Solis UI] key %s must be Color3"):format(key)); return false end
+		if v ~= nil and typeof(v) ~= "Color3" then return false end
 	end
 	for key in pairs(C) do local v = theme[key]; if v ~= nil then C[key] = v end end
 
 	local newImage = resolveThemeImage(theme.Image)
-	local newTrans = math.clamp(tonumber(theme.ImageTransparency) or 0.85, 0, 1)
+	local newImgTrans = math.clamp(tonumber(theme.ImageTransparency) or 0.85, 0, 1)
+	local newUITrans  = math.clamp(tonumber(theme.UITransparency) or 0, 0, 1)
 	CURRENT_IMAGE = newImage
-	CURRENT_IMAGE_TRANSPARENCY = newTrans
+	CURRENT_IMAGE_TRANSPARENCY = newImgTrans
+	CURRENT_UI_TRANSPARENCY = newUITrans
 
 	Library._currentTheme = themeName or "Custom"
 	rebuildReverse()
@@ -384,12 +384,19 @@ function Library:SetTheme(theme)
 				end
 				if goal then tween(inst, goal) end
 			end
+
+			-- Apply UI transparency tweening to all themed elements
+			applyUITransparency(gui, CURRENT_UI_TRANSPARENCY)
+
 			local wObj = Library._windowObjects[idx]
 			if wObj and wObj._bgImage then
 				if CURRENT_IMAGE then
 					wObj._bgImage.Image = CURRENT_IMAGE
 					wObj._bgImage.ImageTransparency = CURRENT_IMAGE_TRANSPARENCY
 					wObj._bgImage.Visible = true
+					-- Zoom out: render image smaller than the window using a tiled
+					-- inner Scale so it occupies ~80% and shows full artwork.
+					wObj._bgImage.ScaleType = Enum.ScaleType.Fit
 				else
 					wObj._bgImage.Visible = false; wObj._bgImage.Image = ""
 				end
@@ -406,9 +413,7 @@ function Library:Notify(opts)
 		local w = Library._windowObjects[i]
 		if w and w.ScreenGui and w.ScreenGui.Parent then return w:Notify(opts) end
 	end
-	warn("[Solis UI] create a window before calling Library:Notify")
 end
-
 function Library:Notification(opts) return self:Notify(opts) end
 
 function Library:DestroyAll()
@@ -472,8 +477,7 @@ function Library:CreateWindow(opts)
 		loadingLogo = make("ImageLabel", { Name = "LoadingLogo", Image = logoAsset, Size = UDim2.fromOffset(loadingIconSize, loadingIconSize), Position = UDim2.new(0.5,0,0,84), AnchorPoint = Vector2.new(0.5,0.5), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, ZIndex = 502, Parent = loadingContent })
 		loadingLogoScale = make("UIScale", { Scale = 0.58, Parent = loadingLogo })
 
-		local cc = math.max(#loadingText,1)
-		local ls = math.max(1, math.floor(loadingTextSize * 0.025))
+		local cc = math.max(#loadingText,1); local ls = math.max(1, math.floor(loadingTextSize * 0.025))
 		local lw, tw = {}, 0
 		for i = 1, #loadingText do
 			local ch = string.sub(loadingText,i,i)
@@ -546,7 +550,22 @@ function Library:CreateWindow(opts)
 	local main = make("Frame", { Name = "Main", Size = windowSize, Position = windowPosition, AnchorPoint = Vector2.new(0.5,0.5), BackgroundColor3 = C.WindowBg, ClipsDescendants = true, Visible = not loadingEnabled, ZIndex = 2, Parent = screenGui })
 	corner(main, 12); stroke(main, C.Border)
 
-	local bgImage = make("ImageLabel", { Name = "ThemeBG", Size = UDim2.fromScale(1,1), BackgroundTransparency = 1, ImageTransparency = CURRENT_IMAGE_TRANSPARENCY, ScaleType = Enum.ScaleType.Crop, Image = CURRENT_IMAGE or "", Visible = CURRENT_IMAGE ~= nil, ZIndex = 0, Parent = main }); corner(bgImage, 12)
+	-- Background image — zoomed out so the full artwork is visible inside the window.
+	-- The image is sized at 70% of the window with a centered anchor so it
+	-- shows the whole picture without filling edge-to-edge.
+	local bgImage = make("ImageLabel", {
+		Name = "ThemeBG",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.7, 0.7),
+		BackgroundTransparency = 1,
+		ImageTransparency = CURRENT_IMAGE_TRANSPARENCY,
+		ScaleType = Enum.ScaleType.Fit,
+		Image = CURRENT_IMAGE or "",
+		Visible = CURRENT_IMAGE ~= nil,
+		ZIndex = 0,
+		Parent = main,
+	})
 
 	local mainRevealScale = make("UIScale", { Scale = loadingEnabled and 0.965 or 1, Parent = main })
 	local noDrag = {}; makeDraggable(main, noDrag)
@@ -579,8 +598,7 @@ function Library:CreateWindow(opts)
 	local profileKey = typeof(opts.ProfileKey) == "EnumItem" and opts.ProfileKey or Enum.KeyCode.K
 	local pW = math.max(280, tonumber(opts.ProfileWidth) or 312)
 	local bM = math.max(10, tonumber(opts.ProfileBottomMargin) or 18)
-	local pOpenPos  = UDim2.new(1,-18,1,-bM)
-	local pClosePos = UDim2.new(1, pW+28,1,-bM)
+	local pOpenPos  = UDim2.new(1,-18,1,-bM); local pClosePos = UDim2.new(1, pW+28,1,-bM)
 	local profileOpen = false; local window
 
 	local profilePanel = make("CanvasGroup", { Name = "UserProfile", AnchorPoint = Vector2.new(1,1), Position = pClosePos, Size = UDim2.fromOffset(pW,382), BackgroundColor3 = C.CardBg, GroupTransparency = 1, ClipsDescendants = true, ZIndex = 150, Parent = screenGui }); corner(profilePanel, 14)
@@ -593,7 +611,7 @@ function Library:CreateWindow(opts)
 	local avH = make("Frame", { AnchorPoint = Vector2.new(0,0.5), Position = UDim2.new(0,14,0.5,0), Size = UDim2.fromOffset(76,76), BackgroundColor3 = C.Badge, ZIndex = 152, Parent = idCard }); circle(avH); stroke(avH, C.Border)
 	local avatar = make("ImageLabel", { Name = "Avatar", Image = "", BackgroundTransparency = 1, Position = UDim2.fromOffset(4,4), Size = UDim2.new(1,-8,1,-8), ScaleType = Enum.ScaleType.Crop, ZIndex = 153, Parent = avH }); circle(avatar)
 	local onRing = make("Frame", { AnchorPoint = Vector2.new(1,1), Position = UDim2.new(1,0,1,0), Size = UDim2.fromOffset(18,18), BackgroundColor3 = C.Element, ZIndex = 154, Parent = avH }); circle(onRing)
-	make("Frame", { AnchorPoint = Vector2.new(0.5,0.5), Position = UDim2.fromScale(0.5,0.5), Size = UDim2.fromOffset(10,10), BackgroundColor3 = NOTIFICATION_STYLES.success.Color, ZIndex = 155, Parent = onRing }); circle(onRing:FindFirstChildOfClass("Frame"))
+	local onDot = make("Frame", { AnchorPoint = Vector2.new(0.5,0.5), Position = UDim2.fromScale(0.5,0.5), Size = UDim2.fromOffset(10,10), BackgroundColor3 = NOTIFICATION_STYLES.success.Color, ZIndex = 155, Parent = onRing }); circle(onDot)
 
 	make("TextLabel", { Text = lp and lp.DisplayName or "Player", Font = Enum.Font.GothamBold, TextSize = 17, TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1, Position = UDim2.fromOffset(105,22), Size = UDim2.new(1,-119,0,23), ZIndex = 152, Parent = idCard })
 	make("TextLabel", { Text = lp and ("@"..lp.Name) or "@unknown", Font = Enum.Font.GothamMedium, TextSize = 11, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1, Position = UDim2.fromOffset(105,47), Size = UDim2.new(1,-119,0,16), ZIndex = 152, Parent = idCard })
@@ -621,8 +639,7 @@ function Library:CreateWindow(opts)
 	local perfW = math.max(236, tonumber(opts.PerformanceWidth) or 266)
 	local perfH = math.max(260, tonumber(opts.PerformanceHeight) or 294)
 	local pGap  = math.max(8, tonumber(opts.ProfilePanelGap) or 12)
-	local perfOpenPos  = UDim2.new(1, -(18+pW+pGap), 1, -bM)
-	local perfClosePos = UDim2.new(1, perfW+36, 1, -bM)
+	local perfOpenPos  = UDim2.new(1, -(18+pW+pGap), 1, -bM); local perfClosePos = UDim2.new(1, perfW+36, 1, -bM)
 
 	local perfPanel = make("CanvasGroup", { Name = "LivePerformance", AnchorPoint = Vector2.new(1,1), Position = perfClosePos, Size = UDim2.fromOffset(perfW, perfH), BackgroundColor3 = C.CardBg, GroupTransparency = 1, ClipsDescendants = true, ZIndex = 149, Parent = screenGui }); corner(perfPanel, 14)
 	local perfHeader = make("Frame", { Size = UDim2.new(1,0,0,56), BackgroundTransparency = 1, ZIndex = 150, Parent = perfPanel })
@@ -755,6 +772,14 @@ function Library:CreateWindow(opts)
 	table.insert(Library._windowObjects, window)
 	if opts.Visible == false then screenGui.Enabled = false end
 
+	-- If a theme with UI transparency is already active when this window is
+	-- created, re-apply it so the new instances pick up the transparent look.
+	if CURRENT_UI_TRANSPARENCY > 0 then
+		task.defer(function()
+			applyUITransparency(screenGui, CURRENT_UI_TRANSPARENCY)
+		end)
+	end
+
 	if loadingEnabled and loadingLayer then
 		task.defer(function()
 			while not loadingMotionComplete and screenGui.Parent do RunService.Heartbeat:Wait() end
@@ -812,6 +837,10 @@ function Window:_selectTab(tab)
 	if self._activeTab == tab then return end; local prev = self._activeTab; self._activeTab = tab
 	if prev then prev._page.Visible = false; paint(prev._nav, "BackgroundColor3", "WindowBg"); paint(prev._navLabel, "TextColor3", "TextGray"); paint(prev._navBadge, "BackgroundColor3", "BadgeIdle"); paint(prev._navIcon, "TextColor3", "TextGray") end
 	tab._page.Visible = true; paint(tab._nav, "BackgroundColor3", "NavActive"); paint(tab._navLabel, "TextColor3", "White"); paint(tab._navBadge, "BackgroundColor3", "Badge"); paint(tab._navIcon, "TextColor3", "White")
+	-- Re-apply transparency for the newly visible page
+	if CURRENT_UI_TRANSPARENCY > 0 then
+		task.defer(function() applyUITransparency(self.ScreenGui, CURRENT_UI_TRANSPARENCY) end)
+	end
 end
 
 function Window:AddTab(opts)
@@ -843,6 +872,9 @@ function Tab:_selectSub(sub)
 	if self._activeSub == sub then return end; local prev = self._activeSub; self._activeSub = sub
 	if prev then prev._page.Visible = false; paint(prev._pill, "BackgroundColor3", "WindowBg"); paint(prev._pill, "TextColor3", "TextGray") end
 	sub._page.Visible = true; paint(sub._pill, "BackgroundColor3", "PillActive"); paint(sub._pill, "TextColor3", "White")
+	if CURRENT_UI_TRANSPARENCY > 0 then
+		task.defer(function() applyUITransparency(self._window.ScreenGui, CURRENT_UI_TRANSPARENCY) end)
+	end
 end
 
 function Tab:AddSubTab(name)

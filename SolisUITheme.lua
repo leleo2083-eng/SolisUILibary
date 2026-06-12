@@ -1,31 +1,20 @@
 --[[
 Solis UI — Themes File
-https://raw.githubusercontent.com/YOUR_NAME/YOUR_REPO/main/themes.lua
+Fetched automatically by SolisUI at startup.
 
-This file is fetched automatically by SolisUI.lua at startup.
-You can also load it manually and pass a table to Library:SetTheme():
-
+Manual usage:
 	local Themes = loadstring(game:HttpGet(
 		"https://raw.githubusercontent.com/YOUR_NAME/YOUR_REPO/main/themes.lua"
 	))()
 	Library:SetTheme(Themes.Solis)
 
-Palette keys — every theme must supply all of these:
-	WindowBg      CardBg        Border        Element       ElementHover
-	Badge         BadgeIdle     NavActive     NavHover      PillActive
-	White         TextGray      TextDim       KnobOff       KnobOn
-	TrackBg       Placeholder
-
-Optional key:
-	Image   — full URL to a background image displayed behind the window.
-	         When set the window shows the image stretched across the main
-	         frame at the given ImageTransparency (default 0.85).
-	ImageTransparency — how transparent the background image is (0–1).
+Optional theme keys:
+	Image             — URL or rbxassetid for background image
+	ImageTransparency — 0–1 how see-through the background is (default 0.85)
 ]]
 
 local Themes = {}
 
--- ── Dark ─────────────────────────────────────────────────────────────────────
 Themes.Dark = {
 	WindowBg     = Color3.fromRGB(20,  20,  20),
 	CardBg       = Color3.fromRGB(24,  24,  24),
@@ -46,7 +35,6 @@ Themes.Dark = {
 	Placeholder  = Color3.fromRGB(86,  86,  86),
 }
 
--- ── Light ─────────────────────────────────────────────────────────────────────
 Themes.Light = {
 	WindowBg     = Color3.fromRGB(245, 245, 245),
 	CardBg       = Color3.fromRGB(249, 249, 249),
@@ -67,7 +55,6 @@ Themes.Light = {
 	Placeholder  = Color3.fromRGB(135, 135, 135),
 }
 
--- ── OLED ──────────────────────────────────────────────────────────────────────
 Themes.OLED = {
 	WindowBg     = Color3.fromRGB(0,   0,   0),
 	CardBg       = Color3.fromRGB(5,   5,   5),
@@ -88,16 +75,10 @@ Themes.OLED = {
 	Placeholder  = Color3.fromRGB(90,  90,  90),
 }
 
--- ── Solis ─────────────────────────────────────────────────────────────────────
--- Uses the Solis logo / artwork as the window background image.
--- The image is pulled from GitHub and rendered behind all UI elements.
--- Colors are warm amber / gold so UI controls blend with the artwork.
 Themes.Solis = {
-	-- Background image from GitHub — displayed behind the main window
-	Image = "https://raw.githubusercontent.com/leleo2083-eng/SolisUILibary/main/Solis.png",
+	Image             = "https://raw.githubusercontent.com/leleo2083-eng/SolisUILibary/main/Solis.png",
 	ImageTransparency = 0.82,
 
-	-- Palette colors — semi-transparent dark tones so the image shows through
 	WindowBg     = Color3.fromRGB(10,  8,   5),
 	CardBg       = Color3.fromRGB(15,  12,  7),
 	Border       = Color3.fromRGB(55,  40,  18),

@@ -1051,7 +1051,8 @@ local controls = make("Frame", {
 		TextSize = 1,
 		TextColor3 = C.White,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(0, circleSize + gap, 0, 0),
+		Position = UDim2.new(0, circleSize + gap - 2, 0, 0),
+
 		Size = UDim2.fromOffset(circleSize, circleSize),
 		BackgroundColor3 = Color3.fromRGB(255, 195, 0),
 		ZIndex = 12,
@@ -1198,7 +1199,7 @@ local controls = make("Frame", {
 	})
 
 	make("TextLabel", {
-		Text = opts.BrandSubtitle or ("SOLIS FREE...  •  v" .. Library.Version),
+		Text = opts.BrandSubtitle or ("SOLIS FREE..." .. Library.Version),
 		Font = Enum.Font.GothamMedium,
 		TextSize = 9,
 		TextColor3 = C.TextDim,

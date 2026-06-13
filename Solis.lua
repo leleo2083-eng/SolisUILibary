@@ -986,8 +986,153 @@ function Library:CreateWindow(opts)
 
 	-- Regions that must never start a window drag: nav buttons, sub-tab
 	-- pills, content pages and open dropdown lists register themselves here.
+	-- Minimize / Close corner controls --------------------------------------
+	local minimized = false
+	local mainTopButtons = {}
+	local burgerButton
+	local function setMinimized(o)
+		minimized = o == true
+		if mainTopButtons then
+			for _, b in ipairs(mainTopButtons) do
+				if b and b.Parent then b.Visible = not minimized end
+			end
+		end
+		if burgerButton and burgerButton.Parent then
+			burgerButton.Visible = minimized
+		end
+		main.Visible = not minimized
+		if window then
+			window._minimized = minimized
+		end
+	end
+
+	-- Regions that must never start a window drag: nav buttons, sub-tab
+	-- pills, content pages and open dropdown lists register themselves here.
 	local noDrag = {}
+
+	-- top-right circular control stack
+	local controls = make("Frame", {
+		Name = "CornerControls",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12, 0, 12),
+		Size = UDim2.fromOffset(54, 18),
+		BackgroundTransparency = 1,
+		ZIndex = 10,
+		Parent = main,
+	})
+	controls.Visible = true
+
+	local closeBtn = make("TextButton", {
+		Text = "",
+		Font = Enum.Font.GothamBold,
+		TextSize = 14,
+		TextColor3 = Color3.fromRGB(255, 220, 220),
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		Size = UDim2.fromOffset(18, 18),
+		BackgroundColor3 = Color3.fromRGB(190, 60, 60),
+		ZIndex = 12,
+		Parent = controls,
+	})
+	closeBtn.Text = "x"
+	closeBtn.TextTransparency = 0
+	closeBtn.AutoButtonColor = false
+	circle(closeBtn)
+	make("UIStroke", { Color = Color3.fromRGB(255, 120, 120), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = closeBtn })
+
+	local minimizeBtn = make("TextButton", {
+		Text = "",
+		Font = Enum.Font.GothamBold,
+		TextSize = 14,
+		TextColor3 = Color3.fromRGB(255, 245, 190),
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(0, 18, 0, 0),
+		Size = UDim2.fromOffset(18, 18),
+		BackgroundColor3 = Color3.fromRGB(255, 195, 0),
+		ZIndex = 12,
+		Parent = controls,
+	})
+	minimizeBtn.Text = "-"
+	minimizeBtn.TextTransparency = 0
+	minimizeBtn.AutoButtonColor = false
+	circle(minimizeBtn)
+	make("UIStroke", { Color = Color3.fromRGB(255, 232, 120), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = minimizeBtn })
+
+	table.insert(mainTopButtons, closeBtn)
+	table.insert(mainTopButtons, minimizeBtn)
+
+	-- prevent drag when interacting with these buttons
+	table.insert(noDrag, closeBtn)
+	table.insert(noDrag, minimizeBtn)
+
+	-- burger restore button (shown only when minimized)
+	burgerButton = make("TextButton", {
+		Text = "",
+		Font = Enum.Font.GothamBold,
+		TextSize = 13,
+		TextColor3 = C.White,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12, 0, 12),
+		Size = UDim2.fromOffset(34, 18),
+		BackgroundColor3 = C.CardBg,
+		Visible = false,
+		ZIndex = 11,
+		Parent = screenGui,
+	})
+	corner(burgerButton, 10)
+	stroke(burgerButton, C.Border)
+
+	local burgerIconHolder = make("Frame", {
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(6, 0),
+		Size = UDim2.fromOffset(18, 18),
+		Parent = burgerButton,
+		ZIndex = 12,
+	})
+	local topLine = make("Frame", { BackgroundColor3 = C.White, Size = UDim2.fromOffset(12, 2), Position = UDim2.fromOffset(3, 4), Parent = burgerIconHolder, ZIndex = 13 })
+	local midLine = make("Frame", { BackgroundColor3 = C.White, Size = UDim2.fromOffset(12, 2), Position = UDim2.fromOffset(3, 8), Parent = burgerIconHolder, ZIndex = 13 })
+	local botLine = make("Frame", { BackgroundColor3 = C.White, Size = UDim2.fromOffset(12, 2), Position = UDim2.fromOffset(3, 12), Parent = burgerIconHolder, ZIndex = 13 })
+	make("ImageLabel", {
+		Name = "BurgerLogo",
+		Image = logoAsset,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(6, 5),
+		Size = UDim2.fromOffset(8, 8),
+		ZIndex = 14,
+		ScaleType = Enum.ScaleType.Fit,
+		Visible = false,
+		Parent = burgerButton,
+	})
+
+	local burgerLogo = make("ImageLabel", {
+		Name = "BurgerLogo",
+		Image = logoAsset,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(26, 5),
+		Size = UDim2.fromOffset(8, 8),
+		ZIndex = 14,
+		ScaleType = Enum.ScaleType.Fit,
+		Parent = burgerButton,
+	})
+
+	burgerButton.MouseButton1Click:Connect(function()
+		setMinimized(false)
+	end)
+
+	closeBtn.MouseButton1Click:Connect(function()
+		if window and window.Destroy then
+			window:Destroy()
+		else
+			if screenGui then screenGui:Destroy() end
+		end
+	end)
+
+	minimizeBtn.MouseButton1Click:Connect(function()
+		setMinimized(true)
+	end)
+
 	makeDraggable(main, noDrag)
+
 
 	-- Left sidebar -----------------------------------------------------------
 	local sidebar = make("Frame", {
@@ -1048,7 +1193,7 @@ function Library:CreateWindow(opts)
 	})
 
 	make("TextLabel", {
-		Text = opts.BrandSubtitle or ("SOLIS LIBRARY  •  v" .. Library.Version),
+		Text = opts.BrandSubtitle or ("SOLIS FREE...  •  v" .. Library.Version),
 		Font = Enum.Font.GothamMedium,
 		TextSize = 9,
 		TextColor3 = C.TextDim,

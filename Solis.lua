@@ -1011,11 +1011,12 @@ function Library:CreateWindow(opts)
 	local noDrag = {}
 
 	-- top-right circular control stack (two small iconless circles)
-	local controls = make("Frame", {
+local controls = make("Frame", {
 		Name = "CornerControls",
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -8, 0, 8),
-		Size = UDim2.fromOffset(44, 16),
+		Position = UDim2.new(1, -6, 0, 8),
+		Size = UDim2.fromOffset(36, 16),
+
 		BackgroundTransparency = 1,
 		ZIndex = 10,
 		Parent = main,

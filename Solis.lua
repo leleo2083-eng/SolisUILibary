@@ -1010,53 +1010,55 @@ function Library:CreateWindow(opts)
 	-- pills, content pages and open dropdown lists register themselves here.
 	local noDrag = {}
 
-	-- top-right circular control stack
+	-- top-right circular control stack (two small iconless circles)
 	local controls = make("Frame", {
 		Name = "CornerControls",
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 12),
-		Size = UDim2.fromOffset(54, 18),
+		Position = UDim2.new(1, -8, 0, 8),
+		Size = UDim2.fromOffset(44, 16),
 		BackgroundTransparency = 1,
 		ZIndex = 10,
 		Parent = main,
 	})
 	controls.Visible = true
 
+	local circleSize = 14
+	local gap = 2
+
 	local closeBtn = make("TextButton", {
 		Text = "",
 		Font = Enum.Font.GothamBold,
-		TextSize = 14,
-		TextColor3 = Color3.fromRGB(255, 220, 220),
+		TextSize = 1,
+		TextColor3 = C.White,
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 0),
-		Size = UDim2.fromOffset(18, 18),
+		Size = UDim2.fromOffset(circleSize, circleSize),
 		BackgroundColor3 = Color3.fromRGB(190, 60, 60),
 		ZIndex = 12,
 		Parent = controls,
 	})
-	closeBtn.Text = "x"
-	closeBtn.TextTransparency = 0
 	closeBtn.AutoButtonColor = false
 	circle(closeBtn)
-	make("UIStroke", { Color = Color3.fromRGB(255, 120, 120), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = closeBtn })
+	-- no white outline
+	closeBtn.BorderSizePixel = 0
 
 	local minimizeBtn = make("TextButton", {
 		Text = "",
 		Font = Enum.Font.GothamBold,
-		TextSize = 14,
-		TextColor3 = Color3.fromRGB(255, 245, 190),
+		TextSize = 1,
+		TextColor3 = C.White,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(0, 18, 0, 0),
-		Size = UDim2.fromOffset(18, 18),
+		Position = UDim2.new(0, circleSize + gap, 0, 0),
+		Size = UDim2.fromOffset(circleSize, circleSize),
 		BackgroundColor3 = Color3.fromRGB(255, 195, 0),
 		ZIndex = 12,
 		Parent = controls,
 	})
-	minimizeBtn.Text = "-"
-	minimizeBtn.TextTransparency = 0
 	minimizeBtn.AutoButtonColor = false
 	circle(minimizeBtn)
-	make("UIStroke", { Color = Color3.fromRGB(255, 232, 120), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = minimizeBtn })
+	-- no white outline
+	minimizeBtn.BorderSizePixel = 0
+
 
 	table.insert(mainTopButtons, closeBtn)
 	table.insert(mainTopButtons, minimizeBtn)

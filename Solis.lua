@@ -1,16 +1,14 @@
 -- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; polished dark 50% startup loader reveals the supplied logo, types "Solis" letter by letter, sweeps through logo-matched gold/orange colors, and transitions smoothly into the UI; single-image FPS polyline.
 --[[
-    Solis UI v2 — extended dropdown support
-    
+    Solis UI v2 — single-file Roblox UI library
+    Pure Instance.new with a built-in branded layout and toast notifications.
+
     NEW dropdown options:
         MaxVisible = 5      -- how many items show before scrolling
         Searchable = true   -- adds search box at the top of the dropdown
-    
     NEW dropdown methods:
-        dropdown:SetOptions(newOptionsTable)  -- replace options list live
-        dropdown:Refresh()                    -- redraw if options changed
-        dropdown:Set(value)
-        dropdown:Get()
+        dropdown:SetOptions(newOptionsTable)
+        dropdown:Refresh()
 ]]
 
 local TweenService     = game:GetService("TweenService")
@@ -180,8 +178,12 @@ local function normalizeAssetId(value)
     if value == nil or value == "" then return DEFAULT_LOGO end
     if type(value) == "number" then return "rbxassetid://" .. tostring(math.floor(value)) end
     local text = tostring(value)
-    if text:match("^rbxassetid://") or text:match("^rbxthumb://") or text:match("^https?://") then return text end
-    local id = text:match("%d+")
+    if string.match(text, "^rbxassetid://")
+        or string.match(text, "^rbxthumb://")
+        or string.match(text, "^https?://") then
+        return text
+    end
+    local id = string.match(text, "%d+")
     return id and ("rbxassetid://" .. id) or DEFAULT_LOGO
 end
 local function getNotificationStyle(kind)
@@ -197,22 +199,34 @@ local function guiVisible(gui)
     return true
 end
 local function makeDraggable(frame, blockers)
-    local dragging, dragStart, startPos = false, nil, nil
+    local dragging = false
+    local dragStart, startPos
     frame.InputBegan:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
         local pos = Vector2.new(input.Position.X, input.Position.Y)
         for _, gui in ipairs(blockers) do
             if guiVisible(gui) and isInside(gui, pos) then return end
         end
-        dragging = true; dragStart = input.Position; startPos = frame.Position
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
         end)
     end)
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
         end
     end)
 end
@@ -231,6 +245,7 @@ local function sortIcon(parent)
     end
     return holder
 end
+
 local function inputIcon(parent)
     local holder = make("Frame", {
         BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0.5),
@@ -262,15 +277,21 @@ local THEME_PROPS = { "BackgroundColor3", "TextColor3", "PlaceholderColor3", "Sc
 function Library:SetTheme(theme)
     local themeName = nil
     if type(theme) == "string" then
-        themeName = theme; theme = THEMES[theme]
-        if not theme then warn(("[Solis UI] unknown theme %q"):format(themeName)); return false end
+        themeName = theme
+        theme = THEMES[theme]
+        if not theme then
+            warn(("[Solis UI] unknown theme %q"):format(themeName))
+            return false
+        end
     elseif type(theme) ~= "table" then
-        warn("[Solis UI] SetTheme expects a built-in theme name or theme table"); return false
+        warn("[Solis UI] SetTheme expects a built-in theme name or theme table")
+        return false
     end
     for key in pairs(C) do
         local value = theme[key]
         if value ~= nil and typeof(value) ~= "Color3" then
-            warn(("[Solis UI] theme key %s must be a Color3"):format(key)); return false
+            warn(("[Solis UI] theme key %s must be a Color3"):format(key))
+            return false
         end
     end
     for key in pairs(C) do
@@ -286,7 +307,8 @@ function Library:SetTheme(theme)
                 for _, prop in ipairs(THEME_PROPS) do
                     local key = inst:GetAttribute("Theme_" .. prop)
                     if key and C[key] then
-                        goal = goal or {}; goal[prop] = C[key]
+                        goal = goal or {}
+                        goal[prop] = C[key]
                     end
                 end
                 if goal then tween(inst, goal) end
@@ -305,7 +327,8 @@ function Library:Notify(opts)
             return window:Notify(opts)
         end
     end
-    warn("[Solis UI] create a window before calling Library:Notify"); return nil
+    warn("[Solis UI] create a window before calling Library:Notify")
+    return nil
 end
 
 function Library:Notification(opts) return self:Notify(opts) end
@@ -315,11 +338,13 @@ function Library:DestroyAll()
     for _, screenGui in ipairs(windows) do
         if screenGui then screenGui:Destroy() end
     end
-    table.clear(Library._windows); table.clear(Library._windowObjects or {})
+    table.clear(Library._windows)
+    table.clear(Library._windowObjects or {})
 end
 
 function Library:CreateWindow(opts)
     opts = opts or {}
+
     local logoAsset = normalizeAssetId(opts.Logo or DEFAULT_LOGO)
     local windowSize = opts.Size or UDim2.fromOffset(700, 490)
     local windowPosition = opts.Position or UDim2.fromScale(0.5, 0.5)
@@ -329,132 +354,390 @@ function Library:CreateWindow(opts)
     if typeof(opts.Parent) == "Instance" then
         targetParent = opts.Parent
     else
-        pcall(function() targetParent = (gethui and gethui()) or game:GetService("CoreGui") end)
-        if not targetParent then targetParent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+        pcall(function()
+            targetParent = (gethui and gethui()) or game:GetService("CoreGui")
+        end)
+        if not targetParent then
+            targetParent = Players.LocalPlayer:WaitForChild("PlayerGui")
+        end
     end
 
     local function removeExistingGui(parent)
         if opts.ReplaceExisting == false or not parent then return end
         for _, child in ipairs(parent:GetChildren()) do
-            if child:IsA("ScreenGui") and child.Name == guiName then child:Destroy() end
+            if child:IsA("ScreenGui") and child.Name == guiName then
+                child:Destroy()
+            end
         end
     end
+
     removeExistingGui(targetParent)
 
     local screenGui = make("ScreenGui", {
-        Name = guiName, ResetOnSpawn = false, IgnoreGuiInset = true,
+        Name = guiName,
+        ResetOnSpawn = false,
+        IgnoreGuiInset = true,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         DisplayOrder = opts.DisplayOrder or 10,
     })
 
-    local parented = pcall(function() screenGui.Parent = targetParent end)
+    local parented = pcall(function()
+        screenGui.Parent = targetParent
+    end)
     if not parented then
         targetParent = Players.LocalPlayer:WaitForChild("PlayerGui")
-        removeExistingGui(targetParent); screenGui.Parent = targetParent
+        removeExistingGui(targetParent)
+        screenGui.Parent = targetParent
     end
     table.insert(Library._windows, screenGui)
 
-    -- Loading screen (preserved from original)
+    -- ── LOADING SCREEN ────────────────────────────────────────────────────
     local loadingEnabled = opts.LoadingAnimation ~= false
+    local loadingDuration = math.clamp(tonumber(opts.LoadingDuration) or 2.65, 1.5, 8)
+    local loadingIconSize = math.clamp(math.floor(tonumber(opts.LoadingIconSize) or 112), 64, 190)
+    local loadingText = tostring(opts.LoadingText or "Solis")
+    local loadingTextSize = math.clamp(math.floor(tonumber(opts.LoadingTextSize) or 58), 40, 76)
+    local loadingTextStartColor = typeof(opts.LoadingTextStartColor) == "Color3"
+        and opts.LoadingTextStartColor or Color3.fromRGB(255, 255, 255)
+    local loadingTextHighlightColor = typeof(opts.LoadingTextHighlightColor) == "Color3"
+        and opts.LoadingTextHighlightColor or Color3.fromRGB(255, 231, 26)
+    local loadingTextGoldColor = typeof(opts.LoadingTextGoldColor) == "Color3"
+        and opts.LoadingTextGoldColor or Color3.fromRGB(255, 183, 1)
+    local loadingTextEndColor = typeof(opts.LoadingTextEndColor) == "Color3"
+        and opts.LoadingTextEndColor or Color3.fromRGB(253, 128, 0)
+    local loadingTextDeepColor = typeof(opts.LoadingTextDeepColor) == "Color3"
+        and opts.LoadingTextDeepColor or Color3.fromRGB(228, 87, 0)
+    local overlayTransparency = math.clamp(tonumber(opts.LoadingOverlayTransparency) or 0.5, 0, 0.9)
+    local colorTransitionDuration = math.clamp(tonumber(opts.LoadingColorTransitionDuration) or 0.95, 0.4, 2.5)
+
+    local function sampleLoadingColor(alpha)
+        alpha = math.clamp(alpha, 0, 1)
+        if alpha <= 0.32 then
+            return loadingTextHighlightColor:Lerp(loadingTextGoldColor, alpha / 0.32)
+        elseif alpha <= 0.68 then
+            return loadingTextGoldColor:Lerp(loadingTextEndColor, (alpha - 0.32) / 0.36)
+        end
+        return loadingTextEndColor:Lerp(loadingTextDeepColor, (alpha - 0.68) / 0.32)
+    end
+
     local loadingComplete = not loadingEnabled
-    
+    local loadingMotionComplete = not loadingEnabled
+    local loadingLayer, loadingContent, loadingLogo, loadingLogoScale
+    local loadingTitleHolder, loadingTitleScale, loadingCaret
+    local loadingProgressTrack, loadingProgressFill
+    local loadingLetterLabels = {}
+    local loadingLetterScales = {}
+    local loadingLetterColors = {}
+
     if loadingEnabled then
-        local overlay = make("Frame", {
-            Name = "Loader", Size = UDim2.fromScale(1, 1),
-            BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.5,
-            ZIndex = 500, Parent = screenGui,
+        loadingLayer = make("CanvasGroup", {
+            Name = "StartupLoader", Size = UDim2.fromScale(1, 1),
+            BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 1,
+            GroupTransparency = 0, ZIndex = 500, Parent = screenGui,
         })
-        local logoBig = make("ImageLabel", {
-            Image = logoAsset, BackgroundTransparency = 1,
-            Position = UDim2.new(0.5, 0, 0.5, -30), AnchorPoint = Vector2.new(0.5, 0.5),
-            Size = UDim2.fromOffset(112, 112), ScaleType = Enum.ScaleType.Fit,
-            ZIndex = 501, Parent = overlay,
+
+        loadingContent = make("CanvasGroup", {
+            Name = "LoadingContent", Size = UDim2.fromOffset(560, 300),
+            Position = UDim2.new(0.5, 0, 0.5, 18), AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1, GroupTransparency = 1, ZIndex = 501, Parent = loadingLayer,
         })
-        local title = make("TextLabel", {
-            Text = opts.LoadingText or "Solis", Font = Enum.Font.GothamBold, TextSize = 48,
-            TextColor3 = Color3.fromRGB(255, 183, 1), BackgroundTransparency = 1,
-            Position = UDim2.new(0.5, 0, 0.5, 70), AnchorPoint = Vector2.new(0.5, 0.5),
-            Size = UDim2.fromOffset(300, 60), ZIndex = 501, Parent = overlay,
+
+        loadingLogo = make("ImageLabel", {
+            Name = "LoadingLogo", Image = logoAsset,
+            Size = UDim2.fromOffset(loadingIconSize, loadingIconSize),
+            Position = UDim2.new(0.5, 0, 0, 84), AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1, BorderSizePixel = 0, ImageTransparency = 0,
+            ScaleType = Enum.ScaleType.Fit, ZIndex = 502, Parent = loadingContent,
         })
-        task.delay(opts.LoadingDuration or 2.65, function()
-            TweenService:Create(overlay, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
-            TweenService:Create(logoBig, TweenInfo.new(0.5), { ImageTransparency = 1 }):Play()
-            TweenService:Create(title, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
-            task.wait(0.55)
-            overlay:Destroy()
-            loadingComplete = true
+
+        loadingLogoScale = make("UIScale", { Scale = 0.58, Parent = loadingLogo })
+
+        local characterCount = math.max(#loadingText, 1)
+        local letterSpacing = math.max(1, math.floor(loadingTextSize * 0.025))
+        local letterWidths = {}
+        local titleWidth = 0
+
+        for index = 1, #loadingText do
+            local character = string.sub(loadingText, index, index)
+            local measured = TextService:GetTextSize(character, loadingTextSize, Enum.Font.GothamBold, Vector2.new(200, 90))
+            local width = math.max(math.ceil(measured.X), math.floor(loadingTextSize * 0.24))
+            letterWidths[index] = width
+            titleWidth = titleWidth + width
+            if index < #loadingText then titleWidth = titleWidth + letterSpacing end
+        end
+
+        titleWidth = math.max(titleWidth, 80)
+
+        loadingTitleHolder = make("Frame", {
+            Name = "LoadingTitle", Size = UDim2.fromOffset(titleWidth + 12, 82),
+            Position = UDim2.new(0.5, 0, 0, 151), AnchorPoint = Vector2.new(0.5, 0),
+            BackgroundTransparency = 1, ZIndex = 502, Parent = loadingContent,
+        })
+
+        loadingTitleScale = make("UIScale", { Scale = 0.94, Parent = loadingTitleHolder })
+
+        local xOffset = 6
+        for index = 1, #loadingText do
+            local character = string.sub(loadingText, index, index)
+            local width = letterWidths[index]
+            local finalAlpha = #loadingText > 1 and ((index - 1) / (#loadingText - 1)) or 0.5
+            local finalColor = sampleLoadingColor(finalAlpha)
+
+            local letter = make("TextLabel", {
+                Name = "Letter" .. tostring(index), Text = character,
+                Font = Enum.Font.GothamBold, TextSize = loadingTextSize,
+                TextColor3 = loadingTextStartColor, TextTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center,
+                BackgroundTransparency = 1, Position = UDim2.fromOffset(xOffset, 10),
+                Size = UDim2.fromOffset(width, 72), ZIndex = 503, Parent = loadingTitleHolder,
+            })
+
+            local letterScale = make("UIScale", { Scale = 0.78, Parent = letter })
+
+            loadingLetterLabels[index] = letter
+            loadingLetterScales[index] = letterScale
+            loadingLetterColors[index] = finalColor
+            xOffset = xOffset + width + letterSpacing
+        end
+
+        loadingCaret = make("Frame", {
+            Name = "TypingCaret", Size = UDim2.fromOffset(2, math.floor(loadingTextSize * 0.7)),
+            Position = UDim2.fromOffset(6, 20), BackgroundColor3 = loadingTextGoldColor,
+            BackgroundTransparency = 1, ZIndex = 504, Parent = loadingTitleHolder,
+        })
+        corner(loadingCaret, 1)
+
+        local progressWidth = math.clamp(math.floor(titleWidth * 0.76), 150, 270)
+        loadingProgressTrack = make("Frame", {
+            Name = "LoadingProgress", Size = UDim2.fromOffset(progressWidth, 3),
+            Position = UDim2.new(0.5, 0, 0, 246), AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255), BackgroundTransparency = 0.9,
+            ClipsDescendants = true, ZIndex = 502, Parent = loadingContent,
+        })
+        corner(loadingProgressTrack, 2)
+
+        loadingProgressFill = make("Frame", {
+            Name = "Fill", Size = UDim2.new(0, 0, 1, 0),
+            BackgroundColor3 = loadingTextEndColor, BackgroundTransparency = 0,
+            ZIndex = 503, Parent = loadingProgressTrack,
+        })
+        corner(loadingProgressFill, 2)
+        make("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0.00, loadingTextHighlightColor),
+                ColorSequenceKeypoint.new(0.34, loadingTextGoldColor),
+                ColorSequenceKeypoint.new(0.72, loadingTextEndColor),
+                ColorSequenceKeypoint.new(1.00, loadingTextDeepColor),
+            }),
+            Rotation = 0, Parent = loadingProgressFill,
+        })
+
+        task.spawn(function()
+            local overlayIn = TweenService:Create(loadingLayer, TweenInfo.new(0.34, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = overlayTransparency })
+            local contentIn = TweenService:Create(loadingContent, TweenInfo.new(0.42, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.fromScale(0.5, 0.5), GroupTransparency = 0 })
+            local logoIn = TweenService:Create(loadingLogoScale, TweenInfo.new(0.62, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+            local logoRise = TweenService:Create(loadingLogo, TweenInfo.new(0.58, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 76) })
+            local titleSettle = TweenService:Create(loadingTitleScale, TweenInfo.new(0.52, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Scale = 1 })
+
+            overlayIn:Play(); contentIn:Play(); logoIn:Play(); logoRise:Play(); titleSettle:Play()
+            task.wait(0.36)
+            if not loadingLayer or not loadingLayer.Parent then return end
+
+            TweenService:Create(loadingCaret, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0.08 }):Play()
+
+            local availableTypingTime = math.max(loadingDuration - colorTransitionDuration - 1.28, 0.45)
+            local letterDelay = math.clamp(availableTypingTime / characterCount, 0.075, 0.19)
+            local caretX = 6
+
+            for index, letter in ipairs(loadingLetterLabels) do
+                if not loadingLayer or not loadingLayer.Parent then return end
+                local letterScale = loadingLetterScales[index]
+                local width = letterWidths[index]
+
+                TweenService:Create(letter, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.fromOffset(caretX, 0), TextTransparency = 0 }):Play()
+                TweenService:Create(letterScale, TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+
+                caretX = caretX + width + letterSpacing
+                TweenService:Create(loadingCaret, TweenInfo.new(0.12, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Position = UDim2.fromOffset(caretX, 20) }):Play()
+
+                local typingProgress = (index / characterCount) * 0.58
+                TweenService:Create(loadingProgressFill, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(typingProgress, 0, 1, 0) }):Play()
+
+                task.wait(letterDelay)
+            end
+
+            TweenService:Create(loadingCaret, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+            task.wait(0.08)
+
+            local colorStagger = math.clamp((colorTransitionDuration / math.max(characterCount + 1, 2)) * 0.72, 0.055, 0.15)
+
+            for index, letter in ipairs(loadingLetterLabels) do
+                if not loadingLayer or not loadingLayer.Parent then return end
+                local letterScale = loadingLetterScales[index]
+                TweenService:Create(letter, TweenInfo.new(0.46, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut), { TextColor3 = loadingLetterColors[index] }):Play()
+                TweenService:Create(letterScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Scale = 1.065 }):Play()
+                task.delay(0.14, function()
+                    if letterScale and letterScale.Parent then
+                        TweenService:Create(letterScale, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+                    end
+                end)
+
+                local colorProgress = 0.58 + ((index / characterCount) * 0.42)
+                TweenService:Create(loadingProgressFill, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = UDim2.new(colorProgress, 0, 1, 0) }):Play()
+                task.wait(colorStagger)
+            end
+
+            TweenService:Create(loadingProgressFill, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = UDim2.fromScale(1, 1) }):Play()
+            task.wait(0.38)
+
+            TweenService:Create(loadingLogoScale, TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Scale = 1.035 }):Play()
+            TweenService:Create(loadingTitleScale, TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Scale = 1.018 }):Play()
+            task.wait(0.22)
+            TweenService:Create(loadingLogoScale, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Scale = 1 }):Play()
+            TweenService:Create(loadingTitleScale, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Scale = 1 }):Play()
+            task.wait(0.28)
+
+            loadingMotionComplete = true
         end)
     end
 
+    -- ── MAIN WINDOW ────────────────────────────────────────────────────────
     local main = make("Frame", {
         Name = "Main", Size = windowSize, Position = windowPosition,
         AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = C.WindowBg,
-        ClipsDescendants = true, Visible = true, ZIndex = 2, Parent = screenGui,
+        ClipsDescendants = true, Visible = not loadingEnabled, ZIndex = 2, Parent = screenGui,
     })
     corner(main, 12); stroke(main, C.Border)
 
+    local mainRevealScale = make("UIScale", { Scale = loadingEnabled and 0.965 or 1, Parent = main })
+
+    -- Minimize/Close corner controls
+    local minimized = false
+    local mainTopButtons = {}
+    local burgerButton
+    local windowRef
+    local function setMinimized(o)
+        minimized = o == true
+        if mainTopButtons then
+            for _, b in ipairs(mainTopButtons) do
+                if b and b.Parent then b.Visible = not minimized end
+            end
+        end
+        if burgerButton and burgerButton.Parent then
+            burgerButton.Visible = minimized
+        end
+        main.Visible = not minimized
+        if windowRef then windowRef._minimized = minimized end
+    end
+
     local noDrag = {}
 
-    -- Corner controls
     local controls = make("Frame", {
-        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -6, 0, 8),
-        Size = UDim2.fromOffset(36, 16), BackgroundTransparency = 1,
-        ZIndex = 10, Parent = main,
+        Name = "CornerControls", AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -6, 0, 8), Size = UDim2.fromOffset(36, 16),
+        BackgroundTransparency = 1, ZIndex = 10, Parent = main,
     })
-    local closeBtn = make("TextButton", {
-        Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0),
-        Size = UDim2.fromOffset(14, 14), BackgroundColor3 = Color3.fromRGB(190, 60, 60),
-        ZIndex = 12, Parent = controls,
-    })
-    circle(closeBtn)
-    local minimizeBtn = make("TextButton", {
-        Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(0, 14, 0, 0),
-        Size = UDim2.fromOffset(14, 14), BackgroundColor3 = Color3.fromRGB(255, 195, 0),
-        ZIndex = 12, Parent = controls,
-    })
-    circle(minimizeBtn)
-    table.insert(noDrag, closeBtn); table.insert(noDrag, minimizeBtn)
+    controls.Visible = true
 
-    local minimized = false
-    local function setMinimized(o)
-        minimized = o
-        main.Visible = not minimized
-    end
+    local circleSize = 14
+    local gap = 0
+
+    local closeBtn = make("TextButton", {
+        Text = "", Font = Enum.Font.GothamBold, TextSize = 1, TextColor3 = C.White,
+        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0),
+        Size = UDim2.fromOffset(circleSize, circleSize),
+        BackgroundColor3 = Color3.fromRGB(190, 60, 60),
+        ZIndex = 12, Parent = controls,
+    })
+    closeBtn.AutoButtonColor = false
+    circle(closeBtn); closeBtn.BorderSizePixel = 0
+
+    local minimizeBtn = make("TextButton", {
+        Text = "", Font = Enum.Font.GothamBold, TextSize = 1, TextColor3 = C.White,
+        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(0, circleSize + gap - 2, 0, 0),
+        Size = UDim2.fromOffset(circleSize, circleSize),
+        BackgroundColor3 = Color3.fromRGB(255, 195, 0),
+        ZIndex = 12, Parent = controls,
+    })
+    minimizeBtn.AutoButtonColor = false
+    circle(minimizeBtn); minimizeBtn.BorderSizePixel = 0
+
+    table.insert(mainTopButtons, closeBtn)
+    table.insert(mainTopButtons, minimizeBtn)
+    table.insert(noDrag, closeBtn)
+    table.insert(noDrag, minimizeBtn)
+
+    burgerButton = make("TextButton", {
+        Text = "", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = C.White,
+        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12),
+        Size = UDim2.fromOffset(34, 18), BackgroundColor3 = C.CardBg,
+        Visible = false, ZIndex = 11, Parent = screenGui,
+    })
+    corner(burgerButton, 10); stroke(burgerButton, C.Border)
+
+    local burgerIconHolder = make("Frame", {
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(6, 0),
+        Size = UDim2.fromOffset(18, 18), Parent = burgerButton, ZIndex = 12,
+    })
+    make("Frame", { BackgroundColor3 = C.White, Size = UDim2.fromOffset(12, 2), Position = UDim2.fromOffset(3, 4), Parent = burgerIconHolder, ZIndex = 13 })
+    make("Frame", { BackgroundColor3 = C.White, Size = UDim2.fromOffset(12, 2), Position = UDim2.fromOffset(3, 8), Parent = burgerIconHolder, ZIndex = 13 })
+    make("Frame", { BackgroundColor3 = C.White, Size = UDim2.fromOffset(12, 2), Position = UDim2.fromOffset(3, 12), Parent = burgerIconHolder, ZIndex = 13 })
+
+    make("ImageLabel", {
+        Name = "BurgerLogo", Image = logoAsset, BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(26, 5), Size = UDim2.fromOffset(8, 8),
+        ZIndex = 14, ScaleType = Enum.ScaleType.Fit, Parent = burgerButton,
+    })
+
+    burgerButton.MouseButton1Click:Connect(function() setMinimized(false) end)
     closeBtn.MouseButton1Click:Connect(function()
-        if window and window.Destroy then window:Destroy() else screenGui:Destroy() end
+        if windowRef and windowRef.Destroy then windowRef:Destroy()
+        else if screenGui then screenGui:Destroy() end end
     end)
     minimizeBtn.MouseButton1Click:Connect(function() setMinimized(true) end)
 
     makeDraggable(main, noDrag)
 
-    -- Sidebar
+    -- ── SIDEBAR ────────────────────────────────────────────────────────────
     local sidebar = make("Frame", { Size = UDim2.new(0, 190, 1, 0), BackgroundTransparency = 1, Parent = main })
+
     local brand = make("Frame", {
-        Position = UDim2.fromOffset(12, 12), Size = UDim2.new(1, -24, 0, 54),
-        BackgroundColor3 = C.CardBg, Parent = sidebar,
+        Name = "Brand", Position = UDim2.fromOffset(12, 12),
+        Size = UDim2.new(1, -24, 0, 54), BackgroundColor3 = C.CardBg, Parent = sidebar,
     })
     corner(brand, 10); stroke(brand, C.Border)
+
     local logoHolder = make("Frame", {
         Position = UDim2.fromOffset(9, 9), Size = UDim2.fromOffset(36, 36),
         BackgroundColor3 = C.Element, Parent = brand,
     })
     corner(logoHolder, 9)
+
+    make("TextLabel", {
+        Text = "S", Font = Enum.Font.GothamBold, TextSize = 15,
+        TextColor3 = C.White, BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1), Parent = logoHolder,
+    })
+
     local brandLogo = make("ImageLabel", {
-        Image = logoAsset, BackgroundTransparency = 1,
+        Name = "Logo", Image = logoAsset, BackgroundTransparency = 1,
         Position = UDim2.fromOffset(3, 3), Size = UDim2.new(1, -6, 1, -6),
         ScaleType = Enum.ScaleType.Fit, Parent = logoHolder,
     })
+
     make("TextLabel", {
         Text = opts.Name or "Solis UI", Font = Enum.Font.GothamBold, TextSize = 13,
         TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1,
         Position = UDim2.fromOffset(54, 9), Size = UDim2.new(1, -62, 0, 17), Parent = brand,
     })
+
     make("TextLabel", {
-        Text = opts.BrandSubtitle or "SOLIS FREE...", Font = Enum.Font.GothamMedium, TextSize = 9,
+        Text = opts.BrandSubtitle or ("SOLIS FREE..." .. Library.Version),
+        Font = Enum.Font.GothamMedium, TextSize = 9,
         TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
-        BackgroundTransparency = 1, Position = UDim2.fromOffset(54, 28),
-        Size = UDim2.new(1, -62, 0, 13), Parent = brand,
+        TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(54, 28), Size = UDim2.new(1, -62, 0, 13), Parent = brand,
     })
 
     local navList = make("Frame", {
@@ -491,9 +774,9 @@ function Library:CreateWindow(opts)
     })
 
     local notificationHolder = make("Frame", {
-        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 16),
-        Size = UDim2.new(0, 300, 1, -32), BackgroundTransparency = 1,
-        ZIndex = 200, Parent = screenGui,
+        Name = "Notifications", AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -16, 0, 16), Size = UDim2.new(0, 300, 1, -32),
+        BackgroundTransparency = 1, ZIndex = 200, Parent = screenGui,
     })
     make("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
@@ -502,27 +785,579 @@ function Library:CreateWindow(opts)
         Parent = notificationHolder,
     })
 
-    window = setmetatable({
+    -- ── USER PROFILE + PERFORMANCE PANELS ──────────────────────────────────
+    local localPlayer = Players.LocalPlayer
+    local profileKey = typeof(opts.ProfileKey) == "EnumItem" and opts.ProfileKey or Enum.KeyCode.K
+    local profileWidth = math.max(280, tonumber(opts.ProfileWidth) or 312)
+    local bottomMargin = math.max(10, tonumber(opts.ProfileBottomMargin) or 18)
+    local profileOpenPosition = UDim2.new(1, -18, 1, -bottomMargin)
+    local profileClosedPosition = UDim2.new(1, profileWidth + 28, 1, -bottomMargin)
+    local profileOpen = false
+
+    local profilePanel = make("CanvasGroup", {
+        Name = "UserProfile", AnchorPoint = Vector2.new(1, 1),
+        Position = profileClosedPosition, Size = UDim2.fromOffset(profileWidth, 382),
+        BackgroundColor3 = C.CardBg, GroupTransparency = 1, ClipsDescendants = true,
+        ZIndex = 150, Parent = screenGui,
+    })
+    corner(profilePanel, 14)
+
+    local profileHeader = make("Frame", {
+        Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, 0, 0, 65),
+        BackgroundTransparency = 1, ZIndex = 151, Parent = profilePanel,
+    })
+    make("TextLabel", {
+        Text = opts.ProfileTitle or "PLAYER PROFILE", Font = Enum.Font.GothamBold,
+        TextSize = 13, TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(18, 13),
+        Size = UDim2.new(1, -36, 0, 18), ZIndex = 152, Parent = profileHeader,
+    })
+    make("TextLabel", {
+        Text = "Live session overview", Font = Enum.Font.Gotham, TextSize = 10,
+        TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(18, 34),
+        Size = UDim2.new(1, -36, 0, 15), ZIndex = 152, Parent = profileHeader,
+    })
+    make("Frame", {
+        Position = UDim2.new(0, 18, 1, -1), Size = UDim2.new(1, -36, 0, 1),
+        BackgroundColor3 = C.Border, ZIndex = 151, Parent = profileHeader,
+    })
+
+    local identityCard = make("Frame", {
+        Position = UDim2.fromOffset(16, 82), Size = UDim2.new(1, -32, 0, 116),
+        BackgroundColor3 = C.Element, ZIndex = 151, Parent = profilePanel,
+    })
+    corner(identityCard, 11); stroke(identityCard, C.Border)
+
+    local avatarHolder = make("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, 0),
+        Size = UDim2.fromOffset(76, 76), BackgroundColor3 = C.Badge,
+        ZIndex = 152, Parent = identityCard,
+    })
+    circle(avatarHolder); stroke(avatarHolder, C.Border)
+
+    local avatar = make("ImageLabel", {
+        Name = "Avatar", Image = "", BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(4, 4), Size = UDim2.new(1, -8, 1, -8),
+        ScaleType = Enum.ScaleType.Crop, ZIndex = 153, Parent = avatarHolder,
+    })
+    circle(avatar)
+
+    local onlineRing = make("Frame", {
+        AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.fromOffset(18, 18), BackgroundColor3 = C.Element,
+        ZIndex = 154, Parent = avatarHolder,
+    })
+    circle(onlineRing)
+    local onlineDot = make("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(10, 10), BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
+        ZIndex = 155, Parent = onlineRing,
+    })
+    circle(onlineDot)
+
+    make("TextLabel", {
+        Text = localPlayer and localPlayer.DisplayName or "Player",
+        Font = Enum.Font.GothamBold, TextSize = 17, TextColor3 = C.White,
+        TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(105, 22),
+        Size = UDim2.new(1, -119, 0, 23), ZIndex = 152, Parent = identityCard,
+    })
+    make("TextLabel", {
+        Text = localPlayer and ("@" .. localPlayer.Name) or "@unknown",
+        Font = Enum.Font.GothamMedium, TextSize = 11, TextColor3 = C.TextDim,
+        TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(105, 47),
+        Size = UDim2.new(1, -119, 0, 16), ZIndex = 152, Parent = identityCard,
+    })
+
+    local connectedBadge = make("Frame", {
+        Position = UDim2.fromOffset(105, 74), Size = UDim2.fromOffset(92, 24),
+        BackgroundColor3 = C.BadgeIdle, ZIndex = 152, Parent = identityCard,
+    })
+    corner(connectedBadge, 7)
+    local connectedDot = make("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 9, 0.5, 0),
+        Size = UDim2.fromOffset(6, 6), BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
+        ZIndex = 153, Parent = connectedBadge,
+    })
+    circle(connectedDot)
+    make("TextLabel", {
+        Text = "CONNECTED", Font = Enum.Font.GothamBold, TextSize = 8,
+        TextColor3 = C.TextGray, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(22, 0),
+        Size = UDim2.new(1, -27, 1, 0), ZIndex = 153, Parent = connectedBadge,
+    })
+
+    make("TextLabel", {
+        Text = "ACCOUNT DETAILS", Font = Enum.Font.GothamBold, TextSize = 10,
+        TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(18, 216),
+        Size = UDim2.new(1, -36, 0, 16), ZIndex = 152, Parent = profilePanel,
+    })
+
+    local details = make("Frame", {
+        Position = UDim2.fromOffset(16, 240), Size = UDim2.new(1, -32, 0, 126),
+        BackgroundColor3 = C.Element, ZIndex = 151, Parent = profilePanel,
+    })
+    corner(details, 11); stroke(details, C.Border)
+
+    local function addProfileDetail(index, labelText, valueText)
+        local y = (index - 1) * 42
+        local row = make("Frame", {
+            Position = UDim2.fromOffset(0, y), Size = UDim2.new(1, 0, 0, 42),
+            BackgroundTransparency = 1, ZIndex = 152, Parent = details,
+        })
+        make("TextLabel", {
+            Text = labelText, Font = Enum.Font.GothamMedium, TextSize = 10,
+            TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 0),
+            Size = UDim2.new(0.46, -16, 1, 0), ZIndex = 153, Parent = row,
+        })
+        local valueLabel = make("TextLabel", {
+            Text = valueText, Font = Enum.Font.GothamMedium, TextSize = 11,
+            TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Right,
+            TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1,
+            Position = UDim2.new(0.46, 0, 0, 0), Size = UDim2.new(0.54, -16, 1, 0),
+            ZIndex = 153, Parent = row,
+        })
+        if index < 3 then
+            make("Frame", {
+                Position = UDim2.new(0, 16, 1, -1), Size = UDim2.new(1, -32, 0, 1),
+                BackgroundColor3 = C.Border, ZIndex = 153, Parent = row,
+            })
+        end
+        return valueLabel
+    end
+
+    addProfileDetail(1, "USER ID", localPlayer and tostring(localPlayer.UserId) or "N/A")
+    addProfileDetail(2, "ACCOUNT AGE", localPlayer and (tostring(localPlayer.AccountAge) .. " days") or "N/A")
+    local pingLabel = addProfileDetail(3, "PING", "-- ms")
+
+    -- Performance panel
+    local performanceWidth = math.max(236, tonumber(opts.PerformanceWidth) or 266)
+    local performanceHeight = math.max(260, tonumber(opts.PerformanceHeight) or 294)
+    local panelGap = math.max(8, tonumber(opts.ProfilePanelGap) or 12)
+    local performanceOpenPosition = UDim2.new(1, -(18 + profileWidth + panelGap), 1, -bottomMargin)
+    local performanceClosedPosition = UDim2.new(1, performanceWidth + 36, 1, -bottomMargin)
+
+    local performancePanel = make("CanvasGroup", {
+        Name = "LivePerformance", AnchorPoint = Vector2.new(1, 1),
+        Position = performanceClosedPosition, Size = UDim2.fromOffset(performanceWidth, performanceHeight),
+        BackgroundColor3 = C.CardBg, GroupTransparency = 1, ClipsDescendants = true,
+        ZIndex = 149, Parent = screenGui,
+    })
+    corner(performancePanel, 14)
+
+    local performanceHeader = make("Frame", {
+        Size = UDim2.new(1, 0, 0, 56), BackgroundTransparency = 1,
+        ZIndex = 150, Parent = performancePanel,
+    })
+    make("TextLabel", {
+        Text = opts.PerformanceTitle or "LIVE PERFORMANCE", Font = Enum.Font.GothamBold,
+        TextSize = 12, TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 11),
+        Size = UDim2.new(1, -94, 0, 17), ZIndex = 151, Parent = performanceHeader,
+    })
+    make("TextLabel", {
+        Text = "Real-time frame tracker", Font = Enum.Font.Gotham, TextSize = 9,
+        TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 31),
+        Size = UDim2.new(1, -94, 0, 13), ZIndex = 151, Parent = performanceHeader,
+    })
+
+    local liveBadge = make("Frame", {
+        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 14),
+        Size = UDim2.fromOffset(58, 20), BackgroundColor3 = C.BadgeIdle,
+        ZIndex = 151, Parent = performanceHeader,
+    })
+    corner(liveBadge, 6)
+    local liveDot = make("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0),
+        Size = UDim2.fromOffset(5, 5), BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
+        ZIndex = 152, Parent = liveBadge,
+    })
+    circle(liveDot)
+    make("TextLabel", {
+        Text = "LIVE", Font = Enum.Font.GothamBold, TextSize = 8,
+        TextColor3 = C.TextGray, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(19, 0),
+        Size = UDim2.new(1, -23, 1, 0), ZIndex = 152, Parent = liveBadge,
+    })
+
+    local fpsSummary = make("Frame", {
+        Position = UDim2.fromOffset(14, 58), Size = UDim2.new(1, -28, 0, 56),
+        BackgroundColor3 = C.Element, ZIndex = 150, Parent = performancePanel,
+    })
+    corner(fpsSummary, 10); stroke(fpsSummary, C.Border)
+    make("TextLabel", {
+        Text = "FPS", Font = Enum.Font.GothamBold, TextSize = 8,
+        TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 8),
+        Size = UDim2.new(0.5, -12, 0, 11), ZIndex = 151, Parent = fpsSummary,
+    })
+    local currentFpsLabel = make("TextLabel", {
+        Text = "--", Font = Enum.Font.GothamBold, TextSize = 23,
+        TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 21),
+        Size = UDim2.new(0.5, -12, 0, 28), ZIndex = 151, Parent = fpsSummary,
+    })
+    make("TextLabel", {
+        Text = "FRAME TIME", Font = Enum.Font.GothamBold, TextSize = 8,
+        TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Right,
+        BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 0, 8),
+        Size = UDim2.new(0.5, -12, 0, 11), ZIndex = 151, Parent = fpsSummary,
+    })
+    local frameTimeLabel = make("TextLabel", {
+        Text = "-- ms", Font = Enum.Font.GothamMedium, TextSize = 12,
+        TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Right,
+        BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 0, 26),
+        Size = UDim2.new(0.5, -12, 0, 18), ZIndex = 151, Parent = fpsSummary,
+    })
+
+    make("TextLabel", {
+        Text = "FRAME HISTORY", Font = Enum.Font.GothamBold, TextSize = 9,
+        TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 126),
+        Size = UDim2.new(1, -32, 0, 13), ZIndex = 150, Parent = performancePanel,
+    })
+
+    local graphCard = make("Frame", {
+        Position = UDim2.fromOffset(14, 145), Size = UDim2.new(1, -28, 0, 82),
+        BackgroundColor3 = C.Element, ClipsDescendants = true,
+        ZIndex = 150, Parent = performancePanel,
+    })
+    corner(graphCard, 10); stroke(graphCard, C.Border)
+
+    local graphPlot = make("Frame", {
+        Position = UDim2.fromOffset(10, 9), Size = UDim2.new(1, -20, 1, -18),
+        BackgroundTransparency = 1, ClipsDescendants = true,
+        ZIndex = 151, Parent = graphCard,
+    })
+    for index = 1, 2 do
+        make("Frame", {
+            Position = UDim2.new(0, 0, index / 3, 0),
+            Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.Border,
+            BackgroundTransparency = 0.35, ZIndex = 151, Parent = graphPlot,
+        })
+    end
+
+    local maxFpsSamples = 48
+    local fpsSamples = {}
+    local graphPixelSize = Vector2.new(math.max(2, math.floor(performanceWidth - 48)), 64)
+    local graphImage = make("ImageLabel", {
+        Name = "ContinuousFpsLine", BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(0, 0), Size = UDim2.fromScale(1, 1),
+        ScaleType = Enum.ScaleType.Stretch, ResampleMode = Enum.ResamplerMode.Default,
+        ZIndex = 153, Parent = graphPlot,
+    })
+
+    local fpsEditableImage = nil
+    local graphSegments = {}
+    local editableImageReady = false
+    local supportsAntiAliasingArgument = true
+
+    local function ensureFallbackSegments()
+        if #graphSegments > 0 then return end
+        graphImage.Visible = false
+        for index = 1, maxFpsSamples - 1 do
+            local segment = make("Frame", {
+                Name = "FallbackLine" .. index, AnchorPoint = Vector2.new(0, 0.5),
+                Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(0, 1),
+                BackgroundColor3 = C.White, BorderSizePixel = 0,
+                Visible = false, ZIndex = 153, Parent = graphPlot,
+            })
+            graphSegments[index] = segment
+        end
+    end
+
+    do
+        local ok, editable = pcall(function()
+            local image = AssetService:CreateEditableImage({ Size = graphPixelSize })
+            graphImage.ImageContent = Content.fromObject(image)
+            return image
+        end)
+        if ok and editable then
+            fpsEditableImage = editable
+            editableImageReady = true
+        else
+            ensureFallbackSegments()
+        end
+    end
+
+    local function clearEditableGraph()
+        if not editableImageReady or not fpsEditableImage then return false end
+        local ok = pcall(function()
+            fpsEditableImage:DrawRectangle(Vector2.zero, graphPixelSize, Color3.new(0, 0, 0), 1, Enum.ImageCombineType.Overwrite)
+        end)
+        if not ok then
+            editableImageReady = false
+            ensureFallbackSegments()
+        end
+        return ok
+    end
+
+    local function drawEditableGraphLine(pointA, pointB)
+        if not editableImageReady or not fpsEditableImage then return false end
+        if supportsAntiAliasingArgument then
+            local ok = pcall(function()
+                fpsEditableImage:DrawLine(pointA, pointB, C.White, 0, Enum.ImageCombineType.Overwrite, Enum.AntiAliasing.Enabled)
+            end)
+            if ok then return true end
+            supportsAntiAliasingArgument = false
+        end
+        local ok = pcall(function()
+            fpsEditableImage:DrawLine(pointA, pointB, C.White, 0, Enum.ImageCombineType.Overwrite)
+        end)
+        if not ok then
+            editableImageReady = false
+            ensureFallbackSegments()
+        end
+        return ok
+    end
+
+    local statsStrip = make("Frame", {
+        Position = UDim2.fromOffset(14, 237), Size = UDim2.new(1, -28, 0, 43),
+        BackgroundColor3 = C.Element, ZIndex = 150, Parent = performancePanel,
+    })
+    corner(statsStrip, 10); stroke(statsStrip, C.Border)
+
+    local statValueLabels = {}
+    local statNames = { "AVG", "LOW", "HIGH" }
+    for index, statName in ipairs(statNames) do
+        local statCell = make("Frame", {
+            Position = UDim2.new((index - 1) / 3, 0, 0, 0),
+            Size = UDim2.new(1 / 3, 0, 1, 0), BackgroundTransparency = 1,
+            ZIndex = 151, Parent = statsStrip,
+        })
+        make("TextLabel", {
+            Text = statName, Font = Enum.Font.GothamBold, TextSize = 8,
+            TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Center,
+            BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 5),
+            Size = UDim2.new(1, 0, 0, 10), ZIndex = 152, Parent = statCell,
+        })
+        statValueLabels[index] = make("TextLabel", {
+            Text = "--", Font = Enum.Font.GothamMedium, TextSize = 10,
+            TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Center,
+            BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 19),
+            Size = UDim2.new(1, 0, 0, 15), ZIndex = 152, Parent = statCell,
+        })
+    end
+
+    local function redrawFpsGraph()
+        local sampleCount = #fpsSamples
+        local plotSize = graphPlot.AbsoluteSize
+        if sampleCount < 2 or plotSize.X <= 1 or plotSize.Y <= 1 then
+            if editableImageReady then clearEditableGraph() end
+            for _, segment in ipairs(graphSegments) do segment.Visible = false end
+            return
+        end
+
+        local graphMax = 60
+        for _, value in ipairs(fpsSamples) do
+            graphMax = math.max(graphMax, value)
+        end
+        graphMax = math.max(30, math.ceil(graphMax / 30) * 30)
+        local denominator = math.max(sampleCount - 1, 1)
+
+        if editableImageReady and clearEditableGraph() then
+            local width = graphPixelSize.X
+            local height = graphPixelSize.Y
+            local usableWidth = math.max(1, width - 2)
+            local usableHeight = math.max(1, height - 6)
+
+            for index = 1, sampleCount - 1 do
+                local firstValue = fpsSamples[index]
+                local secondValue = fpsSamples[index + 1]
+                local pointA = Vector2.new(
+                    1 + ((index - 1) / denominator) * usableWidth,
+                    3 + (1 - math.clamp(firstValue / graphMax, 0, 1)) * usableHeight
+                )
+                local pointB = Vector2.new(
+                    1 + (index / denominator) * usableWidth,
+                    3 + (1 - math.clamp(secondValue / graphMax, 0, 1)) * usableHeight
+                )
+                if not drawEditableGraphLine(pointA, pointB) then break end
+            end
+            if editableImageReady then return end
+        end
+
+        local usableHeight = math.max(1, plotSize.Y - 8)
+        for index, segment in ipairs(graphSegments) do
+            if index < sampleCount then
+                local firstValue = fpsSamples[index]
+                local secondValue = fpsSamples[index + 1]
+                local x1 = ((index - 1) / denominator) * plotSize.X
+                local x2 = (index / denominator) * plotSize.X
+                local y1 = 4 + (1 - math.clamp(firstValue / graphMax, 0, 1)) * usableHeight
+                local y2 = 4 + (1 - math.clamp(secondValue / graphMax, 0, 1)) * usableHeight
+                local dx = x2 - x1
+                local dy = y2 - y1
+                local length = math.sqrt(dx * dx + dy * dy)
+                segment.Position = UDim2.fromOffset(x1, y1)
+                segment.Size = UDim2.fromOffset(length + 2, 1)
+                segment.Rotation = math.deg(math.atan2(dy, dx))
+                segment.Visible = true
+            else
+                segment.Visible = false
+            end
+        end
+    end
+
+    local function pushFpsSample(fps)
+        fps = math.max(0, fps)
+        table.insert(fpsSamples, fps)
+        if #fpsSamples > maxFpsSamples then table.remove(fpsSamples, 1) end
+        local total = 0
+        local low = math.huge
+        local high = 0
+        for _, value in ipairs(fpsSamples) do
+            total = total + value
+            low = math.min(low, value)
+            high = math.max(high, value)
+        end
+        local average = #fpsSamples > 0 and total / #fpsSamples or 0
+        local roundedFps = math.floor(fps + 0.5)
+        local frameTime = fps > 0 and (1000 / fps) or 0
+        currentFpsLabel.Text = tostring(roundedFps)
+        frameTimeLabel.Text = string.format("%.1f ms", frameTime)
+        statValueLabels[1].Text = tostring(math.floor(average + 0.5))
+        statValueLabels[2].Text = tostring(math.floor(low + 0.5))
+        statValueLabels[3].Text = tostring(math.floor(high + 0.5))
+        redrawFpsGraph()
+    end
+
+    local function setProfileVisible(visible, instant)
+        profileOpen = visible == true
+        local targetPosition = profileOpen and profileOpenPosition or profileClosedPosition
+        local performanceTargetPosition = profileOpen and performanceOpenPosition or performanceClosedPosition
+        local targetTransparency = profileOpen and 0 or 1
+        if instant then
+            profilePanel.Position = targetPosition
+            profilePanel.GroupTransparency = targetTransparency
+            performancePanel.Position = performanceTargetPosition
+            performancePanel.GroupTransparency = targetTransparency
+        else
+            TweenService:Create(profilePanel, PROFILE_TWEEN, { Position = targetPosition, GroupTransparency = targetTransparency }):Play()
+            TweenService:Create(performancePanel, PROFILE_TWEEN, { Position = performanceTargetPosition, GroupTransparency = targetTransparency }):Play()
+        end
+        if windowRef then windowRef._profileOpen = profileOpen end
+        return profileOpen
+    end
+
+    if localPlayer then
+        task.spawn(function()
+            local ok, image = pcall(function()
+                return Players:GetUserThumbnailAsync(localPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+            end)
+            if ok and avatar and avatar.Parent then avatar.Image = image end
+        end)
+    end
+
+    task.spawn(function()
+        while screenGui and screenGui.Parent do
+            local text = "N/A"
+            local ok, value = pcall(function()
+                local item = Stats.Network.ServerStatsItem["Data Ping"]
+                return item:GetValue()
+            end)
+            if ok and type(value) == "number" then
+                text = tostring(math.floor(value + 0.5)) .. " ms"
+            end
+            if pingLabel and pingLabel.Parent then pingLabel.Text = text end
+            task.wait(1)
+        end
+    end)
+
+    windowRef = setmetatable({
         ScreenGui = screenGui, Main = main, Logo = brandLogo,
         _logoAsset = logoAsset, _navList = navList, _content = content,
         _notificationHolder = notificationHolder, _notificationOrder = 0,
+        _profilePanel = profilePanel, _performancePanel = performancePanel,
+        _fpsEditableImage = fpsEditableImage, _profileKey = profileKey,
+        _profileOpen = profileOpen, _setProfileVisible = setProfileVisible,
         _connections = {}, _noDrag = noDrag, _tabs = {}, _activeTab = nil,
     }, Window)
 
-    window.Notify = function(selfOrOptions, maybeOptions)
+    windowRef.Notify = function(selfOrOptions, maybeOptions)
         local notificationOptions
-        if selfOrOptions == window then notificationOptions = maybeOptions
+        if selfOrOptions == windowRef then notificationOptions = maybeOptions
         else notificationOptions = selfOrOptions end
-        return Window.Notify(window, notificationOptions)
+        return Window.Notify(windowRef, notificationOptions)
     end
-    window.Notification = window.Notify
+    windowRef.Notification = windowRef.Notify
 
-    table.insert(Library._windowObjects, window)
-    return window
+    local fpsFrameCount = 0
+    local fpsElapsed = 0
+    local fpsConnection = RunService.RenderStepped:Connect(function(deltaTime)
+        if not screenGui or not screenGui.Parent then return end
+        fpsFrameCount = fpsFrameCount + 1
+        fpsElapsed = fpsElapsed + deltaTime
+        if fpsElapsed >= 0.25 then
+            local fps = fpsElapsed > 0 and (fpsFrameCount / fpsElapsed) or 0
+            fpsFrameCount = 0
+            fpsElapsed = 0
+            pushFpsSample(fps)
+        end
+    end)
+    table.insert(windowRef._connections, fpsConnection)
+
+    local profileKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not loadingComplete or gameProcessed or UserInputService:GetFocusedTextBox() then return end
+        if input.KeyCode == profileKey and Library._windowObjects[#Library._windowObjects] == windowRef then
+            windowRef:ToggleProfile()
+        end
+    end)
+    table.insert(windowRef._connections, profileKeyConnection)
+
+    table.insert(Library._windowObjects, windowRef)
+
+    if opts.Visible == false then screenGui.Enabled = false end
+
+    if loadingEnabled and loadingLayer then
+        task.defer(function()
+            while not loadingMotionComplete and screenGui.Parent do
+                RunService.Heartbeat:Wait()
+            end
+            if not screenGui.Parent or not loadingLayer.Parent then return end
+
+            main.Visible = true
+            local mainReveal = TweenService:Create(mainRevealScale, TweenInfo.new(0.46, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Scale = 1 })
+            local fadeOut = TweenService:Create(loadingLayer, TweenInfo.new(0.48, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut), { GroupTransparency = 1 })
+            local contentExit = loadingContent and TweenService:Create(loadingContent, TweenInfo.new(0.46, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Position = UDim2.new(0.5, 0, 0.5, -18), GroupTransparency = 1 }) or nil
+            local logoExit = loadingLogoScale and TweenService:Create(loadingLogoScale, TweenInfo.new(0.42, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Scale = 0.84 }) or nil
+            local titleExit = loadingTitleScale and TweenService:Create(loadingTitleScale, TweenInfo.new(0.42, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Scale = 0.95 }) or nil
+            local progressExit
+            if loadingProgressFill and loadingProgressFill.Parent then
+                loadingProgressFill.AnchorPoint = Vector2.new(0.5, 0.5)
+                loadingProgressFill.Position = UDim2.fromScale(0.5, 0.5)
+                progressExit = TweenService:Create(loadingProgressFill, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Size = UDim2.new(0, 0, 1, 0) })
+            end
+
+            mainReveal:Play(); fadeOut:Play()
+            if contentExit then contentExit:Play() end
+            if logoExit then logoExit:Play() end
+            if titleExit then titleExit:Play() end
+            if progressExit then progressExit:Play() end
+            fadeOut.Completed:Wait()
+
+            if loadingLayer and loadingLayer.Parent then loadingLayer:Destroy() end
+            if not screenGui.Parent then return end
+            loadingComplete = true
+        end)
+    end
+
+    return windowRef
 end
 
 function Window:SetVisible(visible) self.ScreenGui.Enabled = visible == true end
 function Window:Toggle() self.ScreenGui.Enabled = not self.ScreenGui.Enabled; return self.ScreenGui.Enabled end
+function Window:SetProfileVisible(visible)
+    if not self._setProfileVisible then return false end
+    self._profileOpen = self._setProfileVisible(visible == true)
+    return self._profileOpen
+end
+function Window:ToggleProfile() return self:SetProfileVisible(not self._profileOpen) end
 function Window:SetLogo(assetId)
     self._logoAsset = normalizeAssetId(assetId)
     if self.Logo then self.Logo.Image = self._logoAsset end
@@ -542,13 +1377,15 @@ function Window:Notify(opts)
     local contentText = tostring(opts.Content or opts.Description or opts.Message or "Notification")
 
     local slot = make("Frame", {
-        Size = UDim2.new(1, 0, 0, 62), BackgroundTransparency = 1,
-        LayoutOrder = self._notificationOrder, ZIndex = 200, Parent = holder,
+        Name = "NotificationSlot", Size = UDim2.new(1, 0, 0, 62),
+        BackgroundTransparency = 1, LayoutOrder = self._notificationOrder,
+        ZIndex = 200, Parent = holder,
     })
     local card = make("CanvasGroup", {
-        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 12, 0, 0),
-        Size = UDim2.fromScale(1, 1), BackgroundColor3 = C.CardBg,
-        GroupTransparency = 1, ClipsDescendants = true, ZIndex = 201, Parent = slot,
+        Name = style.Name .. "Notification", AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, 12, 0, 0), Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = C.CardBg, GroupTransparency = 1,
+        ClipsDescendants = true, ZIndex = 201, Parent = slot,
     })
     corner(card, 6); stroke(card, C.Border)
     make("TextLabel", {
@@ -584,6 +1421,8 @@ function Window:Notify(opts)
     end
     function handle:Close() close("manual") end
     function handle:IsOpen() return not closed end
+    closeButton.MouseEnter:Connect(function() tween(closeButton, { TextColor3 = C.White }) end)
+    closeButton.MouseLeave:Connect(function() tween(closeButton, { TextColor3 = C.TextDim }) end)
     closeButton.MouseButton1Click:Connect(function() close("manual") end)
     TweenService:Create(card, NOTIFICATION_TWEEN, {
         Position = UDim2.new(1, 0, 0, 0), GroupTransparency = 0,
@@ -595,6 +1434,10 @@ end
 function Window:Destroy()
     for _, connection in ipairs(self._connections or {}) do connection:Disconnect() end
     table.clear(self._connections or {})
+    if self._fpsEditableImage then
+        pcall(function() self._fpsEditableImage:Destroy() end)
+        self._fpsEditableImage = nil
+    end
     local index = table.find(Library._windows, self.ScreenGui)
     if index then table.remove(Library._windows, index) end
     local objectIndex = table.find(Library._windowObjects, self)
@@ -787,23 +1630,21 @@ end
 
 local function rowLabels(row, name, desc, rightReserve)
     rightReserve = rightReserve or 0
-    local nameLabel = make("TextLabel", {
+    make("TextLabel", {
         Text = name, Font = Enum.Font.GothamMedium, TextSize = 13,
         TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left,
         BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 0),
         Size = desc and UDim2.new(1, -rightReserve, 0, 14) or UDim2.new(1, -rightReserve, 1, 0),
         Parent = row,
     })
-    local descLabel
     if desc then
-        descLabel = make("TextLabel", {
+        make("TextLabel", {
             Text = desc, Font = Enum.Font.Gotham, TextSize = 11,
             TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
             BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 16),
             Size = UDim2.new(1, -rightReserve, 0, 12), Parent = row,
         })
     end
-    return nameLabel, descLabel
 end
 
 function SubTab:AddToggle(opts)
@@ -875,9 +1716,6 @@ function SubTab:AddInput(opts)
     box.FocusLost:Connect(function(enterPressed)
         fire(opts.Callback, box.Text, enterPressed)
     end)
-    box:GetPropertyChangedSignal("Text"):Connect(function()
-        if opts.LiveCallback then fire(opts.LiveCallback, box.Text) end
-    end)
     return {
         Set = function(_, text) box.Text = tostring(text) end,
         Get = function() return box.Text end,
@@ -885,7 +1723,7 @@ function SubTab:AddInput(opts)
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- ENHANCED DROPDOWN with MaxVisible (scrollable) + SetOptions
+-- ENHANCED DROPDOWN with MaxVisible + Searchable + SetOptions
 -- ═══════════════════════════════════════════════════════════════════════════════
 function SubTab:AddDropdown(opts)
     opts = opts or {}
@@ -896,9 +1734,10 @@ function SubTab:AddDropdown(opts)
     local ITEM_HEIGHT = 22
     local ITEM_PAD = 2
     local SEARCH_HEIGHT = 26
+    local LIST_WIDTH = 160
 
     local row = newRow(self._card, 30)
-    rowLabels(row, opts.Name or "Dropdown", opts.Description, 90)
+    rowLabels(row, opts.Name or "Dropdown", opts.Description, 130)
 
     local btn = make("TextButton", {
         Text = "", Size = UDim2.fromOffset(120, 22),
@@ -906,6 +1745,7 @@ function SubTab:AddDropdown(opts)
         BackgroundColor3 = C.Element, Parent = row,
     })
     corner(btn, 6)
+
     local valueLabel = make("TextLabel", {
         Text = tostring(value), Font = Enum.Font.Gotham, TextSize = 12,
         TextColor3 = C.TextGray, TextXAlignment = Enum.TextXAlignment.Left,
@@ -918,18 +1758,17 @@ function SubTab:AddDropdown(opts)
     local subPage = self._page
     local tabPage = self._tab._page
 
-    -- Main dropdown container
     local list = make("Frame", {
         Visible = false, Active = true,
-        Position = UDim2.fromOffset(0, 0), Size = UDim2.new(0, 160, 0, 0),
+        Position = UDim2.fromOffset(0, 0), Size = UDim2.new(0, LIST_WIDTH, 0, 0),
         BackgroundColor3 = C.Element, ClipsDescendants = true,
         ZIndex = 100, Parent = window.ScreenGui,
     })
     corner(list, 6); stroke(list)
     table.insert(window._noDrag, list)
 
-    -- Optional search box
     local searchBox
+    local filterQuery = ""
     if searchable then
         local searchHolder = make("Frame", {
             Position = UDim2.fromOffset(4, 4), Size = UDim2.new(1, -8, 0, SEARCH_HEIGHT - 4),
@@ -945,7 +1784,6 @@ function SubTab:AddDropdown(opts)
         })
     end
 
-    -- Scrollable item list
     local scrollFrame = make("ScrollingFrame", {
         Position = UDim2.fromOffset(0, searchable and SEARCH_HEIGHT or 0),
         Size = UDim2.new(1, 0, 1, searchable and -SEARCH_HEIGHT or 0),
@@ -967,12 +1805,12 @@ function SubTab:AddDropdown(opts)
     local closeGen = 0
     local openConns = {}
     local currentOptions = options
-    local filterQuery = ""
+    local optionButtons = {}
 
     local function reposition()
         local inset = GuiService:GetGuiInset()
         local p, s = btn.AbsolutePosition, btn.AbsoluteSize
-        list.Position = UDim2.fromOffset(p.X + inset.X + s.X - 160, p.Y + inset.Y + s.Y + 4)
+        list.Position = UDim2.fromOffset(p.X + inset.X + s.X - LIST_WIDTH, p.Y + inset.Y + s.Y + 4)
     end
 
     local function calculateHeight()
@@ -983,14 +1821,25 @@ function SubTab:AddDropdown(opts)
             end
         end
         local visibleCount = math.min(filteredCount, maxVisible)
+        if visibleCount < 1 then visibleCount = 1 end
         local itemsHeight = visibleCount * ITEM_HEIGHT + math.max(visibleCount - 1, 0) * ITEM_PAD + 8
         return itemsHeight + (searchable and SEARCH_HEIGHT or 0)
     end
 
-    local optionButtons = {}
-    
+    local function closeDropdown()
+        if not open then return end
+        open = false
+        closeGen = closeGen + 1
+        for _, conn in ipairs(openConns) do conn:Disconnect() end
+        table.clear(openConns)
+        tween(list, { Size = UDim2.new(0, LIST_WIDTH, 0, 0) })
+        local gen = closeGen
+        task.delay(0.16, function()
+            if gen == closeGen and not open then list.Visible = false end
+        end)
+    end
+
     local function rebuildOptions()
-        -- Clear old buttons
         for _, b in ipairs(optionButtons) do
             if b and b.Parent then b:Destroy() end
         end
@@ -1006,9 +1855,7 @@ function SubTab:AddDropdown(opts)
                     BackgroundColor3 = C.Element, Parent = scrollFrame,
                 })
                 autoOrder(optBtn); corner(optBtn, 4)
-                local optionPad = make("UIPadding", {
-                    PaddingLeft = UDim.new(0, 8), Parent = optBtn,
-                })
+                make("UIPadding", { PaddingLeft = UDim.new(0, 8), Parent = optBtn })
                 optBtn.TextXAlignment = Enum.TextXAlignment.Left
                 optBtn.MouseEnter:Connect(function()
                     tween(optBtn, { BackgroundColor3 = C.ElementHover, TextColor3 = C.White })
@@ -1019,16 +1866,7 @@ function SubTab:AddDropdown(opts)
                 optBtn.MouseButton1Click:Connect(function()
                     value = option
                     valueLabel.Text = optStr
-                    -- close dropdown
-                    open = false
-                    closeGen = closeGen + 1
-                    for _, c in ipairs(openConns) do c:Disconnect() end
-                    table.clear(openConns)
-                    tween(list, { Size = UDim2.new(0, 160, 0, 0) })
-                    local gen = closeGen
-                    task.delay(0.16, function()
-                        if gen == closeGen and not open then list.Visible = false end
-                    end)
+                    closeDropdown()
                     fire(opts.Callback, option)
                 end)
                 table.insert(optionButtons, optBtn)
@@ -1041,7 +1879,7 @@ function SubTab:AddDropdown(opts)
             filterQuery = searchBox.Text
             rebuildOptions()
             if open then
-                tween(list, { Size = UDim2.new(0, 160, 0, calculateHeight()) })
+                tween(list, { Size = UDim2.new(0, LIST_WIDTH, 0, calculateHeight()) })
             end
         end)
     end
@@ -1050,45 +1888,38 @@ function SubTab:AddDropdown(opts)
 
     local function setOpen(o)
         if open == o then return end
-        open = o
-        closeGen = closeGen + 1
-        if open then
+        if o then
+            open = true
+            closeGen = closeGen + 1
             reposition()
             list.Visible = true
-            local h = calculateHeight()
-            tween(list, { Size = UDim2.new(0, 160, 0, h) })
+            tween(list, { Size = UDim2.new(0, LIST_WIDTH, 0, calculateHeight()) })
             table.insert(openConns, btn:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
                 local bp, bs = btn.AbsolutePosition, btn.AbsoluteSize
                 local pp, ps = subPage.AbsolutePosition, subPage.AbsoluteSize
                 if bp.Y + bs.Y < pp.Y or bp.Y > pp.Y + ps.Y then
-                    setOpen(false)
+                    closeDropdown()
                 else
                     reposition()
                 end
             end))
             table.insert(openConns, subPage:GetPropertyChangedSignal("Visible"):Connect(function()
-                if not subPage.Visible then setOpen(false) end
+                if not subPage.Visible then closeDropdown() end
             end))
             table.insert(openConns, tabPage:GetPropertyChangedSignal("Visible"):Connect(function()
-                if not tabPage.Visible then setOpen(false) end
+                if not tabPage.Visible then closeDropdown() end
             end))
             table.insert(openConns, UserInputService.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1
                     or input.UserInputType == Enum.UserInputType.Touch then
                     local pos = Vector2.new(input.Position.X, input.Position.Y)
                     if not isInside(btn, pos) and not isInside(list, pos) then
-                        setOpen(false)
+                        closeDropdown()
                     end
                 end
             end))
         else
-            for _, conn in ipairs(openConns) do conn:Disconnect() end
-            table.clear(openConns)
-            tween(list, { Size = UDim2.new(0, 160, 0, 0) })
-            local gen = closeGen
-            task.delay(0.16, function()
-                if gen == closeGen and not open then list.Visible = false end
-            end)
+            closeDropdown()
         end
     end
 
@@ -1104,7 +1935,6 @@ function SubTab:AddDropdown(opts)
         Get = function() return value end,
         SetOptions = function(_, newOptions)
             currentOptions = newOptions or {}
-            -- Verify current value still exists, otherwise reset
             local stillExists = false
             for _, o in ipairs(currentOptions) do
                 if o == value then stillExists = true; break end
@@ -1115,10 +1945,10 @@ function SubTab:AddDropdown(opts)
             end
             rebuildOptions()
             if open then
-                tween(list, { Size = UDim2.new(0, 160, 0, calculateHeight()) })
+                tween(list, { Size = UDim2.new(0, LIST_WIDTH, 0, calculateHeight()) })
             end
         end,
-        Refresh = function(self) rebuildOptions() end,
+        Refresh = function() rebuildOptions() end,
     }
 end
 

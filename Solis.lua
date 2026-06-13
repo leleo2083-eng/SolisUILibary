@@ -1023,7 +1023,8 @@ function Library:CreateWindow(opts)
 	controls.Visible = true
 
 	local circleSize = 14
-	local gap = 2
+	local gap = 1
+
 
 	local closeBtn = make("TextButton", {
 		Text = "",

@@ -1,20 +1,19 @@
 --[[
     Solis UI v2.1 — single-file Roblox UI library
-    Hotbar is now a child of a shared drag-container so it moves with
-    the main window with zero lag.
     
-    FIXES:
-      • Hotbar auto-scales width to match the number of tab buttons
-      • Hotbar colors match the rest of the menu theme
+    FEATURES:
+      • Built-in icon library with 40+ curated icons
+      • Hotbar auto-scales width to match tab count
+      • Hotbar colors match menu theme
       • Hotbar hidden during loading, revealed with main window
       • Minimize hides both main window AND hotbar
+      • Dropdown: MaxVisible, Searchable, SetOptions, Refresh
 
-    Dropdown options:
-        MaxVisible = 5
-        Searchable = true
-    Dropdown methods:
-        dropdown:SetOptions(newOptionsTable)
-        dropdown:Refresh()
+    Icon usage:
+      tab = window:AddTab({ Name = "Combat", Icon = "swords" })
+      tab = window:AddTab({ Name = "Settings", Icon = "settings" })
+      -- Or use any rbxassetid:
+      tab = window:AddTab({ Name = "Custom", Icon = "rbxassetid://123456" })
 ]]
 
 local TweenService     = game:GetService("TweenService")
@@ -30,6 +29,164 @@ local DEFAULT_LOGO = "rbxassetid://105894109382235"
 local TWEEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local NOTIFICATION_TWEEN = TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 local PROFILE_TWEEN = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- BUILT-IN ICON LIBRARY
+-- Curated minimal/outline icons from Roblox CDN (MaterialDesign / Lucide style)
+-- Usage: Icon = "home" or Icon = "settings" in AddTab
+-- ════════════════════════════════════════════════════════════════════════════
+local ICONS = {
+    -- Navigation / General
+    home            = "rbxassetid://7733960981",
+    dashboard       = "rbxassetid://7734053495",
+    menu            = "rbxassetid://7734099550",
+    search          = "rbxassetid://7734068243",
+    settings        = "rbxassetid://7734053495",
+    gear            = "rbxassetid://7734053495",
+    sliders         = "rbxassetid://7734068136",
+    wrench          = "rbxassetid://7743878857",
+    tool            = "rbxassetid://7743878857",
+    
+    -- Combat / Game
+    swords          = "rbxassetid://7733714825",
+    sword           = "rbxassetid://7733714825",
+    combat          = "rbxassetid://7733714825",
+    shield          = "rbxassetid://7733680268",
+    target          = "rbxassetid://7734068341",
+    crosshair       = "rbxassetid://7734068341",
+    aim             = "rbxassetid://7734068341",
+    bolt            = "rbxassetid://7733658498",
+    lightning       = "rbxassetid://7733658498",
+    zap             = "rbxassetid://7733658498",
+    fire            = "rbxassetid://7733911882",
+    flame           = "rbxassetid://7733911882",
+    
+    -- Player / User
+    player          = "rbxassetid://7733717858",
+    user            = "rbxassetid://7733717858",
+    person          = "rbxassetid://7733717858",
+    users           = "rbxassetid://7734099697",
+    team            = "rbxassetid://7734099697",
+    group           = "rbxassetid://7734099697",
+    
+    -- Visual / Rendering
+    eye             = "rbxassetid://7733960971",
+    visible         = "rbxassetid://7733960971",
+    visuals         = "rbxassetid://7733960971",
+    render          = "rbxassetid://7733960971",
+    esp             = "rbxassetid://7733960971",
+    eyeoff          = "rbxassetid://7743878326",
+    hidden          = "rbxassetid://7743878326",
+    
+    -- Movement / World
+    globe           = "rbxassetid://7734053428",
+    world           = "rbxassetid://7734053428",
+    map             = "rbxassetid://7734099550",
+    compass         = "rbxassetid://7734053428",
+    navigation      = "rbxassetid://7734053428",
+    move            = "rbxassetid://7743878646",
+    arrows          = "rbxassetid://7743878646",
+    running         = "rbxassetid://7743878646",
+    speed           = "rbxassetid://7743878646",
+    
+    -- Misc / Utility
+    star            = "rbxassetid://7733960741",
+    favorite        = "rbxassetid://7733960741",
+    heart           = "rbxassetid://7733911673",
+    like            = "rbxassetid://7733911673",
+    bell            = "rbxassetid://7733658103",
+    notification    = "rbxassetid://7733658103",
+    alert           = "rbxassetid://7733658103",
+    info            = "rbxassetid://7733960815",
+    about           = "rbxassetid://7733960815",
+    help            = "rbxassetid://7733960815",
+    question        = "rbxassetid://7733960815",
+    warning         = "rbxassetid://7734099907",
+    caution         = "rbxassetid://7734099907",
+    
+    -- Toggles / Controls
+    lock            = "rbxassetid://7734053558",
+    unlock          = "rbxassetid://7743878770",
+    power           = "rbxassetid://7743878698",
+    toggle          = "rbxassetid://7743878698",
+    check           = "rbxassetid://7733658607",
+    checkmark       = "rbxassetid://7733658607",
+    x               = "rbxassetid://7743878857",
+    close           = "rbxassetid://7743878857",
+    plus            = "rbxassetid://7733717858",
+    minus           = "rbxassetid://7743878646",
+    
+    -- Data / Files
+    folder          = "rbxassetid://7733911882",
+    file            = "rbxassetid://7733911739",
+    save            = "rbxassetid://7734068136",
+    download        = "rbxassetid://7733680115",
+    upload          = "rbxassetid://7743878770",
+    clipboard       = "rbxassetid://7733680115",
+    copy            = "rbxassetid://7733680115",
+    
+    -- Communication
+    chat            = "rbxassetid://7733680050",
+    message         = "rbxassetid://7733680050",
+    send            = "rbxassetid://7734068243",
+    
+    -- Media
+    play            = "rbxassetid://7733717612",
+    pause           = "rbxassetid://7733717612",
+    music           = "rbxassetid://7733680268",
+    volume          = "rbxassetid://7733680268",
+    camera          = "rbxassetid://7733658607",
+    image           = "rbxassetid://7733911739",
+    
+    -- Code / Dev
+    code            = "rbxassetid://7733680115",
+    terminal        = "rbxassetid://7733680115",
+    script          = "rbxassetid://7733680115",
+    bug             = "rbxassetid://7733658498",
+    debug           = "rbxassetid://7733658498",
+    
+    -- Inventory / Items
+    inventory       = "rbxassetid://7733911882",
+    backpack        = "rbxassetid://7733911882",
+    box             = "rbxassetid://7733658498",
+    package         = "rbxassetid://7733658498",
+    gift            = "rbxassetid://7733911673",
+    crown           = "rbxassetid://7733680050",
+    gem             = "rbxassetid://7733680268",
+    coin            = "rbxassetid://7733960741",
+    
+    -- Arrows / Direction
+    arrowup         = "rbxassetid://7734053495",
+    arrowdown       = "rbxassetid://7734053495",
+    arrowleft       = "rbxassetid://7734053495",
+    arrowright      = "rbxassetid://7734053495",
+    refresh         = "rbxassetid://7743878698",
+    sync            = "rbxassetid://7743878698",
+    
+    -- Time
+    clock           = "rbxassetid://7733680050",
+    time            = "rbxassetid://7733680050",
+    timer           = "rbxassetid://7733680050",
+    calendar        = "rbxassetid://7733658607",
+    
+    -- Layout
+    grid            = "rbxassetid://7734053495",
+    list            = "rbxassetid://7734099550",
+    layers          = "rbxassetid://7734053558",
+    
+    -- Misc game
+    gamepad         = "rbxassetid://7743878646",
+    controller      = "rbxassetid://7743878646",
+    mouse           = "rbxassetid://7743878646",
+    keyboard        = "rbxassetid://7743878646",
+    teleport        = "rbxassetid://7733658498",
+    warp            = "rbxassetid://7733658498",
+    magic           = "rbxassetid://7733960741",
+    wand            = "rbxassetid://7733960741",
+    potion          = "rbxassetid://7733911882",
+    skull           = "rbxassetid://7733714825",
+    death           = "rbxassetid://7733714825",
+}
 
 local NOTIFICATION_STYLES = {
     info    = { Name = "Info",    Color = Color3.fromRGB(118, 151, 194) },
@@ -205,6 +362,33 @@ local function normalizeAssetId(value)
     local id = string.match(text, "%d+")
     return id and ("rbxassetid://" .. id) or DEFAULT_LOGO
 end
+
+-- Resolve icon: check ICONS table first, then treat as asset, fallback to letter
+local function resolveIcon(value)
+    if value == nil or value == "" then return nil, nil end
+    local str = tostring(value)
+    -- Check built-in icon library (case-insensitive)
+    local key = string.lower(str)
+    if ICONS[key] then
+        return "image", ICONS[key]
+    end
+    -- Check if it's a direct asset ID
+    if string.match(str, "^rbxassetid://") or string.match(str, "^rbxthumb://") or string.match(str, "^https?://") then
+        return "image", str
+    end
+    -- Check if it's a number (asset ID)
+    if tonumber(str) then
+        return "image", "rbxassetid://" .. str
+    end
+    -- Check if numeric string embedded
+    local numId = string.match(str, "%d+")
+    if numId and #numId > 5 then
+        return "image", "rbxassetid://" .. numId
+    end
+    -- Fallback: use first character as text
+    return "text", string.upper(string.sub(str, 1, 1))
+end
+
 local function getNotificationStyle(kind)
     local key = string.lower(tostring(kind or "Info"))
     return NOTIFICATION_STYLES[key] or NOTIFICATION_STYLES.info
@@ -276,9 +460,40 @@ local function inputIcon(parent)
     return holder
 end
 
+-- Helper: create an icon element (image or text fallback) inside a parent frame
+local function createIconElement(parent, iconType, iconValue, size, zindex)
+    size = size or 10
+    zindex = zindex or 6
+    if iconType == "image" then
+        return make("ImageLabel", {
+            Image = iconValue,
+            BackgroundTransparency = 1,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(size, size),
+            ScaleType = Enum.ScaleType.Fit,
+            ImageColor3 = C.TextGray,
+            ZIndex = zindex,
+            Parent = parent,
+        })
+    else
+        return make("TextLabel", {
+            Text = iconValue or "?",
+            Font = Enum.Font.GothamBold,
+            TextSize = math.floor(size * 0.7),
+            TextColor3 = C.TextGray,
+            BackgroundTransparency = 1,
+            Size = UDim2.fromScale(1, 1),
+            ZIndex = zindex,
+            Parent = parent,
+        })
+    end
+end
+
 local Library = {
     Version = "2.1",
     Themes = THEMES,
+    Icons = ICONS,
     DefaultLogo = DEFAULT_LOGO,
     _windows = {},
     _windowObjects = {},
@@ -327,6 +542,8 @@ function Library:SetTheme(theme)
 end
 
 function Library:GetTheme() return Library._currentTheme end
+function Library:GetIcons() return ICONS end
+function Library:GetIcon(name) return ICONS[string.lower(tostring(name or ""))] end
 
 function Library:Notify(opts)
     for index = #Library._windowObjects, 1, -1 do
@@ -388,9 +605,6 @@ function Library:CreateWindow(opts)
     end
     table.insert(Library._windows, screenGui)
 
-    -- ════════════════════════════════════════════════════════════════════
-    -- DRAG CONTAINER
-    -- ════════════════════════════════════════════════════════════════════
     local containerW = windowSize.X.Offset
     local containerH = windowSize.Y.Offset + HOTBAR_GAP + HOTBAR_HEIGHT
 
@@ -537,9 +751,7 @@ function Library:CreateWindow(opts)
             TweenService:Create(loadingTitleScale,TweenInfo.new(0.52,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Scale=1}):Play()
             task.wait(0.36)
             if not loadingLayer or not loadingLayer.Parent then return end
-
             TweenService:Create(loadingCaret, TweenInfo.new(0.16,Enum.EasingStyle.Quad,Enum.EasingDirection.Out), {BackgroundTransparency=0.08}):Play()
-
             local typingTime  = math.max(loadingDuration - colorTransitionDuration - 1.28, 0.45)
             local letterDelay = math.clamp(typingTime/characterCount2, 0.075, 0.19)
             local caretX = 6
@@ -554,10 +766,8 @@ function Library:CreateWindow(opts)
                 TweenService:Create(loadingProgressFill,TweenInfo.new(0.2, Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Size=UDim2.new((index/characterCount2)*0.58,0,1,0)}):Play()
                 task.wait(letterDelay)
             end
-
             TweenService:Create(loadingCaret, TweenInfo.new(0.18,Enum.EasingStyle.Quad,Enum.EasingDirection.In), {BackgroundTransparency=1}):Play()
             task.wait(0.08)
-
             local stagger = math.clamp((colorTransitionDuration/math.max(characterCount2+1,2))*0.72, 0.055, 0.15)
             for index, letter in ipairs(loadingLetterLabels) do
                 if not loadingLayer or not loadingLayer.Parent then return end
@@ -572,7 +782,6 @@ function Library:CreateWindow(opts)
                 TweenService:Create(loadingProgressFill,TweenInfo.new(0.28,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Size=UDim2.new(0.58+((index/characterCount2)*0.42),0,1,0)}):Play()
                 task.wait(stagger)
             end
-
             TweenService:Create(loadingProgressFill,TweenInfo.new(0.25,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Size=UDim2.fromScale(1,1)}):Play()
             task.wait(0.38)
             TweenService:Create(loadingLogoScale,  TweenInfo.new(0.22,Enum.EasingStyle.Sine,Enum.EasingDirection.Out),  {Scale=1.035}):Play()
@@ -585,25 +794,17 @@ function Library:CreateWindow(opts)
         end)
     end
 
-    -- ════════════════════════════════════════════════════════════════════
-    -- MAIN WINDOW
-    -- ════════════════════════════════════════════════════════════════════
+    -- ── MAIN WINDOW ───────────────────────────────────────────────────────
     local main = make("Frame", {
-        Name = "Main",
-        Size = windowSize,
+        Name = "Main", Size = windowSize,
         Position = UDim2.fromOffset(0, 0),
-        BackgroundColor3 = C.WindowBg,
-        ClipsDescendants = true,
-        Visible = not loadingEnabled,
-        ZIndex = 2,
-        Parent = container,
+        BackgroundColor3 = C.WindowBg, ClipsDescendants = true,
+        Visible = not loadingEnabled, ZIndex = 2, Parent = container,
     })
     corner(main, 12); stroke(main, C.Border)
     local mainRevealScale = make("UIScale", { Scale = loadingEnabled and 0.965 or 1, Parent = main })
 
-    -- ════════════════════════════════════════════════════════════════════
-    -- HOTBAR — starts hidden, revealed after loading completes
-    -- ════════════════════════════════════════════════════════════════════
+    -- ── HOTBAR ────────────────────────────────────────────────────────────
     local hotbar = make("Frame", {
         Name = "TabHotbar",
         AnchorPoint = Vector2.new(0.5, 0),
@@ -612,9 +813,8 @@ function Library:CreateWindow(opts)
         AutomaticSize = Enum.AutomaticSize.X,
         BackgroundColor3 = C.HotbarBg,
         ClipsDescendants = false,
-        Visible = not loadingEnabled,  -- HIDDEN during loading
-        ZIndex = 3,
-        Parent = container,
+        Visible = not loadingEnabled,
+        ZIndex = 3, Parent = container,
     })
     corner(hotbar, 11)
     make("UIStroke", { Color = C.HotbarBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = hotbar })
@@ -624,34 +824,29 @@ function Library:CreateWindow(opts)
         Name = "HotbarInner",
         Size = UDim2.new(0, 0, 1, 0),
         AutomaticSize = Enum.AutomaticSize.X,
-        BackgroundTransparency = 1,
-        ZIndex = 4,
-        Parent = hotbar,
+        BackgroundTransparency = 1, ZIndex = 4, Parent = hotbar,
     })
     make("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
         VerticalAlignment = Enum.VerticalAlignment.Center,
         HorizontalAlignment = Enum.HorizontalAlignment.Center,
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 4),
-        Parent = hotbarInner,
+        Padding = UDim.new(0, 4), Parent = hotbarInner,
     })
 
     local minimized = false
     local mainTopButtons = {}
     local burgerButton
     local windowRef
-
     local noDrag = {}
     table.insert(noDrag, hotbar)
 
-    -- ── setMinimized now hides BOTH main AND hotbar ───────────────────────
     local function setMinimized(o)
         minimized = o == true
         for _, b in ipairs(mainTopButtons) do if b and b.Parent then b.Visible = not minimized end end
         if burgerButton and burgerButton.Parent then burgerButton.Visible = minimized end
         main.Visible = not minimized
-        hotbar.Visible = not minimized  -- HIDE HOTBAR TOO
+        hotbar.Visible = not minimized
         if windowRef then windowRef._minimized = minimized end
     end
 
@@ -660,7 +855,6 @@ function Library:CreateWindow(opts)
         Position = UDim2.new(1,-6,0,8), Size = UDim2.fromOffset(36,16),
         BackgroundTransparency = 1, ZIndex = 10, Parent = main,
     })
-
     local closeBtn = make("TextButton", {
         Text = "", Font = Enum.Font.GothamBold, TextSize = 1, TextColor3 = C.White,
         AnchorPoint = Vector2.new(1,0), Position = UDim2.new(1,0,0,0),
@@ -668,7 +862,6 @@ function Library:CreateWindow(opts)
         ZIndex = 12, Parent = controls,
     })
     closeBtn.AutoButtonColor = false; circle(closeBtn); closeBtn.BorderSizePixel = 0
-
     local minimizeBtn = make("TextButton", {
         Text = "", Font = Enum.Font.GothamBold, TextSize = 1, TextColor3 = C.White,
         AnchorPoint = Vector2.new(1,0), Position = UDim2.new(0,12,0,0),
@@ -676,9 +869,8 @@ function Library:CreateWindow(opts)
         ZIndex = 12, Parent = controls,
     })
     minimizeBtn.AutoButtonColor = false; circle(minimizeBtn); minimizeBtn.BorderSizePixel = 0
-
     table.insert(mainTopButtons, closeBtn); table.insert(mainTopButtons, minimizeBtn)
-    table.insert(noDrag, closeBtn);         table.insert(noDrag, minimizeBtn)
+    table.insert(noDrag, closeBtn); table.insert(noDrag, minimizeBtn)
 
     burgerButton = make("TextButton", {
         Text = "", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = C.White,
@@ -699,31 +891,22 @@ function Library:CreateWindow(opts)
         else if screenGui then screenGui:Destroy() end end
     end)
     minimizeBtn.MouseButton1Click:Connect(function() setMinimized(true) end)
-
     makeDraggable(container, noDrag)
 
     -- ── SIDEBAR ───────────────────────────────────────────────────────────
     local sidebar = make("Frame", { Size=UDim2.new(0,190,1,0), BackgroundTransparency=1, Parent=main })
-
-    local brand = make("Frame", {
-        Name="Brand", Position=UDim2.fromOffset(12,12),
-        Size=UDim2.new(1,-24,0,54), BackgroundColor3=C.CardBg, Parent=sidebar,
-    })
+    local brand = make("Frame", { Name="Brand", Position=UDim2.fromOffset(12,12), Size=UDim2.new(1,-24,0,54), BackgroundColor3=C.CardBg, Parent=sidebar })
     corner(brand,10); stroke(brand,C.Border)
-
     local logoHolder = make("Frame", { Position=UDim2.fromOffset(9,9), Size=UDim2.fromOffset(36,36), BackgroundColor3=C.Element, Parent=brand })
     corner(logoHolder,9)
     make("TextLabel",{Text="S",Font=Enum.Font.GothamBold,TextSize=15,TextColor3=C.White,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Parent=logoHolder})
     local brandLogo = make("ImageLabel",{Name="Logo",Image=logoAsset,BackgroundTransparency=1,Position=UDim2.fromOffset(3,3),Size=UDim2.new(1,-6,1,-6),ScaleType=Enum.ScaleType.Fit,Parent=logoHolder})
     make("TextLabel",{Text=opts.Name or "Solis UI",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,9),Size=UDim2.new(1,-62,0,17),Parent=brand})
     make("TextLabel",{Text=opts.BrandSubtitle or ("SOLIS FREE..."..Library.Version),Font=Enum.Font.GothamMedium,TextSize=9,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,28),Size=UDim2.new(1,-62,0,13),Parent=brand})
-
     local statusDot = make("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,16,1,-19),Size=UDim2.fromOffset(6,6),BackgroundColor3=NOTIFICATION_STYLES.success.Color,Parent=sidebar})
     circle(statusDot)
     make("TextLabel",{Text=opts.StatusText or "Solis is ready",Font=Enum.Font.GothamMedium,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.new(0,28,1,-27),Size=UDim2.new(1,-40,0,16),Parent=sidebar})
-
     make("Frame",{Position=UDim2.fromOffset(190,0),Size=UDim2.new(0,1,1,0),BackgroundColor3=C.Border,Parent=main})
-
     local content = make("Frame",{Position=UDim2.fromOffset(191,0),Size=UDim2.new(1,-191,1,0),BackgroundTransparency=1,Parent=main})
 
     -- ── NOTIFICATIONS ─────────────────────────────────────────────────────
@@ -734,7 +917,7 @@ function Library:CreateWindow(opts)
     })
     make("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,HorizontalAlignment=Enum.HorizontalAlignment.Right,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,6),Parent=notificationHolder})
 
-    -- ── PROFILE + PERFORMANCE PANELS ─────────────────────────────────────
+    -- ── PROFILE + PERFORMANCE ─────────────────────────────────────────────
     local localPlayer      = Players.LocalPlayer
     local profileKey       = typeof(opts.ProfileKey)=="EnumItem" and opts.ProfileKey or Enum.KeyCode.K
     local profileWidth     = math.max(280, tonumber(opts.ProfileWidth) or 312)
@@ -743,19 +926,12 @@ function Library:CreateWindow(opts)
     local profileClosedPos = UDim2.new(1,profileWidth+28,1,-bottomMargin)
     local profileOpen      = false
 
-    local profilePanel = make("CanvasGroup",{
-        Name="UserProfile",AnchorPoint=Vector2.new(1,1),
-        Position=profileClosedPos,Size=UDim2.fromOffset(profileWidth,382),
-        BackgroundColor3=C.CardBg,GroupTransparency=1,ClipsDescendants=true,
-        ZIndex=150,Parent=screenGui,
-    })
+    local profilePanel = make("CanvasGroup",{Name="UserProfile",AnchorPoint=Vector2.new(1,1),Position=profileClosedPos,Size=UDim2.fromOffset(profileWidth,382),BackgroundColor3=C.CardBg,GroupTransparency=1,ClipsDescendants=true,ZIndex=150,Parent=screenGui})
     corner(profilePanel,14)
-
     local profileHeader=make("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,0,0,65),BackgroundTransparency=1,ZIndex=151,Parent=profilePanel})
     make("TextLabel",{Text=opts.ProfileTitle or "PLAYER PROFILE",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(18,13),Size=UDim2.new(1,-36,0,18),ZIndex=152,Parent=profileHeader})
     make("TextLabel",{Text="Live session overview",Font=Enum.Font.Gotham,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(18,34),Size=UDim2.new(1,-36,0,15),ZIndex=152,Parent=profileHeader})
     make("Frame",{Position=UDim2.new(0,18,1,-1),Size=UDim2.new(1,-36,0,1),BackgroundColor3=C.Border,ZIndex=151,Parent=profileHeader})
-
     local identityCard=make("Frame",{Position=UDim2.fromOffset(16,82),Size=UDim2.new(1,-32,0,116),BackgroundColor3=C.Element,ZIndex=151,Parent=profilePanel})
     corner(identityCard,11);stroke(identityCard,C.Border)
     local avatarHolder=make("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,14,0.5,0),Size=UDim2.fromOffset(76,76),BackgroundColor3=C.Badge,ZIndex=152,Parent=identityCard})
@@ -776,7 +952,6 @@ function Library:CreateWindow(opts)
     make("TextLabel",{Text="ACCOUNT DETAILS",Font=Enum.Font.GothamBold,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(18,216),Size=UDim2.new(1,-36,0,16),ZIndex=152,Parent=profilePanel})
     local details=make("Frame",{Position=UDim2.fromOffset(16,240),Size=UDim2.new(1,-32,0,126),BackgroundColor3=C.Element,ZIndex=151,Parent=profilePanel})
     corner(details,11);stroke(details,C.Border)
-
     local function addProfileDetail(index,labelText,valueText)
         local y=(index-1)*42
         local row=make("Frame",{Position=UDim2.fromOffset(0,y),Size=UDim2.new(1,0,0,42),BackgroundTransparency=1,ZIndex=152,Parent=details})
@@ -789,11 +964,11 @@ function Library:CreateWindow(opts)
     addProfileDetail(2,"ACCOUNT AGE",localPlayer and (tostring(localPlayer.AccountAge).." days") or "N/A")
     local pingLabel=addProfileDetail(3,"PING","-- ms")
 
-    local performanceWidth        = math.max(236,tonumber(opts.PerformanceWidth) or 266)
-    local performanceHeight       = math.max(260,tonumber(opts.PerformanceHeight) or 294)
-    local panelGap                = math.max(8,  tonumber(opts.ProfilePanelGap) or 12)
-    local performanceOpenPos      = UDim2.new(1,-(18+profileWidth+panelGap),1,-bottomMargin)
-    local performanceClosedPos    = UDim2.new(1,performanceWidth+36,1,-bottomMargin)
+    local performanceWidth     = math.max(236,tonumber(opts.PerformanceWidth) or 266)
+    local performanceHeight    = math.max(260,tonumber(opts.PerformanceHeight) or 294)
+    local panelGap             = math.max(8,  tonumber(opts.ProfilePanelGap) or 12)
+    local performanceOpenPos   = UDim2.new(1,-(18+profileWidth+panelGap),1,-bottomMargin)
+    local performanceClosedPos = UDim2.new(1,performanceWidth+36,1,-bottomMargin)
 
     local performancePanel=make("CanvasGroup",{Name="LivePerformance",AnchorPoint=Vector2.new(1,1),Position=performanceClosedPos,Size=UDim2.fromOffset(performanceWidth,performanceHeight),BackgroundColor3=C.CardBg,GroupTransparency=1,ClipsDescendants=true,ZIndex=149,Parent=screenGui})
     corner(performancePanel,14)
@@ -821,8 +996,7 @@ function Library:CreateWindow(opts)
     local graphImage=make("ImageLabel",{Name="ContinuousFpsLine",BackgroundTransparency=1,Position=UDim2.fromOffset(0,0),Size=UDim2.fromScale(1,1),ScaleType=Enum.ScaleType.Stretch,ResampleMode=Enum.ResamplerMode.Default,ZIndex=153,Parent=graphPlot})
     local fpsEditableImage=nil; local graphSegments={}; local editableImageReady=false; local supportsAA=true
     local function ensureFallback()
-        if #graphSegments>0 then return end
-        graphImage.Visible=false
+        if #graphSegments>0 then return end; graphImage.Visible=false
         for i=1,maxFpsSamples-1 do
             local seg=make("Frame",{Name="FL"..i,AnchorPoint=Vector2.new(0,0.5),Position=UDim2.fromOffset(0,0),Size=UDim2.fromOffset(0,1),BackgroundColor3=C.White,BorderSizePixel=0,Visible=false,ZIndex=153,Parent=graphPlot})
             graphSegments[i]=seg
@@ -831,16 +1005,14 @@ function Library:CreateWindow(opts)
     do
         local ok,ed=pcall(function()
             local img=AssetService:CreateEditableImage({Size=graphPixelSize})
-            graphImage.ImageContent=Content.fromObject(img)
-            return img
+            graphImage.ImageContent=Content.fromObject(img); return img
         end)
         if ok and ed then fpsEditableImage=ed; editableImageReady=true else ensureFallback() end
     end
     local function clearEG()
         if not editableImageReady or not fpsEditableImage then return false end
         local ok=pcall(function() fpsEditableImage:DrawRectangle(Vector2.zero,graphPixelSize,Color3.new(0,0,0),1,Enum.ImageCombineType.Overwrite) end)
-        if not ok then editableImageReady=false; ensureFallback() end
-        return ok
+        if not ok then editableImageReady=false; ensureFallback() end; return ok
     end
     local function drawEGL(a,b)
         if not editableImageReady or not fpsEditableImage then return false end
@@ -849,8 +1021,7 @@ function Library:CreateWindow(opts)
             if ok then return true end; supportsAA=false
         end
         local ok=pcall(function() fpsEditableImage:DrawLine(a,b,C.White,0,Enum.ImageCombineType.Overwrite) end)
-        if not ok then editableImageReady=false; ensureFallback() end
-        return ok
+        if not ok then editableImageReady=false; ensureFallback() end; return ok
     end
     local statsStrip=make("Frame",{Position=UDim2.fromOffset(14,237),Size=UDim2.new(1,-28,0,43),BackgroundColor3=C.Element,ZIndex=150,Parent=performancePanel})
     corner(statsStrip,10);stroke(statsStrip,C.Border)
@@ -866,8 +1037,7 @@ function Library:CreateWindow(opts)
             if editableImageReady then clearEG() end
             for _,s in ipairs(graphSegments) do s.Visible=false end; return
         end
-        local gm=60
-        for _,v in ipairs(fpsSamples) do gm=math.max(gm,v) end
+        local gm=60; for _,v in ipairs(fpsSamples) do gm=math.max(gm,v) end
         gm=math.max(30,math.ceil(gm/30)*30); local den=math.max(sc-1,1)
         if editableImageReady and clearEG() then
             local W=graphPixelSize.X; local H=graphPixelSize.Y
@@ -917,8 +1087,7 @@ function Library:CreateWindow(opts)
             TweenService:Create(profilePanel,PROFILE_TWEEN,{Position=tp,GroupTransparency=tr}):Play()
             TweenService:Create(performancePanel,PROFILE_TWEEN,{Position=ep,GroupTransparency=tr}):Play()
         end
-        if windowRef then windowRef._profileOpen=profileOpen end
-        return profileOpen
+        if windowRef then windowRef._profileOpen=profileOpen end; return profileOpen
     end
     if localPlayer then
         task.spawn(function()
@@ -931,8 +1100,7 @@ function Library:CreateWindow(opts)
             local txt="N/A"
             local ok,val=pcall(function() return Stats.Network.ServerStatsItem["Data Ping"]:GetValue() end)
             if ok and type(val)=="number" then txt=tostring(math.floor(val+0.5)).." ms" end
-            if pingLabel and pingLabel.Parent then pingLabel.Text=txt end
-            task.wait(1)
+            if pingLabel and pingLabel.Parent then pingLabel.Text=txt end; task.wait(1)
         end
     end)
 
@@ -945,7 +1113,6 @@ function Library:CreateWindow(opts)
         _profileOpen=profileOpen, _setProfileVisible=setProfileVisible,
         _connections={}, _noDrag=noDrag, _tabs={}, _activeTab=nil,
     }, Window)
-
     windowRef.Notify=function(s,m) return Window.Notify(windowRef,s==windowRef and m or s) end
     windowRef.Notification=windowRef.Notify
 
@@ -953,12 +1120,9 @@ function Library:CreateWindow(opts)
     local fpsConn=RunService.RenderStepped:Connect(function(dt)
         if not screenGui or not screenGui.Parent then return end
         ffc=ffc+1; fe=fe+dt
-        if fe>=0.25 then
-            pushFpsSample(ffc/fe); ffc=0; fe=0
-        end
+        if fe>=0.25 then pushFpsSample(ffc/fe); ffc=0; fe=0 end
     end)
     table.insert(windowRef._connections,fpsConn)
-
     local pkConn=UserInputService.InputBegan:Connect(function(input,gp)
         if not loadingComplete or gp or UserInputService:GetFocusedTextBox() then return end
         if input.KeyCode==profileKey and Library._windowObjects[#Library._windowObjects]==windowRef then
@@ -969,16 +1133,11 @@ function Library:CreateWindow(opts)
     table.insert(Library._windowObjects,windowRef)
     if opts.Visible==false then screenGui.Enabled=false end
 
-    -- ── LOADING COMPLETION — reveal both main AND hotbar ──────────────────
     if loadingEnabled and loadingLayer then
         task.defer(function()
             while not loadingMotionComplete and screenGui.Parent do RunService.Heartbeat:Wait() end
             if not screenGui.Parent or not loadingLayer.Parent then return end
-
-            -- Show both main window and hotbar together
-            main.Visible = true
-            hotbar.Visible = true
-
+            main.Visible=true; hotbar.Visible=true
             TweenService:Create(mainRevealScale,TweenInfo.new(0.46,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Scale=1}):Play()
             local fo=TweenService:Create(loadingLayer,TweenInfo.new(0.48,Enum.EasingStyle.Quart,Enum.EasingDirection.InOut),{GroupTransparency=1})
             local ce=loadingContent and TweenService:Create(loadingContent,TweenInfo.new(0.46,Enum.EasingStyle.Quart,Enum.EasingDirection.In),{Position=UDim2.new(0.5,0,0.5,-18),GroupTransparency=1})
@@ -986,15 +1145,13 @@ function Library:CreateWindow(opts)
             local te=loadingTitleScale and TweenService:Create(loadingTitleScale,TweenInfo.new(0.42,Enum.EasingStyle.Quart,Enum.EasingDirection.In),{Scale=0.95})
             local pe
             if loadingProgressFill and loadingProgressFill.Parent then
-                loadingProgressFill.AnchorPoint=Vector2.new(0.5,0.5)
-                loadingProgressFill.Position=UDim2.fromScale(0.5,0.5)
+                loadingProgressFill.AnchorPoint=Vector2.new(0.5,0.5); loadingProgressFill.Position=UDim2.fromScale(0.5,0.5)
                 pe=TweenService:Create(loadingProgressFill,TweenInfo.new(0.3,Enum.EasingStyle.Quart,Enum.EasingDirection.In),{Size=UDim2.new(0,0,1,0)})
             end
             fo:Play(); if ce then ce:Play() end; if le then le:Play() end; if te then te:Play() end; if pe then pe:Play() end
             fo.Completed:Wait()
             if loadingLayer and loadingLayer.Parent then loadingLayer:Destroy() end
-            if not screenGui.Parent then return end
-            loadingComplete=true
+            if not screenGui.Parent then return end; loadingComplete=true
         end)
     end
 
@@ -1004,8 +1161,8 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 -- WINDOW METHODS
 -- ════════════════════════════════════════════════════════════════════════════
-function Window:SetVisible(v)  self.ScreenGui.Enabled = v==true end
-function Window:Toggle()       self.ScreenGui.Enabled = not self.ScreenGui.Enabled; return self.ScreenGui.Enabled end
+function Window:SetVisible(v) self.ScreenGui.Enabled = v==true end
+function Window:Toggle() self.ScreenGui.Enabled = not self.ScreenGui.Enabled; return self.ScreenGui.Enabled end
 function Window:SetProfileVisible(v)
     if not self._setProfileVisible then return false end
     self._profileOpen=self._setProfileVisible(v==true); return self._profileOpen
@@ -1013,15 +1170,12 @@ end
 function Window:ToggleProfile() return self:SetProfileVisible(not self._profileOpen) end
 function Window:SetLogo(id)
     self._logoAsset=normalizeAssetId(id)
-    if self.Logo then self.Logo.Image=self._logoAsset end
-    return self._logoAsset
+    if self.Logo then self.Logo.Image=self._logoAsset end; return self._logoAsset
 end
 
 function Window:Notify(opts)
-    if type(opts)=="string" then opts={Content=opts} end
-    opts=opts or {}
-    local holder=self._notificationHolder
-    if not holder or not holder.Parent then return nil end
+    if type(opts)=="string" then opts={Content=opts} end; opts=opts or {}
+    local holder=self._notificationHolder; if not holder or not holder.Parent then return nil end
     local style=getNotificationStyle(opts.Type)
     local dur=tonumber(opts.Duration); if dur==nil then dur=4 end; dur=math.max(dur,0)
     self._notificationOrder=self._notificationOrder+1
@@ -1046,8 +1200,7 @@ function Window:Notify(opts)
     xb.MouseLeave:Connect(function() tween(xb,{TextColor3=C.TextDim}) end)
     xb.MouseButton1Click:Connect(function() close("manual") end)
     TweenService:Create(card,NOTIFICATION_TWEEN,{Position=UDim2.new(1,0,0,0),GroupTransparency=0}):Play()
-    if dur>0 then task.delay(dur,function() close("timeout") end) end
-    return handle
+    if dur>0 then task.delay(dur,function() close("timeout") end) end; return handle
 end
 
 function Window:Destroy()
@@ -1060,31 +1213,62 @@ function Window:Destroy()
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- TAB SYSTEM
+-- TAB SYSTEM — now uses real icons from the built-in library
 -- ════════════════════════════════════════════════════════════════════════════
 function Window:_selectTab(tab)
     if self._activeTab==tab then return end
-    local prev=self._activeTab
-    self._activeTab=tab
+    local prev=self._activeTab; self._activeTab=tab
     if prev then
         prev._page.Visible=false
         tween(prev._hBtn,{BackgroundColor3=C.HotbarBg})
         tween(prev._hLabel,{TextColor3=C.TextGray})
         if prev._hDot then tween(prev._hDot,{BackgroundTransparency=1}) end
+        -- Dim previous icon
+        if prev._hIconElement then
+            if prev._hIconElement:IsA("ImageLabel") then
+                tween(prev._hIconElement,{ImageColor3=C.TextGray})
+            elseif prev._hIconElement:IsA("TextLabel") then
+                tween(prev._hIconElement,{TextColor3=C.TextGray})
+            end
+        end
     end
     tab._page.Visible=true
     tween(tab._hBtn,{BackgroundColor3=C.HotbarActive})
     tween(tab._hLabel,{TextColor3=C.White})
     if tab._hDot then tween(tab._hDot,{BackgroundTransparency=0}) end
+    -- Brighten active icon
+    if tab._hIconElement then
+        if tab._hIconElement:IsA("ImageLabel") then
+            tween(tab._hIconElement,{ImageColor3=C.White})
+        elseif tab._hIconElement:IsA("TextLabel") then
+            tween(tab._hIconElement,{TextColor3=C.White})
+        end
+    end
 end
 
 function Window:AddTab(opts)
     if type(opts)=="string" then opts={Name=opts} end
     opts=opts or {}
     local name=opts.Name or "Tab"
-    local icon=opts.Icon or string.upper(string.sub(name,1,1))
+    local iconInput = opts.Icon
     local win=self
 
+    -- Resolve the icon
+    local iconType, iconValue = resolveIcon(iconInput)
+    -- If no icon provided, try to auto-detect from tab name
+    if not iconType then
+        local autoKey = string.lower(name)
+        if ICONS[autoKey] then
+            iconType = "image"
+            iconValue = ICONS[autoKey]
+        else
+            -- Fallback: first letter
+            iconType = "text"
+            iconValue = string.upper(string.sub(name, 1, 1))
+        end
+    end
+
+    -- ── Hotbar pill button ───────────────────────────────────────────────
     local hBtn=make("TextButton",{
         Text="", AutomaticSize=Enum.AutomaticSize.X,
         Size=UDim2.new(0,0,1,0),
@@ -1092,16 +1276,16 @@ function Window:AddTab(opts)
         ZIndex=5, Parent=self._hotbarInner,
     })
     hBtn.LayoutOrder=#self._hotbarInner:GetChildren()
-    corner(hBtn,7)
-    pad(hBtn,0,0,12,12)
+    corner(hBtn,7); pad(hBtn,0,0,12,12)
     table.insert(win._noDrag,hBtn)
 
     local hRow=make("Frame",{BackgroundTransparency=1,AutomaticSize=Enum.AutomaticSize.X,Size=UDim2.new(0,0,1,0),ZIndex=5,Parent=hBtn})
     make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,6),Parent=hRow})
 
-    local iconBadge=make("Frame",{Size=UDim2.fromOffset(16,16),BackgroundColor3=C.BadgeIdle,LayoutOrder=1,ZIndex=6,Parent=hRow})
-    circle(iconBadge)
-    make("TextLabel",{Text=icon,Font=Enum.Font.GothamBold,TextSize=8,TextColor3=C.TextGray,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Parent=iconBadge})
+    -- Icon badge in hotbar
+    local iconBadge=make("Frame",{Size=UDim2.fromOffset(18,18),BackgroundColor3=C.BadgeIdle,LayoutOrder=1,ZIndex=6,Parent=hRow})
+    corner(iconBadge, 6)
+    local hIconElement = createIconElement(iconBadge, iconType, iconValue, 12, 7)
 
     local hLabel=make("TextLabel",{
         Text=name,Font=Enum.Font.GothamMedium,TextSize=12,
@@ -1111,20 +1295,27 @@ function Window:AddTab(opts)
     })
 
     local hDot=make("Frame",{
-        AnchorPoint=Vector2.new(0.5,0),
-        Position=UDim2.new(0.5,0,1,4),
-        Size=UDim2.fromOffset(4,4),
-        BackgroundColor3=C.HotbarDot,
-        BackgroundTransparency=1,
-        ZIndex=6, Parent=hBtn,
+        AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,1,4),
+        Size=UDim2.fromOffset(4,4), BackgroundColor3=C.HotbarDot,
+        BackgroundTransparency=1, ZIndex=6, Parent=hBtn,
     })
     circle(hDot)
 
+    -- ── Content page ─────────────────────────────────────────────────────
     local page=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false,Parent=self._content})
     local header=make("Frame",{Size=UDim2.new(1,0,0,88),BackgroundTransparency=1,Parent=page})
-    local badge=make("Frame",{Size=UDim2.fromOffset(28,28),Position=UDim2.fromOffset(16,16),BackgroundColor3=C.Badge,Parent=header})
-    circle(badge)
-    make("TextLabel",{Text=icon,Font=Enum.Font.GothamBold,TextSize=11,TextColor3=C.White,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Parent=badge})
+
+    -- Header icon badge (larger)
+    local headerBadge=make("Frame",{Size=UDim2.fromOffset(28,28),Position=UDim2.fromOffset(16,16),BackgroundColor3=C.Badge,Parent=header})
+    corner(headerBadge, 8)
+    local headerIconElement = createIconElement(headerBadge, iconType, iconValue, 16, 3)
+    -- Header icon is always white/bright
+    if headerIconElement:IsA("ImageLabel") then
+        headerIconElement.ImageColor3 = C.White
+    elseif headerIconElement:IsA("TextLabel") then
+        headerIconElement.TextColor3 = C.White
+    end
+
     make("TextLabel",{Text=name,Font=Enum.Font.GothamBold,TextSize=14,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(54,17),Size=UDim2.new(1,-70,0,14),Parent=header})
     make("TextLabel",{Text=opts.Subtitle or "",Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(54,33),Size=UDim2.new(1,-70,0,12),Parent=header})
     local pillRow=make("Frame",{Position=UDim2.fromOffset(16,54),Size=UDim2.new(1,-32,0,24),BackgroundTransparency=1,Parent=header})
@@ -1134,7 +1325,7 @@ function Window:AddTab(opts)
 
     local tab=setmetatable({
         _window=win,
-        _hBtn=hBtn,_hLabel=hLabel,_hDot=hDot,
+        _hBtn=hBtn,_hLabel=hLabel,_hDot=hDot,_hIconElement=hIconElement,
         _page=page,_pillRow=pillRow,_pagesHolder=pagesHolder,
         _subTabs={},_activeSub=nil,
     },Tab)
@@ -1205,8 +1396,7 @@ function SubTab:AddToggle(opts)
         if a then tween(knob,{Position=kp}) else knob.Position=kp end
     end
     local function set(v) v=v==true; if v==value then return end; value=v; render(true); fire(opts.Callback,value) end
-    pill.MouseButton1Click:Connect(function() set(not value) end)
-    render(false)
+    pill.MouseButton1Click:Connect(function() set(not value) end); render(false)
     return {Set=function(_,v) set(v) end, Get=function() return value end}
 end
 
@@ -1246,8 +1436,7 @@ function SubTab:AddDropdown(opts)
     corner(list,6);stroke(list); table.insert(win._noDrag,list)
     local sb; local fq=""
     if searchable then
-        local sh=make("Frame",{Position=UDim2.fromOffset(4,4),Size=UDim2.new(1,-8,0,SH-4),BackgroundColor3=C.WindowBg,ZIndex=101,Parent=list})
-        corner(sh,4)
+        local sh=make("Frame",{Position=UDim2.fromOffset(4,4),Size=UDim2.new(1,-8,0,SH-4),BackgroundColor3=C.WindowBg,ZIndex=101,Parent=list}); corner(sh,4)
         sb=make("TextBox",{Text="",PlaceholderText="Search...",PlaceholderColor3=C.Placeholder,Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,ClearTextOnFocus=false,Position=UDim2.fromOffset(8,0),Size=UDim2.new(1,-16,1,0),ZIndex=102,Parent=sh})
     end
     local sf=make("ScrollingFrame",{Position=UDim2.fromOffset(0,searchable and SH or 0),Size=UDim2.new(1,0,1,searchable and -SH or 0),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(0,0,0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollingDirection=Enum.ScrollingDirection.Y,ScrollBarThickness=3,ScrollBarImageColor3=C.Border,ZIndex=101,Parent=list})
@@ -1255,13 +1444,11 @@ function SubTab:AddDropdown(opts)
     make("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,IP),Parent=sf})
     local open=false; local cg=0; local oc={}; local co=options; local ob={}
     local function repo()
-        local inset=GuiService:GetGuiInset()
-        local p,s=btn.AbsolutePosition,btn.AbsoluteSize
+        local inset=GuiService:GetGuiInset(); local p,s=btn.AbsolutePosition,btn.AbsoluteSize
         list.Position=UDim2.fromOffset(p.X+inset.X+s.X-LW,p.Y+inset.Y+s.Y+4)
     end
     local function calcH()
-        local fc=0
-        for _,o in ipairs(co) do if fq=="" or string.find(string.lower(tostring(o)),string.lower(fq),1,true) then fc=fc+1 end end
+        local fc=0; for _,o in ipairs(co) do if fq=="" or string.find(string.lower(tostring(o)),string.lower(fq),1,true) then fc=fc+1 end end
         local vc=math.min(math.max(fc,1),maxVisible)
         return vc*IH+math.max(vc-1,0)*IP+8+(searchable and SH or 0)
     end
@@ -1292,8 +1479,7 @@ function SubTab:AddDropdown(opts)
         if o then
             open=true; cg=cg+1; repo(); list.Visible=true; tween(list,{Size=UDim2.new(0,LW,0,calcH())})
             table.insert(oc,btn:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-                local bp,bs=btn.AbsolutePosition,btn.AbsoluteSize
-                local pp,ps=sp.AbsolutePosition,sp.AbsoluteSize
+                local bp,bs=btn.AbsolutePosition,btn.AbsoluteSize; local pp,ps=sp.AbsolutePosition,sp.AbsoluteSize
                 if bp.Y+bs.Y<pp.Y or bp.Y>pp.Y+ps.Y then closeDD() else repo() end
             end))
             table.insert(oc,sp:GetPropertyChangedSignal("Visible"):Connect(function() if not sp.Visible then closeDD() end end))
@@ -1310,8 +1496,7 @@ function SubTab:AddDropdown(opts)
     btn.MouseEnter:Connect(function() tween(btn,{BackgroundColor3=C.ElementHover}) end)
     btn.MouseLeave:Connect(function() tween(btn,{BackgroundColor3=C.Element}) end)
     return {
-        Set=function(_,o) value=o; vl.Text=tostring(o) end,
-        Get=function() return value end,
+        Set=function(_,o) value=o; vl.Text=tostring(o) end, Get=function() return value end,
         SetOptions=function(_,no)
             co=no or {}; local se=false
             for _,o in ipairs(co) do if o==value then se=true; break end end
@@ -1329,15 +1514,13 @@ function SubTab:AddSlider(opts)
     local row=newRow(self._card,32)
     make("TextLabel",{Text=opts.Name or "Slider",Font=Enum.Font.GothamMedium,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0.6,0,0,14),Parent=row})
     local vl=make("TextLabel",{Text=tostring(value)..sf,Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Right,BackgroundTransparency=1,Position=UDim2.fromOffset(0,1),Size=UDim2.new(1,0,0,13),Parent=row})
-    local track=make("Frame",{Position=UDim2.fromOffset(0,24),Size=UDim2.new(1,0,0,4),BackgroundColor3=C.TrackBg,Parent=row})
-    circle(track)
+    local track=make("Frame",{Position=UDim2.fromOffset(0,24),Size=UDim2.new(1,0,0,4),BackgroundColor3=C.TrackBg,Parent=row}); circle(track)
     local fill=make("Frame",{Size=UDim2.new(0,0,1,0),BackgroundColor3=C.White,Parent=track}); circle(fill)
     local knob=make("Frame",{Size=UDim2.fromOffset(12,12),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0,0,0.5,0),BackgroundColor3=C.White,ZIndex=2,Parent=track}); circle(knob)
     local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,-6,0,16),Size=UDim2.new(1,12,0,20),Parent=row})
     local function apply(v,a,fc)
         value=math.clamp(math.floor(v+0.5),mn,mx)
-        local pct=mx>mn and (value-mn)/(mx-mn) or 0
-        vl.Text=tostring(value)..sf
+        local pct=mx>mn and (value-mn)/(mx-mn) or 0; vl.Text=tostring(value)..sf
         if a then tween(fill,{Size=UDim2.new(pct,0,1,0)}); tween(knob,{Position=UDim2.new(pct,0,0.5,0)})
         else fill.Size=UDim2.new(pct,0,1,0); knob.Position=UDim2.new(pct,0,0.5,0) end
         if fc then fire(opts.Callback,value) end

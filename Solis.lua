@@ -2,6 +2,10 @@
     Solis UI v2.1 — single-file Roblox UI library
     Hotbar is now a child of a shared drag-container so it moves with
     the main window with zero lag.
+    
+    FIXES:
+      • Hotbar auto-scales width to match the number of tab buttons
+      • Hotbar colors match the rest of the menu theme
 
     Dropdown options:
         MaxVisible = 5
@@ -50,10 +54,11 @@ local C = {
     KnobOn       = Color3.fromRGB(17, 17, 17),
     TrackBg      = Color3.fromRGB(43, 43, 43),
     Placeholder  = Color3.fromRGB(86, 86, 86),
-    HotbarBg     = Color3.fromRGB(13, 13, 13),
-    HotbarBorder = Color3.fromRGB(42, 42, 42),
-    HotbarActive = Color3.fromRGB(32, 32, 32),
-    HotbarHover  = Color3.fromRGB(24, 24, 24),
+    -- Hotbar now matches the menu palette
+    HotbarBg     = Color3.fromRGB(24, 24, 24),   -- same as CardBg
+    HotbarBorder = Color3.fromRGB(35, 35, 35),   -- same as Border
+    HotbarActive = Color3.fromRGB(31, 31, 31),   -- same as Element
+    HotbarHover  = Color3.fromRGB(38, 38, 38),   -- same as ElementHover
     HotbarDot    = Color3.fromRGB(220, 220, 220),
 }
 
@@ -77,10 +82,10 @@ local THEMES = {
         KnobOn       = Color3.fromRGB(250, 250, 250),
         TrackBg      = Color3.fromRGB(210, 210, 210),
         Placeholder  = Color3.fromRGB(135, 135, 135),
-        HotbarBg     = Color3.fromRGB(230, 230, 230),
-        HotbarBorder = Color3.fromRGB(200, 200, 200),
-        HotbarActive = Color3.fromRGB(210, 210, 210),
-        HotbarHover  = Color3.fromRGB(220, 220, 220),
+        HotbarBg     = Color3.fromRGB(249, 249, 249),   -- matches CardBg
+        HotbarBorder = Color3.fromRGB(218, 218, 218),   -- matches Border
+        HotbarActive = Color3.fromRGB(235, 235, 235),   -- matches Element
+        HotbarHover  = Color3.fromRGB(229, 229, 229),   -- matches ElementHover
         HotbarDot    = Color3.fromRGB(60, 60, 60),
     },
     OLED = {
@@ -101,10 +106,10 @@ local THEMES = {
         KnobOn       = Color3.fromRGB(3, 3, 3),
         TrackBg      = Color3.fromRGB(32, 32, 32),
         Placeholder  = Color3.fromRGB(90, 90, 90),
-        HotbarBg     = Color3.fromRGB(0, 0, 0),
-        HotbarBorder = Color3.fromRGB(28, 28, 28),
-        HotbarActive = Color3.fromRGB(14, 14, 14),
-        HotbarHover  = Color3.fromRGB(8, 8, 8),
+        HotbarBg     = Color3.fromRGB(5, 5, 5),     -- matches CardBg
+        HotbarBorder = Color3.fromRGB(25, 25, 25),  -- matches Border
+        HotbarActive = Color3.fromRGB(12, 12, 12),  -- matches Element
+        HotbarHover  = Color3.fromRGB(20, 20, 20),  -- matches ElementHover
         HotbarDot    = Color3.fromRGB(200, 200, 200),
     },
 }
@@ -212,7 +217,6 @@ local function guiVisible(gui)
     return true
 end
 
--- Drag the container; everything inside moves together with zero lag
 local function makeDraggable(frame, blockers)
     local dragging = false
     local dragStart, startPos
@@ -350,9 +354,8 @@ function Library:CreateWindow(opts)
     local windowPosition = opts.Position or UDim2.fromScale(0.5, 0.5)
     local guiName        = opts.GuiName or "SolisUI"
 
-    -- Hotbar config
-    local HOTBAR_HEIGHT  = 42
-    local HOTBAR_GAP     = 10   -- gap between main window bottom and hotbar top
+    local HOTBAR_HEIGHT  = 36
+    local HOTBAR_GAP     = 8
 
     local targetParent
     if typeof(opts.Parent) == "Instance" then
@@ -386,7 +389,8 @@ function Library:CreateWindow(opts)
 
     -- ════════════════════════════════════════════════════════════════════
     -- DRAG CONTAINER — holds both the main window and the hotbar.
-    -- Dragging this moves both children in perfect sync with zero lag.
+    -- We start tall enough for window + gap + hotbar, but the hotbar
+    -- auto-sizes so the container height is just for drag area.
     -- ════════════════════════════════════════════════════════════════════
     local containerW = windowSize.X.Offset
     local containerH = windowSize.Y.Offset + HOTBAR_GAP + HOTBAR_HEIGHT
@@ -588,7 +592,7 @@ function Library:CreateWindow(opts)
     local main = make("Frame", {
         Name = "Main",
         Size = windowSize,
-        Position = UDim2.fromOffset(0, 0),   -- sits at top of container
+        Position = UDim2.fromOffset(0, 0),
         BackgroundColor3 = C.WindowBg,
         ClipsDescendants = true,
         Visible = not loadingEnabled,
@@ -598,7 +602,6 @@ function Library:CreateWindow(opts)
     corner(main, 12); stroke(main, C.Border)
     local mainRevealScale = make("UIScale", { Scale = loadingEnabled and 0.965 or 1, Parent = main })
 
-    -- ── Close / Minimise controls ─────────────────────────────────────────
     local minimized = false
     local mainTopButtons = {}
     local burgerButton
@@ -659,10 +662,9 @@ function Library:CreateWindow(opts)
     end)
     minimizeBtn.MouseButton1Click:Connect(function() setMinimized(true) end)
 
-    -- Drag the whole container
     makeDraggable(container, noDrag)
 
-    -- ── SIDEBAR  (brand + status only — no nav list) ──────────────────────
+    -- ── SIDEBAR ───────────────────────────────────────────────────────────
     local sidebar = make("Frame", { Size=UDim2.new(0,190,1,0), BackgroundTransparency=1, Parent=main })
 
     local brand = make("Frame", {
@@ -687,13 +689,16 @@ function Library:CreateWindow(opts)
     local content = make("Frame",{Position=UDim2.fromOffset(191,0),Size=UDim2.new(1,-191,1,0),BackgroundTransparency=1,Parent=main})
 
     -- ════════════════════════════════════════════════════════════════════
-    -- HOTBAR — second child of the same container, zero-lag
+    -- HOTBAR — auto-sizes width based on button count, centered below window
+    -- Colors now match the menu palette (CardBg, Border, Element, ElementHover)
     -- ════════════════════════════════════════════════════════════════════
     local hotbar = make("Frame", {
         Name = "TabHotbar",
-        -- sits right below the main window inside the container
-        Position = UDim2.fromOffset(0, windowSize.Y.Offset + HOTBAR_GAP),
-        Size = UDim2.fromOffset(windowSize.X.Offset, HOTBAR_HEIGHT),
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, windowSize.Y.Offset + HOTBAR_GAP),
+        -- Start with zero explicit width; AutomaticSize will handle it
+        Size = UDim2.fromOffset(0, HOTBAR_HEIGHT),
+        AutomaticSize = Enum.AutomaticSize.X,
         BackgroundColor3 = C.HotbarBg,
         ClipsDescendants = false,
         ZIndex = 3,
@@ -701,15 +706,15 @@ function Library:CreateWindow(opts)
     })
     corner(hotbar, 11)
     make("UIStroke", { Color = C.HotbarBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = hotbar })
+    -- Padding inside the hotbar so auto-size includes some breathing room
+    pad(hotbar, 5, 5, 10, 10)
 
-    -- inner pill row — horizontally centred
+    -- Inner row layout for pills
     local hotbarInner = make("Frame", {
         Name = "HotbarInner",
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, -16, 1, -10),
-        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 0, 1, 0),
         AutomaticSize = Enum.AutomaticSize.X,
+        BackgroundTransparency = 1,
         ZIndex = 4,
         Parent = hotbar,
     })
@@ -1081,7 +1086,7 @@ function Window:AddTab(opts)
     -- ── Hotbar pill button ───────────────────────────────────────────────
     local hBtn=make("TextButton",{
         Text="", AutomaticSize=Enum.AutomaticSize.X,
-        Size=UDim2.new(0,0,1,-8),
+        Size=UDim2.new(0,0,1,0),
         BackgroundColor3=C.HotbarBg,
         ZIndex=5, Parent=self._hotbarInner,
     })
@@ -1093,7 +1098,6 @@ function Window:AddTab(opts)
     local hRow=make("Frame",{BackgroundTransparency=1,AutomaticSize=Enum.AutomaticSize.X,Size=UDim2.new(0,0,1,0),ZIndex=5,Parent=hBtn})
     make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,6),Parent=hRow})
 
-    -- small icon badge
     local iconBadge=make("Frame",{Size=UDim2.fromOffset(16,16),BackgroundColor3=C.BadgeIdle,LayoutOrder=1,ZIndex=6,Parent=hRow})
     circle(iconBadge)
     make("TextLabel",{Text=icon,Font=Enum.Font.GothamBold,TextSize=8,TextColor3=C.TextGray,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Parent=iconBadge})
@@ -1105,7 +1109,6 @@ function Window:AddTab(opts)
         Size=UDim2.new(0,0,1,0),LayoutOrder=2,ZIndex=6,Parent=hRow,
     })
 
-    -- tiny active indicator dot under the button
     local hDot=make("Frame",{
         AnchorPoint=Vector2.new(0.5,0),
         Position=UDim2.new(0.5,0,1,4),
@@ -1116,7 +1119,7 @@ function Window:AddTab(opts)
     })
     circle(hDot)
 
-    -- ── Content page (unchanged) ─────────────────────────────────────────
+    -- ── Content page ─────────────────────────────────────────────────────
     local page=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false,Parent=self._content})
     local header=make("Frame",{Size=UDim2.new(1,0,0,88),BackgroundTransparency=1,Parent=page})
     local badge=make("Frame",{Size=UDim2.fromOffset(28,28),Position=UDim2.fromOffset(16,16),BackgroundColor3=C.Badge,Parent=header})
@@ -1150,7 +1153,7 @@ function Window:AddTab(opts)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- SUBTAB + ELEMENTS (unchanged from original)
+-- SUBTAB + ELEMENTS
 -- ════════════════════════════════════════════════════════════════════════════
 function Tab:_selectSub(sub)
     if self._activeSub==sub then return end

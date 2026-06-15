@@ -6,6 +6,8 @@
     FIXES:
       • Hotbar auto-scales width to match the number of tab buttons
       • Hotbar colors match the rest of the menu theme
+      • Hotbar hidden during loading, revealed with main window
+      • Minimize hides both main window AND hotbar
 
     Dropdown options:
         MaxVisible = 5
@@ -54,11 +56,10 @@ local C = {
     KnobOn       = Color3.fromRGB(17, 17, 17),
     TrackBg      = Color3.fromRGB(43, 43, 43),
     Placeholder  = Color3.fromRGB(86, 86, 86),
-    -- Hotbar now matches the menu palette
-    HotbarBg     = Color3.fromRGB(24, 24, 24),   -- same as CardBg
-    HotbarBorder = Color3.fromRGB(35, 35, 35),   -- same as Border
-    HotbarActive = Color3.fromRGB(31, 31, 31),   -- same as Element
-    HotbarHover  = Color3.fromRGB(38, 38, 38),   -- same as ElementHover
+    HotbarBg     = Color3.fromRGB(24, 24, 24),
+    HotbarBorder = Color3.fromRGB(35, 35, 35),
+    HotbarActive = Color3.fromRGB(31, 31, 31),
+    HotbarHover  = Color3.fromRGB(38, 38, 38),
     HotbarDot    = Color3.fromRGB(220, 220, 220),
 }
 
@@ -82,10 +83,10 @@ local THEMES = {
         KnobOn       = Color3.fromRGB(250, 250, 250),
         TrackBg      = Color3.fromRGB(210, 210, 210),
         Placeholder  = Color3.fromRGB(135, 135, 135),
-        HotbarBg     = Color3.fromRGB(249, 249, 249),   -- matches CardBg
-        HotbarBorder = Color3.fromRGB(218, 218, 218),   -- matches Border
-        HotbarActive = Color3.fromRGB(235, 235, 235),   -- matches Element
-        HotbarHover  = Color3.fromRGB(229, 229, 229),   -- matches ElementHover
+        HotbarBg     = Color3.fromRGB(249, 249, 249),
+        HotbarBorder = Color3.fromRGB(218, 218, 218),
+        HotbarActive = Color3.fromRGB(235, 235, 235),
+        HotbarHover  = Color3.fromRGB(229, 229, 229),
         HotbarDot    = Color3.fromRGB(60, 60, 60),
     },
     OLED = {
@@ -106,10 +107,10 @@ local THEMES = {
         KnobOn       = Color3.fromRGB(3, 3, 3),
         TrackBg      = Color3.fromRGB(32, 32, 32),
         Placeholder  = Color3.fromRGB(90, 90, 90),
-        HotbarBg     = Color3.fromRGB(5, 5, 5),     -- matches CardBg
-        HotbarBorder = Color3.fromRGB(25, 25, 25),  -- matches Border
-        HotbarActive = Color3.fromRGB(12, 12, 12),  -- matches Element
-        HotbarHover  = Color3.fromRGB(20, 20, 20),  -- matches ElementHover
+        HotbarBg     = Color3.fromRGB(5, 5, 5),
+        HotbarBorder = Color3.fromRGB(25, 25, 25),
+        HotbarActive = Color3.fromRGB(12, 12, 12),
+        HotbarHover  = Color3.fromRGB(20, 20, 20),
         HotbarDot    = Color3.fromRGB(200, 200, 200),
     },
 }
@@ -388,9 +389,7 @@ function Library:CreateWindow(opts)
     table.insert(Library._windows, screenGui)
 
     -- ════════════════════════════════════════════════════════════════════
-    -- DRAG CONTAINER — holds both the main window and the hotbar.
-    -- We start tall enough for window + gap + hotbar, but the hotbar
-    -- auto-sizes so the container height is just for drag area.
+    -- DRAG CONTAINER
     -- ════════════════════════════════════════════════════════════════════
     local containerW = windowSize.X.Offset
     local containerH = windowSize.Y.Offset + HOTBAR_GAP + HOTBAR_HEIGHT
@@ -587,7 +586,7 @@ function Library:CreateWindow(opts)
     end
 
     -- ════════════════════════════════════════════════════════════════════
-    -- MAIN WINDOW  (top child of container)
+    -- MAIN WINDOW
     -- ════════════════════════════════════════════════════════════════════
     local main = make("Frame", {
         Name = "Main",
@@ -602,20 +601,59 @@ function Library:CreateWindow(opts)
     corner(main, 12); stroke(main, C.Border)
     local mainRevealScale = make("UIScale", { Scale = loadingEnabled and 0.965 or 1, Parent = main })
 
+    -- ════════════════════════════════════════════════════════════════════
+    -- HOTBAR — starts hidden, revealed after loading completes
+    -- ════════════════════════════════════════════════════════════════════
+    local hotbar = make("Frame", {
+        Name = "TabHotbar",
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, windowSize.Y.Offset + HOTBAR_GAP),
+        Size = UDim2.fromOffset(0, HOTBAR_HEIGHT),
+        AutomaticSize = Enum.AutomaticSize.X,
+        BackgroundColor3 = C.HotbarBg,
+        ClipsDescendants = false,
+        Visible = not loadingEnabled,  -- HIDDEN during loading
+        ZIndex = 3,
+        Parent = container,
+    })
+    corner(hotbar, 11)
+    make("UIStroke", { Color = C.HotbarBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = hotbar })
+    pad(hotbar, 5, 5, 10, 10)
+
+    local hotbarInner = make("Frame", {
+        Name = "HotbarInner",
+        Size = UDim2.new(0, 0, 1, 0),
+        AutomaticSize = Enum.AutomaticSize.X,
+        BackgroundTransparency = 1,
+        ZIndex = 4,
+        Parent = hotbar,
+    })
+    make("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 4),
+        Parent = hotbarInner,
+    })
+
     local minimized = false
     local mainTopButtons = {}
     local burgerButton
     local windowRef
 
+    local noDrag = {}
+    table.insert(noDrag, hotbar)
+
+    -- ── setMinimized now hides BOTH main AND hotbar ───────────────────────
     local function setMinimized(o)
         minimized = o == true
         for _, b in ipairs(mainTopButtons) do if b and b.Parent then b.Visible = not minimized end end
         if burgerButton and burgerButton.Parent then burgerButton.Visible = minimized end
         main.Visible = not minimized
+        hotbar.Visible = not minimized  -- HIDE HOTBAR TOO
         if windowRef then windowRef._minimized = minimized end
     end
-
-    local noDrag = {}
 
     local controls = make("Frame", {
         Name = "CornerControls", AnchorPoint = Vector2.new(1,0),
@@ -687,47 +725,6 @@ function Library:CreateWindow(opts)
     make("Frame",{Position=UDim2.fromOffset(190,0),Size=UDim2.new(0,1,1,0),BackgroundColor3=C.Border,Parent=main})
 
     local content = make("Frame",{Position=UDim2.fromOffset(191,0),Size=UDim2.new(1,-191,1,0),BackgroundTransparency=1,Parent=main})
-
-    -- ════════════════════════════════════════════════════════════════════
-    -- HOTBAR — auto-sizes width based on button count, centered below window
-    -- Colors now match the menu palette (CardBg, Border, Element, ElementHover)
-    -- ════════════════════════════════════════════════════════════════════
-    local hotbar = make("Frame", {
-        Name = "TabHotbar",
-        AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, windowSize.Y.Offset + HOTBAR_GAP),
-        -- Start with zero explicit width; AutomaticSize will handle it
-        Size = UDim2.fromOffset(0, HOTBAR_HEIGHT),
-        AutomaticSize = Enum.AutomaticSize.X,
-        BackgroundColor3 = C.HotbarBg,
-        ClipsDescendants = false,
-        ZIndex = 3,
-        Parent = container,
-    })
-    corner(hotbar, 11)
-    make("UIStroke", { Color = C.HotbarBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = hotbar })
-    -- Padding inside the hotbar so auto-size includes some breathing room
-    pad(hotbar, 5, 5, 10, 10)
-
-    -- Inner row layout for pills
-    local hotbarInner = make("Frame", {
-        Name = "HotbarInner",
-        Size = UDim2.new(0, 0, 1, 0),
-        AutomaticSize = Enum.AutomaticSize.X,
-        BackgroundTransparency = 1,
-        ZIndex = 4,
-        Parent = hotbar,
-    })
-    make("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        HorizontalAlignment = Enum.HorizontalAlignment.Center,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 4),
-        Parent = hotbarInner,
-    })
-
-    table.insert(noDrag, hotbar)
 
     -- ── NOTIFICATIONS ─────────────────────────────────────────────────────
     local notificationHolder = make("Frame",{
@@ -972,11 +969,16 @@ function Library:CreateWindow(opts)
     table.insert(Library._windowObjects,windowRef)
     if opts.Visible==false then screenGui.Enabled=false end
 
+    -- ── LOADING COMPLETION — reveal both main AND hotbar ──────────────────
     if loadingEnabled and loadingLayer then
         task.defer(function()
             while not loadingMotionComplete and screenGui.Parent do RunService.Heartbeat:Wait() end
             if not screenGui.Parent or not loadingLayer.Parent then return end
-            main.Visible=true
+
+            -- Show both main window and hotbar together
+            main.Visible = true
+            hotbar.Visible = true
+
             TweenService:Create(mainRevealScale,TweenInfo.new(0.46,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Scale=1}):Play()
             local fo=TweenService:Create(loadingLayer,TweenInfo.new(0.48,Enum.EasingStyle.Quart,Enum.EasingDirection.InOut),{GroupTransparency=1})
             local ce=loadingContent and TweenService:Create(loadingContent,TweenInfo.new(0.46,Enum.EasingStyle.Quart,Enum.EasingDirection.In),{Position=UDim2.new(0.5,0,0.5,-18),GroupTransparency=1})
@@ -1083,7 +1085,6 @@ function Window:AddTab(opts)
     local icon=opts.Icon or string.upper(string.sub(name,1,1))
     local win=self
 
-    -- ── Hotbar pill button ───────────────────────────────────────────────
     local hBtn=make("TextButton",{
         Text="", AutomaticSize=Enum.AutomaticSize.X,
         Size=UDim2.new(0,0,1,0),
@@ -1119,7 +1120,6 @@ function Window:AddTab(opts)
     })
     circle(hDot)
 
-    -- ── Content page ─────────────────────────────────────────────────────
     local page=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false,Parent=self._content})
     local header=make("Frame",{Size=UDim2.new(1,0,0,88),BackgroundTransparency=1,Parent=page})
     local badge=make("Frame",{Size=UDim2.fromOffset(28,28),Position=UDim2.fromOffset(16,16),BackgroundColor3=C.Badge,Parent=header})

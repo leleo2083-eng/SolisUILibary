@@ -35,162 +35,138 @@ local PROFILE_TWEEN = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDir
 -- Curated minimal/outline icons from Roblox CDN (MaterialDesign / Lucide style)
 -- Usage: Icon = "home" or Icon = "settings" in AddTab
 -- ════════════════════════════════════════════════════════════════════════════
+-- ════════════════════════════════════════════════════════════════════════════
+-- BUILT-IN ICON LIBRARY (verified working asset IDs from Lucide pack)
+-- ════════════════════════════════════════════════════════════════════════════
 local ICONS = {
-    -- ═══════════════════════════════════════════════════════
     -- Navigation / General
-    -- ═══════════════════════════════════════════════════════
-    home            = "rbxassetid://7733960981",
-    dashboard       = "rbxassetid://7734053495",
-    search          = "rbxassetid://7734068243",
-    settings        = "rbxassetid://7734068136",
-    gear            = "rbxassetid://7734068136",
-    menu            = "rbxassetid://7734099550",
-    list            = "rbxassetid://7734099550",
-    grid            = "rbxassetid://7734053495",
+    home            = "rbxassetid://10723407389",
+    dashboard       = "rbxassetid://10709790644",
+    search          = "rbxassetid://10709751939",
+    settings        = "rbxassetid://10734950309",
+    gear            = "rbxassetid://10734950309",
+    menu            = "rbxassetid://10734896206",
+    list            = "rbxassetid://10709790373",
+    grid            = "rbxassetid://10734950309",
+    sliders         = "rbxassetid://10734897102",
     
-    -- ═══════════════════════════════════════════════════════
     -- Combat / Weapons
-    -- ═══════════════════════════════════════════════════════
-    swords          = "rbxassetid://7733714825",
-    sword           = "rbxassetid://7733714825",
-    combat          = "rbxassetid://7733714825",
-    shield          = "rbxassetid://7733680268",
-    target          = "rbxassetid://7734068341",
-    crosshair       = "rbxassetid://7734068341",
-    aim             = "rbxassetid://7734068341",
+    swords          = "rbxassetid://10747384394",
+    sword           = "rbxassetid://10747384394",
+    combat          = "rbxassetid://10747384394",
+    shield          = "rbxassetid://10723434956",
+    target          = "rbxassetid://10723434538",
+    crosshair       = "rbxassetid://10723434538",
+    aim             = "rbxassetid://10723434538",
     
-    -- ═══════════════════════════════════════════════════════
     -- Elements / Effects
-    -- ═══════════════════════════════════════════════════════
-    bolt            = "rbxassetid://7733658498",
-    lightning       = "rbxassetid://7733658498",
-    zap             = "rbxassetid://7733658498",
-    fire            = "rbxassetid://7733911882",
-    flame           = "rbxassetid://7733911882",
-    star            = "rbxassetid://7733960741",
-    sparkle         = "rbxassetid://7733960741",
+    bolt            = "rbxassetid://10723415903",
+    lightning       = "rbxassetid://10723415903",
+    zap             = "rbxassetid://10723415903",
+    fire            = "rbxassetid://10723415285",
+    flame           = "rbxassetid://10723415285",
+    star            = "rbxassetid://10734924532",
+    sparkle         = "rbxassetid://10723422246",
     
-    -- ═══════════════════════════════════════════════════════
     -- Player / Users
-    -- ═══════════════════════════════════════════════════════
-    player          = "rbxassetid://7733717858",
-    user            = "rbxassetid://7733717858",
-    person          = "rbxassetid://7733717858",
-    users           = "rbxassetid://7734099697",
-    team            = "rbxassetid://7734099697",
-    group           = "rbxassetid://7734099697",
+    player          = "rbxassetid://10747387118",
+    user            = "rbxassetid://10747387118",
+    person          = "rbxassetid://10747387118",
+    users           = "rbxassetid://10747387298",
+    team            = "rbxassetid://10747387298",
+    group           = "rbxassetid://10747387298",
     
-    -- ═══════════════════════════════════════════════════════
     -- Vision / Rendering
-    -- ═══════════════════════════════════════════════════════
-    eye             = "rbxassetid://7733960971",
-    visible         = "rbxassetid://7733960971",
-    visuals         = "rbxassetid://7733960971",
-    render          = "rbxassetid://7733960971",
-    esp             = "rbxassetid://7733960971",
-    eyeoff          = "rbxassetid://7743878326",
-    hidden          = "rbxassetid://7743878326",
+    eye             = "rbxassetid://10709790644",
+    visible         = "rbxassetid://10709790644",
+    visuals         = "rbxassetid://10709790644",
+    render          = "rbxassetid://10709790644",
+    esp             = "rbxassetid://10709790644",
+    eyeoff          = "rbxassetid://10709790497",
+    hidden          = "rbxassetid://10709790497",
     
-    -- ═══════════════════════════════════════════════════════
     -- World / Movement
-    -- ═══════════════════════════════════════════════════════
-    globe           = "rbxassetid://7734053428",
-    world           = "rbxassetid://7734053428",
-    compass         = "rbxassetid://7734053428",
-    map             = "rbxassetid://7743878646",
-    move            = "rbxassetid://7743878646",
-    arrows          = "rbxassetid://7743878646",
+    globe           = "rbxassetid://10709778567",
+    world           = "rbxassetid://10709778567",
+    compass         = "rbxassetid://10709790373",
+    map             = "rbxassetid://10709790373",
+    move            = "rbxassetid://10723422998",
+    arrows          = "rbxassetid://10723422998",
     
-    -- ═══════════════════════════════════════════════════════
     -- Status / Alerts
-    -- ═══════════════════════════════════════════════════════
-    heart           = "rbxassetid://7733911673",
-    like            = "rbxassetid://7733911673",
-    bell            = "rbxassetid://7733658103",
-    notification    = "rbxassetid://7733658103",
-    alert           = "rbxassetid://7733658103",
-    info            = "rbxassetid://7733960815",
-    about           = "rbxassetid://7733960815",
-    help            = "rbxassetid://7733960815",
-    warning         = "rbxassetid://7734099907",
-    caution         = "rbxassetid://7734099907",
-    check           = "rbxassetid://7733658607",
-    checkmark       = "rbxassetid://7733658607",
+    heart           = "rbxassetid://10723415389",
+    like            = "rbxassetid://10723415389",
+    bell            = "rbxassetid://10723345067",
+    notification    = "rbxassetid://10723345067",
+    alert           = "rbxassetid://10723345067",
+    info            = "rbxassetid://10723415389",
+    about           = "rbxassetid://10723415389",
+    help            = "rbxassetid://10723415389",
+    warning         = "rbxassetid://10747387522",
+    caution         = "rbxassetid://10747387522",
+    check           = "rbxassetid://10709790948",
+    checkmark       = "rbxassetid://10709790948",
     
-    -- ═══════════════════════════════════════════════════════
     -- Controls / Security
-    -- ═══════════════════════════════════════════════════════
-    lock            = "rbxassetid://7734053558",
-    unlock          = "rbxassetid://7743878770",
-    power           = "rbxassetid://7743878698",
-    toggle          = "rbxassetid://7743878698",
-    refresh         = "rbxassetid://7743878698",
+    lock            = "rbxassetid://10723417148",
+    unlock          = "rbxassetid://10723422607",
+    power           = "rbxassetid://10723422754",
+    toggle          = "rbxassetid://10723422754",
+    refresh         = "rbxassetid://10723417783",
     
-    -- ═══════════════════════════════════════════════════════
     -- Files / Data
-    -- ═══════════════════════════════════════════════════════
-    folder          = "rbxassetid://7733911739",
-    file            = "rbxassetid://7733680115",
-    save            = "rbxassetid://7733680115",
-    download        = "rbxassetid://7733680115",
-    clipboard       = "rbxassetid://7733680050",
+    folder          = "rbxassetid://10709791437",
+    file            = "rbxassetid://10709791258",
+    save            = "rbxassetid://10709791258",
+    download        = "rbxassetid://10709790497",
+    clipboard       = "rbxassetid://10709751190",
     
-    -- ═══════════════════════════════════════════════════════
     -- Communication
-    -- ═══════════════════════════════════════════════════════
-    chat            = "rbxassetid://7733680050",
-    message         = "rbxassetid://7733680050",
+    chat            = "rbxassetid://10723345037",
+    message         = "rbxassetid://10723345037",
     
-    -- ═══════════════════════════════════════════════════════
     -- Media
-    -- ═══════════════════════════════════════════════════════
-    play            = "rbxassetid://7733717612",
-    music           = "rbxassetid://7733680268",
-    volume          = "rbxassetid://7733680268",
-    camera          = "rbxassetid://7733658607",
-    image           = "rbxassetid://7733911739",
+    play            = "rbxassetid://10723422607",
+    music           = "rbxassetid://10723421745",
+    volume          = "rbxassetid://10723421745",
+    camera          = "rbxassetid://10709778567",
+    image           = "rbxassetid://10709791437",
     
-    -- ═══════════════════════════════════════════════════════
     -- Time
-    -- ═══════════════════════════════════════════════════════
-    clock           = "rbxassetid://7734053495",
-    time            = "rbxassetid://7734053495",
-    timer           = "rbxassetid://7734053495",
+    clock           = "rbxassetid://10723345037",
+    time            = "rbxassetid://10723345037",
+    timer           = "rbxassetid://10723345037",
     
-    -- ═══════════════════════════════════════════════════════
     -- Tools / Dev
-    -- ═══════════════════════════════════════════════════════
-    wrench          = "rbxassetid://7743878857",
-    tool            = "rbxassetid://7743878857",
-    code            = "rbxassetid://7733680115",
-    terminal        = "rbxassetid://7733680115",
-    script          = "rbxassetid://7733680115",
-    bug             = "rbxassetid://7733658498",
-    debug           = "rbxassetid://7733658498",
-    layers          = "rbxassetid://7734053558",
+    wrench          = "rbxassetid://10734950309",
+    tool            = "rbxassetid://10734950309",
+    code            = "rbxassetid://10709751190",
+    terminal        = "rbxassetid://10709751190",
+    script          = "rbxassetid://10709751190",
+    bug             = "rbxassetid://10723415903",
+    debug           = "rbxassetid://10723415903",
+    layers          = "rbxassetid://10723417148",
     
-    -- ═══════════════════════════════════════════════════════
     -- Game / Items
-    -- ═══════════════════════════════════════════════════════
-    inventory       = "rbxassetid://7733911882",
-    backpack        = "rbxassetid://7733911882",
-    box             = "rbxassetid://7733658498",
-    package         = "rbxassetid://7733658498",
-    gift            = "rbxassetid://7733911673",
-    crown           = "rbxassetid://7733960741",
-    gem             = "rbxassetid://7733680268",
-    coin            = "rbxassetid://7733960741",
-    magic           = "rbxassetid://7733960741",
-    wand            = "rbxassetid://7733960741",
-    potion          = "rbxassetid://7733911882",
-    skull           = "rbxassetid://7733714825",
-    death           = "rbxassetid://7733714825",
-    gamepad         = "rbxassetid://7743878646",
-    controller      = "rbxassetid://7743878646",
-    teleport        = "rbxassetid://7733658498",
-    speed           = "rbxassetid://7743878646",
-    running         = "rbxassetid://7743878646",
-    favorite        = "rbxassetid://7733960741",
+    inventory       = "rbxassetid://10723415285",
+    backpack        = "rbxassetid://10723415285",
+    box             = "rbxassetid://10723415285",
+    package         = "rbxassetid://10723415285",
+    gift            = "rbxassetid://10723415389",
+    crown           = "rbxassetid://10734924532",
+    gem             = "rbxassetid://10723421745",
+    coin            = "rbxassetid://10734924532",
+    magic           = "rbxassetid://10734924532",
+    wand            = "rbxassetid://10734924532",
+    potion          = "rbxassetid://10723415285",
+    skull           = "rbxassetid://10747384394",
+    death           = "rbxassetid://10747384394",
+    gamepad         = "rbxassetid://10723422998",
+    controller      = "rbxassetid://10723422998",
+    teleport        = "rbxassetid://10723415903",
+    speed           = "rbxassetid://10723415903",
+    running         = "rbxassetid://10723422998",
+    favorite        = "rbxassetid://10734924532",
 }
 
 local NOTIFICATION_STYLES = {

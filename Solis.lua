@@ -1,7 +1,8 @@
--- PROFILE + COMPACT LIVE FPS PANEL: K toggles both bottom-right panels; polished dark 50% startup loader reveals the supplied logo, types "Solis" letter by letter, sweeps through logo-matched gold/orange colors, and transitions smoothly into the UI; single-image FPS polyline.
 --[[
     Solis UI v2 — single-file Roblox UI library
     Pure Instance.new with a built-in branded layout and toast notifications.
+
+    CHANGED: Main tabs moved from sidebar nav list → bottom hotbar bar.
 
     NEW dropdown options:
         MaxVisible = 5      -- how many items show before scrolling
@@ -50,6 +51,10 @@ local C = {
     KnobOn       = Color3.fromRGB(17, 17, 17),
     TrackBg      = Color3.fromRGB(43, 43, 43),
     Placeholder  = Color3.fromRGB(86, 86, 86),
+    HotbarBg     = Color3.fromRGB(15, 15, 15),
+    HotbarBorder = Color3.fromRGB(40, 40, 40),
+    HotbarActive = Color3.fromRGB(36, 36, 36),
+    HotbarHover  = Color3.fromRGB(28, 28, 28),
 }
 
 local THEMES = {
@@ -72,6 +77,10 @@ local THEMES = {
         KnobOn       = Color3.fromRGB(250, 250, 250),
         TrackBg      = Color3.fromRGB(210, 210, 210),
         Placeholder  = Color3.fromRGB(135, 135, 135),
+        HotbarBg     = Color3.fromRGB(230, 230, 230),
+        HotbarBorder = Color3.fromRGB(200, 200, 200),
+        HotbarActive = Color3.fromRGB(210, 210, 210),
+        HotbarHover  = Color3.fromRGB(220, 220, 220),
     },
     OLED = {
         WindowBg     = Color3.fromRGB(0, 0, 0),
@@ -91,6 +100,10 @@ local THEMES = {
         KnobOn       = Color3.fromRGB(3, 3, 3),
         TrackBg      = Color3.fromRGB(32, 32, 32),
         Placeholder  = Color3.fromRGB(90, 90, 90),
+        HotbarBg     = Color3.fromRGB(0, 0, 0),
+        HotbarBorder = Color3.fromRGB(28, 28, 28),
+        HotbarActive = Color3.fromRGB(18, 18, 18),
+        HotbarHover  = Color3.fromRGB(10, 10, 10),
     },
 }
 
@@ -611,7 +624,6 @@ function Library:CreateWindow(opts)
 
     local mainRevealScale = make("UIScale", { Scale = loadingEnabled and 0.965 or 1, Parent = main })
 
-    -- Minimize/Close corner controls
     local minimized = false
     local mainTopButtons = {}
     local burgerButton
@@ -698,7 +710,7 @@ function Library:CreateWindow(opts)
 
     makeDraggable(main, noDrag)
 
-    -- ── SIDEBAR ────────────────────────────────────────────────────────────
+    -- ── SIDEBAR (no nav list — only brand + status) ────────────────────────
     local sidebar = make("Frame", { Size = UDim2.new(0, 190, 1, 0), BackgroundTransparency = 1, Parent = main })
 
     local brand = make("Frame", {
@@ -740,17 +752,7 @@ function Library:CreateWindow(opts)
         Position = UDim2.fromOffset(54, 28), Size = UDim2.new(1, -62, 0, 13), Parent = brand,
     })
 
-    local navList = make("Frame", {
-        Position = UDim2.fromOffset(0, 78), Size = UDim2.new(1, 0, 1, -112),
-        BackgroundTransparency = 1, Parent = sidebar,
-    })
-    pad(navList, 0, 8, 12, 12)
-    make("UIListLayout", {
-        FillDirection = Enum.FillDirection.Vertical,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 7), Parent = navList,
-    })
-
+    -- Status dot (bottom of sidebar)
     local statusDot = make("Frame", {
         AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 16, 1, -19),
         Size = UDim2.fromOffset(6, 6), BackgroundColor3 = NOTIFICATION_STYLES.success.Color, Parent = sidebar,
@@ -773,6 +775,51 @@ function Library:CreateWindow(opts)
         BackgroundTransparency = 1, Parent = main,
     })
 
+    -- ── BOTTOM HOTBAR (replaces sidebar nav) ─────────────────────────────
+    -- Floats below the main window, centered on screen
+    local hotbar = make("Frame", {
+        Name = "TabHotbar",
+        AnchorPoint = Vector2.new(0.5, 0),
+        -- positioned dynamically after main is laid out; update in AddTab as well
+        Position = UDim2.new(0.5, 0, 0, 0),
+        Size = UDim2.fromOffset(0, 36),   -- width grows with tabs via AutomaticSize
+        AutomaticSize = Enum.AutomaticSize.X,
+        BackgroundColor3 = C.HotbarBg,
+        ZIndex = 8,
+        Parent = screenGui,
+    })
+    corner(hotbar, 10)
+    make("UIStroke", { Color = C.HotbarBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = hotbar })
+    pad(hotbar, 0, 0, 8, 8)
+
+    local hotbarLayout = make("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 4),
+        Parent = hotbar,
+    })
+
+    -- Reposition hotbar so it sits just below the main frame
+    local function repositionHotbar()
+        if not main or not main.Parent then return end
+        local mainPos = main.AbsolutePosition
+        local mainSize = main.AbsoluteSize
+        local inset = GuiService:GetGuiInset()
+        hotbar.Position = UDim2.fromOffset(
+            mainPos.X + inset.X + mainSize.X / 2,
+            mainPos.Y + inset.Y + mainSize.Y + 8
+        )
+    end
+
+    -- Update on move
+    main:GetPropertyChangedSignal("AbsolutePosition"):Connect(repositionHotbar)
+    main:GetPropertyChangedSignal("AbsoluteSize"):Connect(repositionHotbar)
+    task.defer(repositionHotbar)
+
+    table.insert(noDrag, hotbar)
+
+    -- ── NOTIFICATIONS ──────────────────────────────────────────────────────
     local notificationHolder = make("Frame", {
         Name = "Notifications", AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, -16, 0, 16), Size = UDim2.new(0, 300, 1, -32),
@@ -1152,20 +1199,17 @@ function Library:CreateWindow(opts)
             for _, segment in ipairs(graphSegments) do segment.Visible = false end
             return
         end
-
         local graphMax = 60
         for _, value in ipairs(fpsSamples) do
             graphMax = math.max(graphMax, value)
         end
         graphMax = math.max(30, math.ceil(graphMax / 30) * 30)
         local denominator = math.max(sampleCount - 1, 1)
-
         if editableImageReady and clearEditableGraph() then
             local width = graphPixelSize.X
             local height = graphPixelSize.Y
             local usableWidth = math.max(1, width - 2)
             local usableHeight = math.max(1, height - 6)
-
             for index = 1, sampleCount - 1 do
                 local firstValue = fpsSamples[index]
                 local secondValue = fpsSamples[index + 1]
@@ -1181,7 +1225,6 @@ function Library:CreateWindow(opts)
             end
             if editableImageReady then return end
         end
-
         local usableHeight = math.max(1, plotSize.Y - 8)
         for index, segment in ipairs(graphSegments) do
             if index < sampleCount then
@@ -1271,12 +1314,13 @@ function Library:CreateWindow(opts)
 
     windowRef = setmetatable({
         ScreenGui = screenGui, Main = main, Logo = brandLogo,
-        _logoAsset = logoAsset, _navList = navList, _content = content,
+        _logoAsset = logoAsset, _hotbar = hotbar, _content = content,
         _notificationHolder = notificationHolder, _notificationOrder = 0,
         _profilePanel = profilePanel, _performancePanel = performancePanel,
         _fpsEditableImage = fpsEditableImage, _profileKey = profileKey,
         _profileOpen = profileOpen, _setProfileVisible = setProfileVisible,
         _connections = {}, _noDrag = noDrag, _tabs = {}, _activeTab = nil,
+        _repositionHotbar = repositionHotbar,
     }, Window)
 
     windowRef.Notify = function(selfOrOptions, maybeOptions)
@@ -1344,6 +1388,7 @@ function Library:CreateWindow(opts)
             if loadingLayer and loadingLayer.Parent then loadingLayer:Destroy() end
             if not screenGui.Parent then return end
             loadingComplete = true
+            repositionHotbar()
         end)
     end
 
@@ -1445,22 +1490,22 @@ function Window:Destroy()
     if self.ScreenGui then self.ScreenGui:Destroy() end
 end
 
+-- ── Tab selection (visual state on hotbar buttons) ────────────────────────────
 function Window:_selectTab(tab)
     if self._activeTab == tab then return end
     local prev = self._activeTab
     self._activeTab = tab
     if prev then
         prev._page.Visible = false
-        paint(prev._nav, "BackgroundColor3", "WindowBg")
-        paint(prev._navLabel, "TextColor3", "TextGray")
-        paint(prev._navBadge, "BackgroundColor3", "BadgeIdle")
-        paint(prev._navIcon, "TextColor3", "TextGray")
+        -- hotbar button idle state
+        tween(prev._hotbarBtn, { BackgroundColor3 = C.HotbarBg })
+        tween(prev._hotbarLabel, { TextColor3 = C.TextGray })
+        if prev._hotbarDot then prev._hotbarDot.Visible = false end
     end
     tab._page.Visible = true
-    paint(tab._nav, "BackgroundColor3", "NavActive")
-    paint(tab._navLabel, "TextColor3", "White")
-    paint(tab._navBadge, "BackgroundColor3", "Badge")
-    paint(tab._navIcon, "TextColor3", "White")
+    tween(tab._hotbarBtn, { BackgroundColor3 = C.HotbarActive })
+    tween(tab._hotbarLabel, { TextColor3 = C.White })
+    if tab._hotbarDot then tab._hotbarDot.Visible = true end
 end
 
 function Window:AddTab(opts)
@@ -1470,30 +1515,61 @@ function Window:AddTab(opts)
     local icon = opts.Icon or string.upper(string.sub(name, 1, 1))
     local window = self
 
-    local nav = make("TextButton", {
-        Text = "", Size = UDim2.new(1, 0, 0, 40),
-        BackgroundColor3 = C.WindowBg, Parent = self._navList,
+    -- ── Hotbar button ────────────────────────────────────────────────────────
+    local hotbarBtn = make("TextButton", {
+        Text = "", AutomaticSize = Enum.AutomaticSize.X,
+        Size = UDim2.new(0, 0, 1, -8),
+        BackgroundColor3 = C.HotbarBg,
+        ZIndex = 9, Parent = self._hotbar,
     })
-    autoOrder(nav); corner(nav, 8); stroke(nav, C.Border)
-    table.insert(window._noDrag, nav)
+    hotbarBtn.LayoutOrder = #self._hotbar:GetChildren()
+    corner(hotbarBtn, 7)
+    pad(hotbarBtn, 0, 0, 10, 10)
+    table.insert(window._noDrag, hotbarBtn)
 
-    local navBadge = make("Frame", {
-        Size = UDim2.fromOffset(24, 24), Position = UDim2.new(0, 8, 0.5, 0),
-        AnchorPoint = Vector2.new(0, 0.5), BackgroundColor3 = C.BadgeIdle, Parent = nav,
+    -- Small dot indicator under active tab
+    local hotbarDot = make("Frame", {
+        AnchorPoint = Vector2.new(0.5, 1),
+        Position = UDim2.new(0.5, 0, 1, 3),
+        Size = UDim2.fromOffset(4, 4),
+        BackgroundColor3 = C.White,
+        Visible = false,
+        ZIndex = 10, Parent = hotbarBtn,
     })
-    circle(navBadge)
-    local navIcon = make("TextLabel", {
-        Text = icon, Font = Enum.Font.GothamBold, TextSize = 10,
+    circle(hotbarDot)
+
+    local hotbarInner = make("Frame", {
+        BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X,
+        Size = UDim2.new(0, 0, 1, 0), ZIndex = 9, Parent = hotbarBtn,
+    })
+    make("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 5), Parent = hotbarInner,
+    })
+
+    -- Icon badge
+    local iconBadge = make("Frame", {
+        Size = UDim2.fromOffset(18, 18), BackgroundColor3 = C.BadgeIdle,
+        LayoutOrder = 1, ZIndex = 10, Parent = hotbarInner,
+    })
+    circle(iconBadge)
+    make("TextLabel", {
+        Text = icon, Font = Enum.Font.GothamBold, TextSize = 9,
         TextColor3 = C.TextGray, BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1, 1), Parent = navBadge,
-    })
-    local navLabel = make("TextLabel", {
-        Text = name, Font = Enum.Font.GothamMedium, TextSize = 13,
-        TextColor3 = C.TextGray, TextXAlignment = Enum.TextXAlignment.Left,
-        BackgroundTransparency = 1, Position = UDim2.fromOffset(40, 0),
-        Size = UDim2.new(1, -48, 1, 0), Parent = nav,
+        Size = UDim2.fromScale(1, 1), Parent = iconBadge,
     })
 
+    local hotbarLabel = make("TextLabel", {
+        Text = name, Font = Enum.Font.GothamMedium, TextSize = 12,
+        TextColor3 = C.TextGray, BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.X,
+        Size = UDim2.new(0, 0, 1, 0),
+        LayoutOrder = 2, ZIndex = 10, Parent = hotbarInner,
+    })
+
+    -- ── Content page (unchanged from original) ───────────────────────────────
     local page = make("Frame", {
         Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
         Visible = false, Parent = self._content,
@@ -1539,25 +1615,32 @@ function Window:AddTab(opts)
     })
 
     local tab = setmetatable({
-        _window = window, _nav = nav, _navLabel = navLabel,
-        _navBadge = navBadge, _navIcon = navIcon, _page = page,
-        _pillRow = pillRow, _pagesHolder = pagesHolder,
+        _window = window,
+        _hotbarBtn = hotbarBtn, _hotbarLabel = hotbarLabel, _hotbarDot = hotbarDot,
+        _page = page, _pillRow = pillRow, _pagesHolder = pagesHolder,
         _subTabs = {}, _activeSub = nil,
     }, Tab)
 
-    nav.MouseButton1Click:Connect(function() window:_selectTab(tab) end)
-    nav.MouseEnter:Connect(function()
-        if window._activeTab ~= tab then tween(nav, { BackgroundColor3 = C.NavHover }) end
+    hotbarBtn.MouseButton1Click:Connect(function() window:_selectTab(tab) end)
+    hotbarBtn.MouseEnter:Connect(function()
+        if window._activeTab ~= tab then
+            tween(hotbarBtn, { BackgroundColor3 = C.HotbarHover })
+        end
     end)
-    nav.MouseLeave:Connect(function()
-        tween(nav, { BackgroundColor3 = window._activeTab == tab and C.NavActive or C.WindowBg })
+    hotbarBtn.MouseLeave:Connect(function()
+        tween(hotbarBtn, { BackgroundColor3 = window._activeTab == tab and C.HotbarActive or C.HotbarBg })
     end)
 
     table.insert(self._tabs, tab)
     if not self._activeTab then self:_selectTab(tab) end
+
+    -- Keep hotbar centered under window after adding a tab
+    if self._repositionHotbar then self._repositionHotbar() end
+
     return tab
 end
 
+-- ── Sub-tab (completely unchanged) ───────────────────────────────────────────
 function Tab:_selectSub(sub)
     if self._activeSub == sub then return end
     local prev = self._activeSub
@@ -1620,6 +1703,7 @@ function Tab:AddSubTab(name)
     return sub
 end
 
+-- ── Element builders (all unchanged) ─────────────────────────────────────────
 local function newRow(card, height)
     local row = make("Frame", {
         Size = UDim2.new(1, 0, 0, height), BackgroundTransparency = 1, Parent = card,
@@ -1722,9 +1806,6 @@ function SubTab:AddInput(opts)
     }
 end
 
--- ═══════════════════════════════════════════════════════════════════════════════
--- ENHANCED DROPDOWN with MaxVisible + Searchable + SetOptions
--- ═══════════════════════════════════════════════════════════════════════════════
 function SubTab:AddDropdown(opts)
     opts = opts or {}
     local options = opts.Options or {}
@@ -1844,7 +1925,6 @@ function SubTab:AddDropdown(opts)
             if b and b.Parent then b:Destroy() end
         end
         table.clear(optionButtons)
-
         for _, option in ipairs(currentOptions) do
             local optStr = tostring(option)
             local matches = filterQuery == "" or string.find(string.lower(optStr), string.lower(filterQuery), 1, true)

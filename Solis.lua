@@ -60,8 +60,8 @@ local ICONS = {
     aim             = "rbxassetid://10723434538",
     
     -- Elements / Effects
-    bolt            = "rbxassetid://10723415903",
-    lightning       = "rbxassetid://10723415903",
+    bolt            = "rbxassetid://8682835991",
+    lightning       = "rbxassetid://8682835991",
     zap             = "rbxassetid://10723415903",
     fire            = "rbxassetid://10723415285",
     flame           = "rbxassetid://10723415285",
@@ -155,7 +155,7 @@ local ICONS = {
     gift            = "rbxassetid://10723415389",
     crown           = "rbxassetid://10734924532",
     gem             = "rbxassetid://10723421745",
-    coin            = "rbxassetid://10734924532",
+    coin            = "rbxassetid://13522871708",
     magic           = "rbxassetid://10734924532",
     wand            = "rbxassetid://10734924532",
     potion          = "rbxassetid://10723415285",

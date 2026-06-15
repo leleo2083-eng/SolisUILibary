@@ -60,8 +60,8 @@ local ICONS = {
     aim             = "rbxassetid://10723434538",
     
     -- Elements / Effects
-    bolt            = "rbxassetid://8682835991",
-    lightning       = "rbxassetid://8682835991",
+    bolt            = "rbxassetid://79160363518966",
+    lightning       = "rbxassetid://79160363518966",
     zap             = "rbxassetid://10723415903",
     fire            = "rbxassetid://10723415285",
     flame           = "rbxassetid://10723415285",
@@ -1263,10 +1263,15 @@ function Window:AddTab(opts)
     local hRow=make("Frame",{BackgroundTransparency=1,AutomaticSize=Enum.AutomaticSize.X,Size=UDim2.new(0,0,1,0),ZIndex=5,Parent=hBtn})
     make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,6),Parent=hRow})
 
-    -- Icon badge in hotbar
-    local iconBadge=make("Frame",{Size=UDim2.fromOffset(18,18),BackgroundColor3=C.BadgeIdle,LayoutOrder=1,ZIndex=6,Parent=hRow})
-    corner(iconBadge, 6)
-    local hIconElement = createIconElement(iconBadge, iconType, iconValue, 12, 7)
+        -- Icon container in hotbar (no background, bigger icon)
+    local iconBadge=make("Frame",{
+        Size=UDim2.fromOffset(20,20),
+        BackgroundTransparency=1,
+        LayoutOrder=1,
+        ZIndex=6,
+        Parent=hRow,
+    })
+    local hIconElement = createIconElement(iconBadge, iconType, iconValue, 18, 7)
 
     local hLabel=make("TextLabel",{
         Text=name,Font=Enum.Font.GothamMedium,TextSize=12,
@@ -1286,10 +1291,14 @@ function Window:AddTab(opts)
     local page=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false,Parent=self._content})
     local header=make("Frame",{Size=UDim2.new(1,0,0,88),BackgroundTransparency=1,Parent=page})
 
-    -- Header icon badge (larger)
-    local headerBadge=make("Frame",{Size=UDim2.fromOffset(28,28),Position=UDim2.fromOffset(16,16),BackgroundColor3=C.Badge,Parent=header})
-    corner(headerBadge, 8)
-    local headerIconElement = createIconElement(headerBadge, iconType, iconValue, 16, 3)
+       -- Header icon container (no background, bigger icon)
+    local headerBadge=make("Frame",{
+        Size=UDim2.fromOffset(32,32),
+        Position=UDim2.fromOffset(14,14),
+        BackgroundTransparency=1,
+        Parent=header,
+    })
+    local headerIconElement = createIconElement(headerBadge, iconType, iconValue, 26, 3)
     -- Header icon is always white/bright
     if headerIconElement:IsA("ImageLabel") then
         headerIconElement.ImageColor3 = C.White

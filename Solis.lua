@@ -36,18 +36,21 @@ local PROFILE_TWEEN = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDir
 -- Usage: Icon = "home" or Icon = "settings" in AddTab
 -- ════════════════════════════════════════════════════════════════════════════
 local ICONS = {
+    -- ═══════════════════════════════════════════════════════
     -- Navigation / General
+    -- ═══════════════════════════════════════════════════════
     home            = "rbxassetid://7733960981",
     dashboard       = "rbxassetid://7734053495",
-    menu            = "rbxassetid://7734099550",
     search          = "rbxassetid://7734068243",
-    settings        = "rbxassetid://7734053495",
-    gear            = "rbxassetid://7734053495",
-    sliders         = "rbxassetid://7734068136",
-    wrench          = "rbxassetid://7743878857",
-    tool            = "rbxassetid://7743878857",
+    settings        = "rbxassetid://7734068136",
+    gear            = "rbxassetid://7734068136",
+    menu            = "rbxassetid://7734099550",
+    list            = "rbxassetid://7734099550",
+    grid            = "rbxassetid://7734053495",
     
-    -- Combat / Game
+    -- ═══════════════════════════════════════════════════════
+    -- Combat / Weapons
+    -- ═══════════════════════════════════════════════════════
     swords          = "rbxassetid://7733714825",
     sword           = "rbxassetid://7733714825",
     combat          = "rbxassetid://7733714825",
@@ -55,13 +58,21 @@ local ICONS = {
     target          = "rbxassetid://7734068341",
     crosshair       = "rbxassetid://7734068341",
     aim             = "rbxassetid://7734068341",
+    
+    -- ═══════════════════════════════════════════════════════
+    -- Elements / Effects
+    -- ═══════════════════════════════════════════════════════
     bolt            = "rbxassetid://7733658498",
     lightning       = "rbxassetid://7733658498",
     zap             = "rbxassetid://7733658498",
     fire            = "rbxassetid://7733911882",
     flame           = "rbxassetid://7733911882",
+    star            = "rbxassetid://7733960741",
+    sparkle         = "rbxassetid://7733960741",
     
-    -- Player / User
+    -- ═══════════════════════════════════════════════════════
+    -- Player / Users
+    -- ═══════════════════════════════════════════════════════
     player          = "rbxassetid://7733717858",
     user            = "rbxassetid://7733717858",
     person          = "rbxassetid://7733717858",
@@ -69,7 +80,9 @@ local ICONS = {
     team            = "rbxassetid://7734099697",
     group           = "rbxassetid://7734099697",
     
-    -- Visual / Rendering
+    -- ═══════════════════════════════════════════════════════
+    -- Vision / Rendering
+    -- ═══════════════════════════════════════════════════════
     eye             = "rbxassetid://7733960971",
     visible         = "rbxassetid://7733960971",
     visuals         = "rbxassetid://7733960971",
@@ -78,20 +91,19 @@ local ICONS = {
     eyeoff          = "rbxassetid://7743878326",
     hidden          = "rbxassetid://7743878326",
     
-    -- Movement / World
+    -- ═══════════════════════════════════════════════════════
+    -- World / Movement
+    -- ═══════════════════════════════════════════════════════
     globe           = "rbxassetid://7734053428",
     world           = "rbxassetid://7734053428",
-    map             = "rbxassetid://7734099550",
     compass         = "rbxassetid://7734053428",
-    navigation      = "rbxassetid://7734053428",
+    map             = "rbxassetid://7743878646",
     move            = "rbxassetid://7743878646",
     arrows          = "rbxassetid://7743878646",
-    running         = "rbxassetid://7743878646",
-    speed           = "rbxassetid://7743878646",
     
-    -- Misc / Utility
-    star            = "rbxassetid://7733960741",
-    favorite        = "rbxassetid://7733960741",
+    -- ═══════════════════════════════════════════════════════
+    -- Status / Alerts
+    -- ═══════════════════════════════════════════════════════
     heart           = "rbxassetid://7733911673",
     like            = "rbxassetid://7733911673",
     bell            = "rbxassetid://7733658103",
@@ -100,92 +112,85 @@ local ICONS = {
     info            = "rbxassetid://7733960815",
     about           = "rbxassetid://7733960815",
     help            = "rbxassetid://7733960815",
-    question        = "rbxassetid://7733960815",
     warning         = "rbxassetid://7734099907",
     caution         = "rbxassetid://7734099907",
+    check           = "rbxassetid://7733658607",
+    checkmark       = "rbxassetid://7733658607",
     
-    -- Toggles / Controls
+    -- ═══════════════════════════════════════════════════════
+    -- Controls / Security
+    -- ═══════════════════════════════════════════════════════
     lock            = "rbxassetid://7734053558",
     unlock          = "rbxassetid://7743878770",
     power           = "rbxassetid://7743878698",
     toggle          = "rbxassetid://7743878698",
-    check           = "rbxassetid://7733658607",
-    checkmark       = "rbxassetid://7733658607",
-    x               = "rbxassetid://7743878857",
-    close           = "rbxassetid://7743878857",
-    plus            = "rbxassetid://7733717858",
-    minus           = "rbxassetid://7743878646",
+    refresh         = "rbxassetid://7743878698",
     
-    -- Data / Files
-    folder          = "rbxassetid://7733911882",
-    file            = "rbxassetid://7733911739",
-    save            = "rbxassetid://7734068136",
+    -- ═══════════════════════════════════════════════════════
+    -- Files / Data
+    -- ═══════════════════════════════════════════════════════
+    folder          = "rbxassetid://7733911739",
+    file            = "rbxassetid://7733680115",
+    save            = "rbxassetid://7733680115",
     download        = "rbxassetid://7733680115",
-    upload          = "rbxassetid://7743878770",
-    clipboard       = "rbxassetid://7733680115",
-    copy            = "rbxassetid://7733680115",
+    clipboard       = "rbxassetid://7733680050",
     
+    -- ═══════════════════════════════════════════════════════
     -- Communication
+    -- ═══════════════════════════════════════════════════════
     chat            = "rbxassetid://7733680050",
     message         = "rbxassetid://7733680050",
-    send            = "rbxassetid://7734068243",
     
+    -- ═══════════════════════════════════════════════════════
     -- Media
+    -- ═══════════════════════════════════════════════════════
     play            = "rbxassetid://7733717612",
-    pause           = "rbxassetid://7733717612",
     music           = "rbxassetid://7733680268",
     volume          = "rbxassetid://7733680268",
     camera          = "rbxassetid://7733658607",
     image           = "rbxassetid://7733911739",
     
-    -- Code / Dev
+    -- ═══════════════════════════════════════════════════════
+    -- Time
+    -- ═══════════════════════════════════════════════════════
+    clock           = "rbxassetid://7734053495",
+    time            = "rbxassetid://7734053495",
+    timer           = "rbxassetid://7734053495",
+    
+    -- ═══════════════════════════════════════════════════════
+    -- Tools / Dev
+    -- ═══════════════════════════════════════════════════════
+    wrench          = "rbxassetid://7743878857",
+    tool            = "rbxassetid://7743878857",
     code            = "rbxassetid://7733680115",
     terminal        = "rbxassetid://7733680115",
     script          = "rbxassetid://7733680115",
     bug             = "rbxassetid://7733658498",
     debug           = "rbxassetid://7733658498",
+    layers          = "rbxassetid://7734053558",
     
-    -- Inventory / Items
+    -- ═══════════════════════════════════════════════════════
+    -- Game / Items
+    -- ═══════════════════════════════════════════════════════
     inventory       = "rbxassetid://7733911882",
     backpack        = "rbxassetid://7733911882",
     box             = "rbxassetid://7733658498",
     package         = "rbxassetid://7733658498",
     gift            = "rbxassetid://7733911673",
-    crown           = "rbxassetid://7733680050",
+    crown           = "rbxassetid://7733960741",
     gem             = "rbxassetid://7733680268",
     coin            = "rbxassetid://7733960741",
-    
-    -- Arrows / Direction
-    arrowup         = "rbxassetid://7734053495",
-    arrowdown       = "rbxassetid://7734053495",
-    arrowleft       = "rbxassetid://7734053495",
-    arrowright      = "rbxassetid://7734053495",
-    refresh         = "rbxassetid://7743878698",
-    sync            = "rbxassetid://7743878698",
-    
-    -- Time
-    clock           = "rbxassetid://7733680050",
-    time            = "rbxassetid://7733680050",
-    timer           = "rbxassetid://7733680050",
-    calendar        = "rbxassetid://7733658607",
-    
-    -- Layout
-    grid            = "rbxassetid://7734053495",
-    list            = "rbxassetid://7734099550",
-    layers          = "rbxassetid://7734053558",
-    
-    -- Misc game
-    gamepad         = "rbxassetid://7743878646",
-    controller      = "rbxassetid://7743878646",
-    mouse           = "rbxassetid://7743878646",
-    keyboard        = "rbxassetid://7743878646",
-    teleport        = "rbxassetid://7733658498",
-    warp            = "rbxassetid://7733658498",
     magic           = "rbxassetid://7733960741",
     wand            = "rbxassetid://7733960741",
     potion          = "rbxassetid://7733911882",
     skull           = "rbxassetid://7733714825",
     death           = "rbxassetid://7733714825",
+    gamepad         = "rbxassetid://7743878646",
+    controller      = "rbxassetid://7743878646",
+    teleport        = "rbxassetid://7733658498",
+    speed           = "rbxassetid://7743878646",
+    running         = "rbxassetid://7743878646",
+    favorite        = "rbxassetid://7733960741",
 }
 
 local NOTIFICATION_STYLES = {

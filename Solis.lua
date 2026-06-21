@@ -783,7 +783,39 @@ function Library:CreateWindow(opts)
         Visible = not loadingEnabled, ZIndex = 2, Parent = container,
     })
     corner(main, 12); stroke(main, C.Border)
+    -- Animated traveling outline: a thin orange->white band that sweeps around the
+    -- window edge. Layered on top of the static border; the hotbar is untouched.
+    local mainGlowStroke = make("UIStroke", {
+        Thickness = 1.4,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Transparency = 0.15,
+        Parent = main,
+    })
+    local mainGlowGradient = make("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0.00, Color3.fromRGB(253, 128, 0)),
+            ColorSequenceKeypoint.new(0.18, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.36, Color3.fromRGB(253, 128, 0)),
+            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(253, 128, 0)),
+        }),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0.00, 0.55),
+            NumberSequenceKeypoint.new(0.18, 0.00),
+            NumberSequenceKeypoint.new(0.36, 0.55),
+            NumberSequenceKeypoint.new(1.00, 0.55),
+        }),
+        Parent = mainGlowStroke,
+    })
     local mainRevealScale = make("UIScale", { Scale = loadingEnabled and 0.965 or 1, Parent = main })
+    -- Drive the rotation continuously so the bright band travels around the border.
+    local glowConn
+    glowConn = RunService.RenderStepped:Connect(function()
+        if not main or not main.Parent then
+            if glowConn then glowConn:Disconnect(); glowConn = nil end
+            return
+        end
+        mainGlowGradient.Rotation = (mainGlowGradient.Rotation + 1.4) % 360
+    end)
 
     -- ── HOTBAR ────────────────────────────────────────────────────────────
     local hotbar = make("Frame", {

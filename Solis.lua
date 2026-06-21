@@ -786,35 +786,44 @@ function Library:CreateWindow(opts)
     -- Animated traveling outline: a thin orange->white band that sweeps around the
     -- window edge. Layered on top of the static border; the hotbar is untouched.
     local mainGlowStroke = make("UIStroke", {
-        Thickness = 1.4,
+        Color = Color3.fromRGB(253, 128, 0),
+        Thickness = 1.6,
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Transparency = 0.15,
+        Transparency = 0,
         Parent = main,
     })
+    -- A bright band: fully transparent everywhere except a short orange->white->orange
+    -- slice. Sweeping the gradient's Offset.X moves that slice across the border.
     local mainGlowGradient = make("UIGradient", {
         Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0.00, Color3.fromRGB(253, 128, 0)),
-            ColorSequenceKeypoint.new(0.18, Color3.fromRGB(255, 255, 255)),
-            ColorSequenceKeypoint.new(0.36, Color3.fromRGB(253, 128, 0)),
+            ColorSequenceKeypoint.new(0.42, Color3.fromRGB(253, 128, 0)),
+            ColorSequenceKeypoint.new(0.50, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.58, Color3.fromRGB(253, 128, 0)),
             ColorSequenceKeypoint.new(1.00, Color3.fromRGB(253, 128, 0)),
         }),
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0.00, 0.55),
-            NumberSequenceKeypoint.new(0.18, 0.00),
-            NumberSequenceKeypoint.new(0.36, 0.55),
-            NumberSequenceKeypoint.new(1.00, 0.55),
+            NumberSequenceKeypoint.new(0.00, 1.0),
+            NumberSequenceKeypoint.new(0.36, 1.0),
+            NumberSequenceKeypoint.new(0.50, 0.0),
+            NumberSequenceKeypoint.new(0.64, 1.0),
+            NumberSequenceKeypoint.new(1.00, 1.0),
         }),
         Parent = mainGlowStroke,
     })
     local mainRevealScale = make("UIScale", { Scale = loadingEnabled and 0.965 or 1, Parent = main })
-    -- Drive the rotation continuously so the bright band travels around the border.
+    -- Drive the offset continuously so the bright band travels across the border.
+    -- Offset.X cycles from -1 to 1; at the wrap point the band is fully off-screen
+    -- (transparent), so the jump is invisible.
+    local glowT = 0
     local glowConn
-    glowConn = RunService.RenderStepped:Connect(function()
+    glowConn = RunService.RenderStepped:Connect(function(dt)
         if not main or not main.Parent then
             if glowConn then glowConn:Disconnect(); glowConn = nil end
             return
         end
-        mainGlowGradient.Rotation = (mainGlowGradient.Rotation + 1.4) % 360
+        glowT = (glowT + dt * 0.35) % 1
+        mainGlowGradient.Offset = Vector2.new(glowT * 2 - 1, 0)
     end)
 
     -- ── HOTBAR ────────────────────────────────────────────────────────────

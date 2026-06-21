@@ -1400,6 +1400,88 @@ function SubTab:AddButton(opts)
     return btn
 end
 
+function SubTab:AddSection(opts)
+    if type(opts)=="string" then opts={Name=opts} end
+    opts=opts or {}
+    local row=make("Frame",{Size=UDim2.new(1,0,0,22),BackgroundTransparency=1,Parent=self._card}); autoOrder(row)
+    make("TextLabel",{Text=string.upper(tostring(opts.Name or "Section")),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Bottom,BackgroundTransparency=1,Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,0,1,-3),Parent=row})
+    make("Frame",{Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=C.Border,Parent=row})
+    return row
+end
+
+function SubTab:AddDivider()
+    local row=make("Frame",{Size=UDim2.new(1,0,0,9),BackgroundTransparency=1,Parent=self._card}); autoOrder(row)
+    make("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,0,0.5,0),Size=UDim2.new(1,0,0,1),BackgroundColor3=C.Border,Parent=row})
+    return row
+end
+
+function SubTab:AddLabel(opts)
+    if type(opts)=="string" then opts={Text=opts} end
+    opts=opts or {}
+    local lbl=make("TextLabel",{Text=tostring(opts.Text or "Label"),Font=Enum.Font.GothamMedium,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Size=UDim2.new(1,0,0,16),Parent=self._card})
+    autoOrder(lbl)
+    return {Set=function(_,t) lbl.Text=tostring(t) end, Get=function() return lbl.Text end, Instance=lbl}
+end
+
+function SubTab:AddParagraph(opts)
+    opts=opts or {}
+    local card=make("Frame",{Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=self._card}); autoOrder(card)
+    make("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,3),Parent=card})
+    if opts.Title then
+        make("TextLabel",{Text=tostring(opts.Title),Font=Enum.Font.GothamMedium,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Size=UDim2.new(1,0,0,16),LayoutOrder=1,Parent=card})
+    end
+    local body=make("TextLabel",{Text=tostring(opts.Text or opts.Content or ""),Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,TextWrapped=true,AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Size=UDim2.new(1,0,0,0),LayoutOrder=2,Parent=card})
+    return {Set=function(_,t) body.Text=tostring(t) end, Get=function() return body.Text end, Instance=body}
+end
+
+function SubTab:AddKeybind(opts)
+    opts=opts or {}
+    local key=opts.Default
+    if typeof(key)~="EnumItem" then key=nil end
+    local row=newRow(self._card,30); rowLabels(row,opts.Name or "Keybind",opts.Description,80)
+    local btn=make("TextButton",{Text=key and key.Name or "None",Font=Enum.Font.GothamMedium,TextSize=11,TextColor3=C.TextGray,Size=UDim2.fromOffset(70,22),AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,0,0.5,0),BackgroundColor3=C.Element,Parent=row})
+    corner(btn,6)
+    local listening=false
+    local conn
+    local function setKey(k)
+        if k~=nil and typeof(k)~="EnumItem" then return end
+        key=k; btn.Text=key and key.Name or "None"
+        fire(opts.Callback,key)
+    end
+    local function stopListening()
+        listening=false
+        if conn then conn:Disconnect(); conn=nil end
+        btn.Text=key and key.Name or "None"
+        tween(btn,{BackgroundColor3=C.Element,TextColor3=C.TextGray})
+    end
+    btn.MouseEnter:Connect(function() if not listening then tween(btn,{BackgroundColor3=C.ElementHover}) end end)
+    btn.MouseLeave:Connect(function() if not listening then tween(btn,{BackgroundColor3=C.Element}) end end)
+    btn.MouseButton1Click:Connect(function()
+        if listening then stopListening(); return end
+        listening=true; btn.Text="..."; tween(btn,{BackgroundColor3=C.PillActive,TextColor3=C.White})
+        conn=UserInputService.InputBegan:Connect(function(input,gp)
+            if gp then return end
+            if input.UserInputType==Enum.UserInputType.Keyboard then
+                if input.KeyCode==Enum.KeyCode.Escape then setKey(nil) else setKey(input.KeyCode) end
+                stopListening()
+            elseif input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.MouseButton2 then
+                stopListening()
+            end
+        end)
+    end)
+    local pressConn=UserInputService.InputBegan:Connect(function(input,gp)
+        if gp or listening or not key then return end
+        if UserInputService:GetFocusedTextBox() then return end
+        if input.KeyCode==key then fire(opts.OnPress or opts.Pressed,key) end
+    end)
+    table.insert(self._window._noDrag,btn)
+    return {
+        Set=function(_,k) setKey(k) end,
+        Get=function() return key end,
+        _connections={pressConn},
+    }
+end
+
 function SubTab:AddInput(opts)
     opts=opts or {}
     local row=newRow(self._card,30); rowLabels(row,opts.Name or "Input",opts.Description,120)
@@ -1497,6 +1579,143 @@ function SubTab:AddDropdown(opts)
     }
 end
 
+function SubTab:AddMultiDropdown(opts)
+    opts=opts or {}
+    local options=opts.Options or {}
+    local maxVisible=math.max(1,math.floor(opts.MaxVisible or 5)); local searchable=opts.Searchable==true
+    local IH=22; local IP=2; local SH=26; local LW=160
+    -- selected: set of selected option values (keyed by the option itself)
+    local selected={}
+    if type(opts.Default)=="table" then
+        for _,o in ipairs(opts.Default) do selected[o]=true end
+    end
+    local row=newRow(self._card,30); rowLabels(row,opts.Name or "Dropdown",opts.Description,130)
+    local btn=make("TextButton",{Text="",Size=UDim2.fromOffset(120,22),AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,0,0.5,0),BackgroundColor3=C.Element,Parent=row})
+    corner(btn,6)
+    local vl=make("TextLabel",{Text="None",Font=Enum.Font.Gotham,TextSize=12,TextColor3=C.TextGray,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(8,0),Size=UDim2.new(1,-26,1,0),Parent=btn})
+    sortIcon(btn)
+    local win=self._window; local sp=self._page; local tp=self._tab._page
+    local list=make("Frame",{Visible=false,Active=true,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,LW,0,0),BackgroundColor3=C.Element,ClipsDescendants=true,ZIndex=100,Parent=win.ScreenGui})
+    corner(list,6);stroke(list); table.insert(win._noDrag,list)
+    local sb; local fq=""
+    if searchable then
+        local sh=make("Frame",{Position=UDim2.fromOffset(4,4),Size=UDim2.new(1,-8,0,SH-4),BackgroundColor3=C.WindowBg,ZIndex=101,Parent=list}); corner(sh,4)
+        sb=make("TextBox",{Text="",PlaceholderText="Search...",PlaceholderColor3=C.Placeholder,Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,ClearTextOnFocus=false,Position=UDim2.fromOffset(8,0),Size=UDim2.new(1,-16,1,0),ZIndex=102,Parent=sh})
+    end
+    local sf=make("ScrollingFrame",{Position=UDim2.fromOffset(0,searchable and SH or 0),Size=UDim2.new(1,0,1,searchable and -SH or 0),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(0,0,0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollingDirection=Enum.ScrollingDirection.Y,ScrollBarThickness=3,ScrollBarImageColor3=C.Border,ZIndex=101,Parent=list})
+    pad(sf,4,4,4,4)
+    make("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,IP),Parent=sf})
+    local open=false; local cg=0; local oc={}; local co=options; local ob={}
+    local function selectedList()
+        local out={}
+        for _,o in ipairs(co) do if selected[o] then table.insert(out,o) end end
+        return out
+    end
+    local function updateSummary()
+        local sel=selectedList()
+        if #sel==0 then vl.Text="None"
+        elseif #sel==1 then vl.Text=tostring(sel[1])
+        else vl.Text=#sel.." selected" end
+    end
+    local function repo()
+        local inset=GuiService:GetGuiInset(); local p,s=btn.AbsolutePosition,btn.AbsoluteSize
+        list.Position=UDim2.fromOffset(p.X+inset.X+s.X-LW,p.Y+inset.Y+s.Y+4)
+    end
+    local function calcH()
+        local fc=0; for _,o in ipairs(co) do if fq=="" or string.find(string.lower(tostring(o)),string.lower(fq),1,true) then fc=fc+1 end end
+        local vc=math.min(math.max(fc,1),maxVisible)
+        return vc*IH+math.max(vc-1,0)*IP+8+(searchable and SH or 0)
+    end
+    local function closeDD()
+        if not open then return end; open=false; cg=cg+1
+        for _,c in ipairs(oc) do c:Disconnect() end; table.clear(oc)
+        tween(list,{Size=UDim2.new(0,LW,0,0)})
+        local g=cg; task.delay(0.16,function() if g==cg and not open then list.Visible=false end end)
+    end
+    local function rebuild()
+        for _,b in ipairs(ob) do if b and b.Parent then b:Destroy() end end; table.clear(ob)
+        for _,o in ipairs(co) do
+            local os=tostring(o)
+            if fq=="" or string.find(string.lower(os),string.lower(fq),1,true) then
+                local ob2=make("TextButton",{Text="",Size=UDim2.new(1,-8,0,IH),BackgroundColor3=C.Element,Parent=sf})
+                autoOrder(ob2);corner(ob2,4)
+                local box=make("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,8,0.5,0),Size=UDim2.fromOffset(12,12),BackgroundColor3=selected[o] and C.White or C.Badge,Parent=ob2})
+                corner(box,3)
+                local check=make("TextLabel",{Text="✓",Font=Enum.Font.GothamBold,TextSize=10,TextColor3=C.KnobOn,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Visible=selected[o]==true,Parent=box})
+                make("TextLabel",{Text=os,Font=Enum.Font.Gotham,TextSize=12,TextColor3=selected[o] and C.White or C.TextGray,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(26,0),Size=UDim2.new(1,-32,1,0),Parent=ob2})
+                ob2.MouseEnter:Connect(function() if not selected[o] then tween(ob2,{BackgroundColor3=C.ElementHover}) end end)
+                ob2.MouseLeave:Connect(function() tween(ob2,{BackgroundColor3=C.Element}) end)
+                ob2.MouseButton1Click:Connect(function()
+                    selected[o]=not selected[o] or nil
+                    box.BackgroundColor3=selected[o] and C.White or C.Badge
+                    check.Visible=selected[o]==true
+                    updateSummary()
+                    fire(opts.Callback,selectedList())
+                end)
+                table.insert(ob,ob2)
+            end
+        end
+    end
+    if sb then sb:GetPropertyChangedSignal("Text"):Connect(function() fq=sb.Text; rebuild(); if open then tween(list,{Size=UDim2.new(0,LW,0,calcH())}) end end) end
+    rebuild(); updateSummary()
+    local function setOpen(o)
+        if open==o then return end
+        if o then
+            open=true; cg=cg+1; repo(); list.Visible=true; tween(list,{Size=UDim2.new(0,LW,0,calcH())})
+            table.insert(oc,btn:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+                local bp,bs=btn.AbsolutePosition,btn.AbsoluteSize; local pp,ps=sp.AbsolutePosition,sp.AbsoluteSize
+                if bp.Y+bs.Y<pp.Y or bp.Y>pp.Y+ps.Y then closeDD() else repo() end
+            end))
+            table.insert(oc,sp:GetPropertyChangedSignal("Visible"):Connect(function() if not sp.Visible then closeDD() end end))
+            table.insert(oc,tp:GetPropertyChangedSignal("Visible"):Connect(function() if not tp.Visible then closeDD() end end))
+            table.insert(oc,UserInputService.InputBegan:Connect(function(input)
+                if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+                    local pos=Vector2.new(input.Position.X,input.Position.Y)
+                    if not isInside(btn,pos) and not isInside(list,pos) then closeDD() end
+                end
+            end))
+        else closeDD() end
+    end
+    btn.MouseButton1Click:Connect(function() setOpen(not open) end)
+    btn.MouseEnter:Connect(function() tween(btn,{BackgroundColor3=C.ElementHover}) end)
+    btn.MouseLeave:Connect(function() tween(btn,{BackgroundColor3=C.Element}) end)
+    return {
+        Set=function(_,sel)
+            table.clear(selected)
+            if type(sel)=="table" then for _,o in ipairs(sel) do selected[o]=true end end
+            rebuild(); updateSummary()
+        end,
+        Get=function() return selectedList() end,
+        SetOptions=function(_,no)
+            co=no or {}
+            for o in pairs(selected) do
+                local still=false
+                for _,n in ipairs(co) do if n==o then still=true; break end end
+                if not still then selected[o]=nil end
+            end
+            rebuild(); updateSummary(); if open then tween(list,{Size=UDim2.new(0,LW,0,calcH())}) end
+        end,
+        Refresh=function() rebuild(); updateSummary() end,
+    }
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- HELPER: hex <-> color, HSV <-> RGB
+-- ════════════════════════════════════════════════════════════════════════════
+local function colorToHex(c)
+    return string.format("#%02X%02X%02X",
+        math.floor(c.R*255+0.5), math.floor(c.G*255+0.5), math.floor(c.B*255+0.5))
+end
+local function hexToColor(hex)
+    hex = tostring(hex or ""):gsub("#","")
+    if #hex ~= 6 then return nil end
+    local r = tonumber(hex:sub(1,2),16)
+    local g = tonumber(hex:sub(3,4),16)
+    local b = tonumber(hex:sub(5,6),16)
+    if not (r and g and b) then return nil end
+    return Color3.fromRGB(r,g,b)
+end
+
 function SubTab:AddSlider(opts)
     opts=opts or {}
     local mn=opts.Min or 0; local mx=opts.Max or 100; local sf=opts.Suffix or ""
@@ -1522,6 +1741,140 @@ function SubTab:AddSlider(opts)
     UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
     apply(value,false,false)
     return {Set=function(_,v) apply(v,true,true) end, Get=function() return value end}
+end
+
+-- HSV <-> RGB helpers (Color3 has built-in fromHSV/toHSV; wrap for clarity)
+local function hsvToColor(h,s,v) return Color3.fromHSV(h,s,v) end
+local function colorToHSV(c) return c:ToHSV() end
+
+function SubTab:AddColorPicker(opts)
+    opts=opts or {}
+    local value = (typeof(opts.Default)=="Color3" and opts.Default) or hexToColor(opts.Default) or Color3.fromRGB(255,255,255)
+    local h,s,v = colorToHSV(value)
+    local row=newRow(self._card,30); rowLabels(row,opts.Name or "Color",opts.Description,44)
+
+    -- Swatch button in the row
+    local swatch=make("TextButton",{Text="",Size=UDim2.fromOffset(34,18),AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,0,0.5,0),BackgroundColor3=value,Parent=row})
+    corner(swatch,5);stroke(swatch,C.Border)
+
+    local win=self._window; local sp=self._page; local tp=self._tab._page
+    local PW=200
+    local panel=make("Frame",{Visible=false,Active=true,Size=UDim2.fromOffset(PW,0),BackgroundColor3=C.Element,ClipsDescendants=true,ZIndex=100,Parent=win.ScreenGui})
+    corner(panel,6);stroke(panel); table.insert(win._noDrag,panel)
+    local inner=make("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.fromOffset(PW,168),BackgroundTransparency=1,ZIndex=101,Parent=panel})
+    pad(inner,10,10,10,10)
+
+    -- SV square (saturation x value), tinted by hue via gradient overlays
+    local svBox=make("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,0,0,110),BackgroundColor3=hsvToColor(h,1,1),ZIndex=101,Parent=inner})
+    corner(svBox,4)
+    make("UIGradient",{Color=ColorSequence.new(Color3.new(1,1,1),hsvToColor(h,1,1)),Parent=svBox}) -- white->hue across X (saturation)
+    local svBlack=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(0,0,0),ZIndex=102,Parent=svBox}); corner(svBlack,4)
+    make("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(1,0)}),Parent=svBlack}) -- transparent->black down Y (value)
+    local svCursor=make("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Size=UDim2.fromOffset(8,8),BackgroundColor3=Color3.new(1,1,1),ZIndex=103,Parent=svBox}); circle(svCursor); stroke(svCursor,Color3.new(0,0,0))
+    local svHit=make("TextButton",{Text="",BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ZIndex=104,Parent=svBox})
+
+    -- Hue strip
+    local hueBox=make("Frame",{Position=UDim2.fromOffset(0,118),Size=UDim2.new(1,0,0,12),BackgroundColor3=Color3.new(1,1,1),ZIndex=101,Parent=inner})
+    corner(hueBox,4)
+    make("UIGradient",{Color=ColorSequence.new({
+        ColorSequenceKeypoint.new(0.00,Color3.fromRGB(255,0,0)),
+        ColorSequenceKeypoint.new(0.17,Color3.fromRGB(255,255,0)),
+        ColorSequenceKeypoint.new(0.33,Color3.fromRGB(0,255,0)),
+        ColorSequenceKeypoint.new(0.50,Color3.fromRGB(0,255,255)),
+        ColorSequenceKeypoint.new(0.67,Color3.fromRGB(0,0,255)),
+        ColorSequenceKeypoint.new(0.83,Color3.fromRGB(255,0,255)),
+        ColorSequenceKeypoint.new(1.00,Color3.fromRGB(255,0,0)),
+    }),Parent=hueBox})
+    local hueCursor=make("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0,0,0.5,0),Size=UDim2.fromOffset(4,16),BackgroundColor3=Color3.new(1,1,1),ZIndex=103,Parent=hueBox}); corner(hueCursor,2); stroke(hueCursor,Color3.new(0,0,0))
+    local hueHit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.fromOffset(0,-4),Size=UDim2.new(1,0,0,20),ZIndex=104,Parent=hueBox})
+
+    -- Hex input
+    local hexHolder=make("Frame",{Position=UDim2.fromOffset(0,140),Size=UDim2.new(1,0,0,22),BackgroundColor3=C.WindowBg,ZIndex=101,Parent=inner}); corner(hexHolder,5)
+    local hexBox=make("TextBox",{Text=colorToHex(value),PlaceholderText="#FFFFFF",PlaceholderColor3=C.Placeholder,Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Center,BackgroundTransparency=1,ClearTextOnFocus=false,Size=UDim2.fromScale(1,1),ZIndex=102,Parent=hexHolder})
+
+    local function applyVisuals(a)
+        local hueColor=hsvToColor(h,1,1)
+        if a then tween(swatch,{BackgroundColor3=value}) else swatch.BackgroundColor3=value end
+        svBox.BackgroundColor3=hueColor
+        for _,g in ipairs(svBox:GetChildren()) do if g:IsA("UIGradient") and g.Parent==svBox then g.Color=ColorSequence.new(Color3.new(1,1,1),hueColor) end end
+        svCursor.Position=UDim2.new(s,0,1-v,0)
+        svCursor.BackgroundColor3 = v>0.5 and Color3.new(0,0,0) or Color3.new(1,1,1)
+        hueCursor.Position=UDim2.new(h,0,0.5,0)
+        hexBox.Text=colorToHex(value)
+    end
+    local function recompute(fc,a)
+        value=hsvToColor(h,s,v); applyVisuals(a)
+        if fc then fire(opts.Callback,value) end
+    end
+
+    local svDragging=false; local hueDragging=false
+    local function svFrom(px,py)
+        local p,sz=svBox.AbsolutePosition,svBox.AbsoluteSize
+        s=math.clamp((px-p.X)/math.max(sz.X,1),0,1)
+        v=1-math.clamp((py-p.Y)/math.max(sz.Y,1),0,1)
+    end
+    local function hueFrom(px)
+        local p,sz=hueBox.AbsolutePosition,hueBox.AbsoluteSize
+        h=math.clamp((px-p.X)/math.max(sz.X,1),0,1)
+    end
+    svHit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then svDragging=true; svFrom(i.Position.X,i.Position.Y); recompute(true,false) end end)
+    hueHit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then hueDragging=true; hueFrom(i.Position.X); recompute(true,false) end end)
+    local moveConn=UserInputService.InputChanged:Connect(function(i)
+        if i.UserInputType~=Enum.UserInputType.MouseMovement and i.UserInputType~=Enum.UserInputType.Touch then return end
+        if svDragging then svFrom(i.Position.X,i.Position.Y); recompute(true,false)
+        elseif hueDragging then hueFrom(i.Position.X); recompute(true,false) end
+    end)
+    local endConn=UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then svDragging=false; hueDragging=false end
+    end)
+    hexBox.FocusLost:Connect(function()
+        local c=hexToColor(hexBox.Text)
+        if c then value=c; h,s,v=colorToHSV(c); recompute(true,true) else hexBox.Text=colorToHex(value) end
+    end)
+
+    -- Popout open/close, mirroring the dropdown
+    local open=false; local cg=0; local oc={}
+    local function repo()
+        local inset=GuiService:GetGuiInset(); local p,sz=swatch.AbsolutePosition,swatch.AbsoluteSize
+        panel.Position=UDim2.fromOffset(p.X+inset.X+sz.X-PW,p.Y+inset.Y+sz.Y+4)
+    end
+    local function closePanel()
+        if not open then return end; open=false; cg=cg+1
+        for _,c in ipairs(oc) do c:Disconnect() end; table.clear(oc)
+        tween(panel,{Size=UDim2.fromOffset(PW,0)})
+        local g=cg; task.delay(0.16,function() if g==cg and not open then panel.Visible=false end end)
+    end
+    local function setOpen(o)
+        if open==o then return end
+        if o then
+            open=true; cg=cg+1; repo(); panel.Visible=true; tween(panel,{Size=UDim2.fromOffset(PW,168)})
+            table.insert(oc,swatch:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+                local bp,bs=swatch.AbsolutePosition,swatch.AbsoluteSize; local pp,ps=sp.AbsolutePosition,sp.AbsoluteSize
+                if bp.Y+bs.Y<pp.Y or bp.Y>pp.Y+ps.Y then closePanel() else repo() end
+            end))
+            table.insert(oc,sp:GetPropertyChangedSignal("Visible"):Connect(function() if not sp.Visible then closePanel() end end))
+            table.insert(oc,tp:GetPropertyChangedSignal("Visible"):Connect(function() if not tp.Visible then closePanel() end end))
+            table.insert(oc,UserInputService.InputBegan:Connect(function(input)
+                if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+                    local pos=Vector2.new(input.Position.X,input.Position.Y)
+                    if not isInside(swatch,pos) and not isInside(panel,pos) then closePanel() end
+                end
+            end))
+        else closePanel() end
+    end
+    swatch.MouseButton1Click:Connect(function() setOpen(not open) end)
+    swatch.MouseEnter:Connect(function() tween(swatch,{BackgroundColor3=value}) end)
+    recompute(false,false)
+    return {
+        Set=function(_,c)
+            c=(typeof(c)=="Color3" and c) or hexToColor(c)
+            if not c then return end
+            value=c; h,s,v=colorToHSV(c); recompute(false,true)
+        end,
+        Get=function() return value end,
+        GetHex=function() return colorToHex(value) end,
+        _connections={moveConn,endConn},
+    }
 end
 
 return Library

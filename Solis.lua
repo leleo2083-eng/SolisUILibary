@@ -485,10 +485,11 @@ local function buildTagFrame(player)
     cg.ZIndex             = 10
     cg.Parent             = sg
 
-    -- Root container: fixed pixel size, anchored to top-left (positioned by script)
+    -- Root container: fixed pixel size, anchored at (0,0) inside CanvasGroup
+    -- (CanvasGroup itself is positioned by the RenderStepped loop)
     local root = Instance.new("Frame")
     root.Name              = "SolisTag_" .. player.UserId
-    root.Size              = UDim2.fromOffset(TAG_W, TAG_H)
+    root.Size              = UDim2.new(1, 0, 1, 0)
     root.BackgroundColor3  = Color3.fromRGB(18, 18, 20)
     root.BackgroundTransparency = 0
     root.BorderSizePixel   = 0
@@ -732,7 +733,7 @@ local function addTag(player)
             currentY = currentY + (py - currentY) * lf
         end
 
-        frame.Position = UDim2.fromOffset(math.floor(currentX), math.floor(currentY))
+        canvasGroup.Position = UDim2.fromOffset(math.floor(currentX), math.floor(currentY))
 
         -- Animate the traveling glow (same speed as main window: 0.35 cycles/sec)
         glowT = (glowT + dt * 0.35) % 1

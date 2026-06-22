@@ -612,7 +612,12 @@ local function buildTagFrame(player)
     divider.Parent           = root
 
     -- ── Right side: text content ────────────────────────────────────────────
-    local textX = 60
+    -- Layout zones: avatar (left) | text (middle) | badge (bottom-right corner)
+    local textX      = 60  -- left edge of text
+    local badgeW     = 46  -- badge width
+    local badgePadR  = 9   -- right padding for badge
+    -- Reserve room on the right so text never overlaps the badge
+    local textWidth  = TAG_W - textX - badgeW - badgePadR - 6
 
     -- Player display name (bold, prominent)
     local nameLabel = Instance.new("TextLabel")
@@ -621,7 +626,7 @@ local function buildTagFrame(player)
     nameLabel.TextSize       = 13
     nameLabel.TextColor3     = Color3.fromRGB(245, 245, 248)
     nameLabel.BackgroundTransparency = 1
-    nameLabel.Size           = UDim2.fromOffset(TAG_W - textX - 12, 16)
+    nameLabel.Size           = UDim2.fromOffset(textWidth, 16)
     nameLabel.Position       = UDim2.fromOffset(textX, 9)
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
     nameLabel.TextTruncate   = Enum.TextTruncate.AtEnd
@@ -635,7 +640,7 @@ local function buildTagFrame(player)
     userLabel.TextSize       = 11
     userLabel.TextColor3     = Color3.fromRGB(140, 140, 148)
     userLabel.BackgroundTransparency = 1
-    userLabel.Size           = UDim2.fromOffset(TAG_W - textX - 12, 13)
+    userLabel.Size           = UDim2.fromOffset(textWidth, 13)
     userLabel.Position       = UDim2.fromOffset(textX, 26)
     userLabel.TextXAlignment = Enum.TextXAlignment.Left
     userLabel.TextTruncate   = Enum.TextTruncate.AtEnd
@@ -644,9 +649,9 @@ local function buildTagFrame(player)
 
     -- "SOLIS" badge (bottom right, small pill)
     local badge = Instance.new("Frame")
-    badge.Size             = UDim2.fromOffset(46, 16)
+    badge.Size             = UDim2.fromOffset(badgeW, 16)
     badge.AnchorPoint      = Vector2.new(1, 1)
-    badge.Position         = UDim2.new(1, -9, 1, -9)
+    badge.Position         = UDim2.new(1, -badgePadR, 1, -9)
     badge.BackgroundColor3 = Color3.fromRGB(253, 128, 0)
     badge.BackgroundTransparency = 0.82
     badge.BorderSizePixel  = 0
@@ -687,11 +692,46 @@ local function buildTagFrame(player)
     return root, glowGrad, fadeOverlay
 end
 
+-- Outline color: matches the moving UI glow color
+local TAG_OUTLINE_COLOR = Color3.fromRGB(253, 128, 0)
+
+-- Attach an outline (Highlight, outline-only) to a player's character.
+-- Only applied to OTHER players — never the local player themselves.
+local function applyOutline(player)
+    if player == Players.LocalPlayer then return nil end
+    local char = player.Character
+    if not char then return nil end
+
+    -- Remove any existing highlight first
+    local existing = char:FindFirstChild("SolisOutline")
+    if existing then existing:Destroy() end
+
+    local hl = Instance.new("Highlight")
+    hl.Name             = "SolisOutline"
+    hl.FillColor        = Color3.fromRGB(0, 0, 0)
+    hl.FillTransparency = 1            -- outline only, no fill
+    hl.OutlineColor     = TAG_OUTLINE_COLOR
+    hl.OutlineTransparency = 0
+    hl.Adornee          = char
+    hl.DepthMode        = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent           = char
+    return hl
+end
+
+local function clearOutline(player)
+    local char = player.Character
+    if not char then return end
+    local existing = char:FindFirstChild("SolisOutline")
+    if existing then existing:Destroy() end
+end
+
 local function removeTag(player)
     local data = TagSystem._tags[player]
     if data then
         if data.conn then data.conn:Disconnect() end
+        if data.charConn then data.charConn:Disconnect() end
         if data.frame and data.frame.Parent then data.frame:Destroy() end
+        clearOutline(player)
         TagSystem._tags[player] = nil
     end
 end
@@ -703,6 +743,21 @@ local function addTag(player)
     local frame, glowGrad, fadeOverlay = buildTagFrame(player)
     local glowT = 0
     local currentFade = 0  -- 0 = overlay invisible (tag fully visible), 1 = overlay opaque (tag hidden)
+
+    -- Apply the orange outline (Highlight, outline-only). Never on the local player.
+    local function refreshOutline()
+        local char = player.Character
+        if not char then return end
+        local existing = char:FindFirstChild("SolisOutline")
+        if not existing then applyOutline(player) end
+    end
+    refreshOutline()
+    -- Re-apply when character respawns (Highlight is destroyed with the old char)
+    local charConn
+    charConn = player.CharacterAdded:Connect(function()
+        task.wait(0.2)
+        applyOutline(player)
+    end)
 
     -- RenderStepped: update position + glow each frame
     -- Tag tracks the HumanoidRootPart (stable, no walk-bob) at a fixed world-space
@@ -716,6 +771,9 @@ local function addTag(player)
             frame.Visible = false
             return
         end
+
+        -- Ensure outline exists on the current character
+        if not char:FindFirstChild("SolisOutline") then applyOutline(player) end
 
         local camera = Workspace.CurrentCamera
         if not camera then frame.Visible = false; return end
@@ -769,6 +827,7 @@ local function addTag(player)
         glowGrad = glowGrad,
         fadeOverlay = fadeOverlay,
         conn = conn,
+        charConn = charConn,
     }
 end
 

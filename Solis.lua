@@ -432,7 +432,7 @@ local TAG_REGISTER     = TAG_BASE_URL .. "/register"
 local TAG_USERS        = TAG_BASE_URL .. "/users"
 local TAG_W            = 200   -- fixed pixel width of tag
 local TAG_H            = 52    -- fixed pixel height of tag
-local TAG_HEAD_OFFSET  = 28    -- pixels above the head position on screen
+local TAG_WORLD_HEIGHT = 3.4   -- world-space studs above HumanoidRootPart where the tag floats
 local TAG_MAX_DISTANCE = 800   -- max render distance in studs before fade
 
 -- Detect HTTP request function
@@ -678,13 +678,14 @@ local function addTag(player)
     local currentFade = 0  -- 0 = overlay invisible (tag fully visible), 1 = overlay opaque (tag hidden)
 
     -- RenderStepped: update position + glow each frame
-    -- Tag is LOCKED directly to the head each frame (no lerp) for rock-steady behavior.
+    -- Tag tracks the HumanoidRootPart (stable, no walk-bob) at a fixed world-space
+    -- height above the character, so it stays steady at the same spot over the head.
     local conn = RunService.RenderStepped:Connect(function(dt)
         if not frame or not frame.Parent then return end
 
         local char = player.Character
-        local head = char and char:FindFirstChild("Head")
-        if not head or not head:IsA("BasePart") then
+        local hrp = char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"))
+        if not hrp or not hrp:IsA("BasePart") then
             frame.Visible = false
             return
         end
@@ -693,9 +694,13 @@ local function addTag(player)
         if not camera then frame.Visible = false; return end
 
         local cameraPos = camera.CFrame.Position
-        local distance  = (head.Position - cameraPos).Magnitude
 
-        local screenPos, onScreen = camera:WorldToScreenPoint(head.Position)
+        -- Stable anchor point: fixed world height above the HumanoidRootPart.
+        -- This does NOT bob with the walk animation, so the tag stays steady.
+        local anchorWorld = hrp.Position + Vector3.new(0, TAG_WORLD_HEIGHT, 0)
+        local distance = (anchorWorld - cameraPos).Magnitude
+
+        local screenPos, onScreen = camera:WorldToScreenPoint(anchorWorld)
 
         if not onScreen or screenPos.Z <= 0 then
             frame.Visible = false
@@ -719,10 +724,9 @@ local function addTag(player)
             fadeOverlay.BackgroundTransparency = 1 - currentFade
         end
 
-        -- LOCK tag directly to head screen position (no smoothing = no drift/wobble)
-        -- Floor to integer pixels to kill any sub-pixel jitter
+        -- LOCK tag directly to anchor each frame, floored to kill sub-pixel jitter
         local px = math.floor(screenPos.X - TAG_W / 2 + 0.5)
-        local py = math.floor(screenPos.Y - TAG_H - TAG_HEAD_OFFSET + 0.5)
+        local py = math.floor(screenPos.Y - TAG_H / 2 + 0.5)
         frame.Position = UDim2.fromOffset(px, py)
 
         -- Animate the traveling glow (same speed as main window: 0.35 cycles/sec)

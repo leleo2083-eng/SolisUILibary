@@ -772,8 +772,9 @@ local function addTag(player)
             return
         end
 
-        -- Ensure outline exists on the current character
-        if not char:FindFirstChild("SolisOutline") then applyOutline(player) end
+        -- Ensure outline exists on the current character, and animate it
+        local outline = char:FindFirstChild("SolisOutline")
+        if not outline then outline = applyOutline(player) end
 
         local camera = Workspace.CurrentCamera
         if not camera then frame.Visible = false; return end
@@ -789,6 +790,7 @@ local function addTag(player)
 
         if not onScreen or screenPos.Z <= 0 then
             frame.Visible = false
+            if outline then outline.Enabled = false end
             return
         end
 
@@ -801,6 +803,7 @@ local function addTag(player)
         currentFade = currentFade + (targetFade - currentFade) * math.clamp(dt * 6, 0, 1)
         if currentFade > 0.98 then
             frame.Visible = false
+            if outline then outline.Enabled = false end
             return
         end
 
@@ -820,6 +823,23 @@ local function addTag(player)
         -- Animate the traveling glow (same speed as main window: 0.35 cycles/sec)
         glowT = (glowT + dt * 0.35) % 1
         glowGrad.Offset = Vector2.new(glowT * 2 - 1, 0)
+
+        -- Sync the outline animation to the SAME cycle as the UI glow.
+        -- The UI glow has a bright band sweeping across; here we emulate it with a
+        -- sharp brightness pulse: mostly dim, with a quick white-hot flash at the peak.
+        if outline and outline.Parent then
+            outline.Enabled = true
+            -- Pulse: 0..1 across the cycle, peaks sharply in the middle
+            local pulse = math.sin(glowT * math.pi)                 -- 0 -> 1 -> 0 across the cycle
+            local sharp = pulse * pulse                              -- sharpen so the flash is brief
+            -- Brightness lerp: base orange -> near-white at the flash peak
+            local r = 253 + (255 - 253) * sharp
+            local g = 128 + (255 - 128) * sharp
+            local b = 0   + (255 - 0)   * sharp
+            outline.OutlineColor = Color3.fromRGB(math.floor(r), math.floor(g), math.floor(b))
+            -- Outline dims when the tag is far (matches the tag fade)
+            outline.OutlineTransparency = currentFade * 0.85
+        end
     end)
 
     TagSystem._tags[player] = {

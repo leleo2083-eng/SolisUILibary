@@ -433,8 +433,7 @@ local TAG_USERS        = TAG_BASE_URL .. "/users"
 local TAG_W            = 200   -- fixed pixel width of tag
 local TAG_H            = 52    -- fixed pixel height of tag
 local TAG_HEAD_OFFSET  = 28    -- pixels above the head position on screen
-local TAG_LERP_SPEED   = 10    -- position smoothing factor (higher = snappier)
-local TAG_MAX_DISTANCE  = 800   -- max render distance in studs before fade
+local TAG_MAX_DISTANCE = 800   -- max render distance in studs before fade
 
 -- Detect HTTP request function
 local httpRequest = (syn and syn.request)
@@ -676,12 +675,10 @@ local function addTag(player)
 
     local frame, glowGrad, fadeOverlay = buildTagFrame(player)
     local glowT = 0
-    local currentX = 0
-    local currentY = 0
-    local isFirst  = true
     local currentFade = 0  -- 0 = overlay invisible (tag fully visible), 1 = overlay opaque (tag hidden)
 
     -- RenderStepped: update position + glow each frame
+    -- Tag is LOCKED directly to the head each frame (no lerp) for rock-steady behavior.
     local conn = RunService.RenderStepped:Connect(function(dt)
         if not frame or not frame.Parent then return end
 
@@ -710,7 +707,7 @@ local function addTag(player)
         if distance > 150 then
             targetFade = math.clamp((distance - 150) / (TAG_MAX_DISTANCE - 150), 0, 1)
         end
-        -- Smooth fade transitions
+        -- Smooth fade transitions only (NOT position)
         currentFade = currentFade + (targetFade - currentFade) * math.clamp(dt * 6, 0, 1)
         if currentFade > 0.98 then
             frame.Visible = false
@@ -718,28 +715,15 @@ local function addTag(player)
         end
 
         frame.Visible = true
-        -- Update fade overlay: 0 transparency = fully black overlay (hidden), 1 = invisible (shown)
         if fadeOverlay and fadeOverlay.Parent then
             fadeOverlay.BackgroundTransparency = 1 - currentFade
         end
 
-        -- Fixed pixel size: position so tag is centered horizontally above head
-        local px = screenPos.X - TAG_W / 2
-        local py = screenPos.Y - TAG_H - TAG_HEAD_OFFSET
-
-        if isFirst then
-            -- Snap on first frame, no lerp
-            currentX = px
-            currentY = py
-            isFirst = false
-        else
-            -- Smooth position lerp
-            local lf = 1 - math.clamp(math.exp(-TAG_LERP_SPEED * dt), 0, 1)
-            currentX = currentX + (px - currentX) * lf
-            currentY = currentY + (py - currentY) * lf
-        end
-
-        frame.Position = UDim2.fromOffset(math.floor(currentX), math.floor(currentY))
+        -- LOCK tag directly to head screen position (no smoothing = no drift/wobble)
+        -- Floor to integer pixels to kill any sub-pixel jitter
+        local px = math.floor(screenPos.X - TAG_W / 2 + 0.5)
+        local py = math.floor(screenPos.Y - TAG_H - TAG_HEAD_OFFSET + 0.5)
+        frame.Position = UDim2.fromOffset(px, py)
 
         -- Animate the traveling glow (same speed as main window: 0.35 cycles/sec)
         glowT = (glowT + dt * 0.35) % 1

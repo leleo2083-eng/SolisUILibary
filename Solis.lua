@@ -20,7 +20,7 @@ local PROFILE_TWEEN = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDir
 
 -- ══════════════════════════════════════
 -- CHANGE THIS TO YOUR KOYEB URL
-local KOYEB_URL = "PUT YOUR URL HERE"
+local KOYEB_URL = "https://adorable-sallyanne-fgdfgdfgd-b2d051be.koyeb.app"
 -- ══════════════════════════════════════
 
 local ICONS = {

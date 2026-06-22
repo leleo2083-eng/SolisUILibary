@@ -476,25 +476,29 @@ local function buildTagFrame(player)
     ensureTagGui()
     local sg = TagSystem._screenGui
 
-    -- CanvasGroup wrapper for smooth opacity fading
-    local cg = Instance.new("CanvasGroup")
-    cg.Name               = "SolisTagCG_" .. player.UserId
-    cg.Size               = UDim2.fromOffset(TAG_W, TAG_H)
-    cg.GroupTransparency  = 1  -- starts invisible, will be lerped
-    cg.BackgroundTransparency = 1
-    cg.ZIndex             = 10
-    cg.Parent             = sg
-
-    -- Root container: fixed pixel size, anchored at (0,0) inside CanvasGroup
-    -- (CanvasGroup itself is positioned by the RenderStepped loop)
+    -- Root container: fixed pixel size, positioned by RenderStepped loop
     local root = Instance.new("Frame")
     root.Name              = "SolisTag_" .. player.UserId
-    root.Size              = UDim2.new(1, 0, 1, 0)
+    root.Size              = UDim2.fromOffset(TAG_W, TAG_H)
     root.BackgroundColor3  = Color3.fromRGB(18, 18, 20)
     root.BackgroundTransparency = 0
     root.BorderSizePixel   = 0
-    root.ZIndex             = 1
-    root.Parent             = cg
+    root.Visible           = false
+    root.ZIndex            = 10
+    root.Parent            = sg
+
+    -- Transparent overlay used for opacity fade (covers entire tag)
+    local fadeOverlay = Instance.new("Frame")
+    fadeOverlay.Name               = "FadeOverlay"
+    fadeOverlay.Size               = UDim2.fromScale(1, 1)
+    fadeOverlay.BackgroundColor3   = Color3.fromRGB(0, 0, 0)
+    fadeOverlay.BackgroundTransparency = 0  -- 0 = fully black (tag hidden), 1 = invisible (tag shown)
+    fadeOverlay.BorderSizePixel    = 0
+    fadeOverlay.ZIndex             = 99  -- on top of everything
+    fadeOverlay.Parent             = root
+    local fadeCr = Instance.new("UICorner")
+    fadeCr.CornerRadius = UDim.new(0, 12)
+    fadeCr.Parent = fadeOverlay
 
     local cr = Instance.new("UICorner")
     cr.CornerRadius = UDim.new(0, 12)
@@ -654,14 +658,14 @@ local function buildTagFrame(player)
         end
     end)
 
-    return cg, root, glowGrad
+    return root, glowGrad, fadeOverlay
 end
 
 local function removeTag(player)
     local data = TagSystem._tags[player]
     if data then
         if data.conn then data.conn:Disconnect() end
-        if data.canvasGroup and data.canvasGroup.Parent then data.canvasGroup:Destroy() end
+        if data.frame and data.frame.Parent then data.frame:Destroy() end
         TagSystem._tags[player] = nil
     end
 end
@@ -670,28 +674,26 @@ local function addTag(player)
     if player == Players.LocalPlayer then return end
     if TagSystem._tags[player] then return end
 
-    local canvasGroup, frame, glowGrad = buildTagFrame(player)
+    local frame, glowGrad, fadeOverlay = buildTagFrame(player)
     local glowT = 0
     local currentX = 0
     local currentY = 0
-    local targetX  = 0
-    local targetY  = 0
     local isFirst  = true
-    local currentAlpha = 1
+    local currentFade = 0  -- 0 = overlay invisible (tag fully visible), 1 = overlay opaque (tag hidden)
 
     -- RenderStepped: update position + glow each frame
     local conn = RunService.RenderStepped:Connect(function(dt)
-        if not canvasGroup or not canvasGroup.Parent then return end
+        if not frame or not frame.Parent then return end
 
         local char = player.Character
         local head = char and char:FindFirstChild("Head")
         if not head or not head:IsA("BasePart") then
-            canvasGroup.GroupTransparency = 1
+            frame.Visible = false
             return
         end
 
         local camera = Workspace.CurrentCamera
-        if not camera then canvasGroup.GroupTransparency = 1; return end
+        if not camera then frame.Visible = false; return end
 
         local cameraPos = camera.CFrame.Position
         local distance  = (head.Position - cameraPos).Magnitude
@@ -699,23 +701,27 @@ local function addTag(player)
         local screenPos, onScreen = camera:WorldToScreenPoint(head.Position)
 
         if not onScreen or screenPos.Z <= 0 then
-            canvasGroup.GroupTransparency = 1
+            frame.Visible = false
             return
         end
 
-        -- Distance-based alpha: full opacity up to 150 studs, fade out by TAG_MAX_DISTANCE
-        local alpha = 1
+        -- Distance-based fade: full opacity up to 150 studs, fade out by TAG_MAX_DISTANCE
+        local targetFade = 0  -- 0 = visible
         if distance > 150 then
-            alpha = math.clamp(1 - (distance - 150) / (TAG_MAX_DISTANCE - 150), 0, 1)
+            targetFade = math.clamp((distance - 150) / (TAG_MAX_DISTANCE - 150), 0, 1)
         end
-        -- Smooth alpha transitions
-        currentAlpha = currentAlpha + (alpha - currentAlpha) * math.clamp(dt * 6, 0, 1)
-        if currentAlpha < 0.02 then
-            canvasGroup.GroupTransparency = 1
+        -- Smooth fade transitions
+        currentFade = currentFade + (targetFade - currentFade) * math.clamp(dt * 6, 0, 1)
+        if currentFade > 0.98 then
+            frame.Visible = false
             return
         end
 
-        canvasGroup.GroupTransparency = 1 - currentAlpha
+        frame.Visible = true
+        -- Update fade overlay: 0 transparency = fully black overlay (hidden), 1 = invisible (shown)
+        if fadeOverlay and fadeOverlay.Parent then
+            fadeOverlay.BackgroundTransparency = 1 - currentFade
+        end
 
         -- Fixed pixel size: position so tag is centered horizontally above head
         local px = screenPos.X - TAG_W / 2
@@ -733,7 +739,7 @@ local function addTag(player)
             currentY = currentY + (py - currentY) * lf
         end
 
-        canvasGroup.Position = UDim2.fromOffset(math.floor(currentX), math.floor(currentY))
+        frame.Position = UDim2.fromOffset(math.floor(currentX), math.floor(currentY))
 
         -- Animate the traveling glow (same speed as main window: 0.35 cycles/sec)
         glowT = (glowT + dt * 0.35) % 1
@@ -741,9 +747,9 @@ local function addTag(player)
     end)
 
     TagSystem._tags[player] = {
-        canvasGroup = canvasGroup,
         frame = frame,
         glowGrad = glowGrad,
+        fadeOverlay = fadeOverlay,
         conn = conn,
     }
 end

@@ -479,50 +479,53 @@ local function buildTagFrame(player)
     local root = Instance.new("Frame")
     root.Name              = "SolisTag_" .. player.UserId
     root.Size              = UDim2.fromOffset(TAG_W, TAG_H)
-    root.BackgroundColor3  = Color3.fromRGB(18, 18, 20)
-    root.BackgroundTransparency = 0
+    root.AnchorPoint       = Vector2.new(0.5, 0.5)
+    root.BackgroundColor3  = Color3.fromRGB(22, 22, 26)
+    root.BackgroundTransparency = 0.06
     root.BorderSizePixel   = 0
     root.Visible           = false
     root.ZIndex            = 10
     root.Parent            = sg
 
+    local cr = Instance.new("UICorner")
+    cr.CornerRadius = UDim.new(0, 10)
+    cr.Parent = root
+
+    -- Soft drop shadow under the tag for depth
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name                = "Shadow"
+    shadow.Image               = "rbxassetid://1316045217"
+    shadow.ImageColor3         = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency   = 0.55
+    shadow.ScaleType           = Enum.ScaleType.Slice
+    shadow.SliceCenter         = Rect.new(10, 10, 118, 118)
+    shadow.BackgroundTransparency = 1
+    shadow.AnchorPoint         = Vector2.new(0.5, 0.5)
+    shadow.Position           = UDim2.fromScale(0.5, 0.5)
+    shadow.Size               = UDim2.new(1, 14, 1, 14)
+    shadow.ZIndex             = 0
+    shadow.Parent             = root
+
     -- Transparent overlay used for opacity fade (covers entire tag)
     local fadeOverlay = Instance.new("Frame")
     fadeOverlay.Name               = "FadeOverlay"
     fadeOverlay.Size               = UDim2.fromScale(1, 1)
-    fadeOverlay.BackgroundColor3   = Color3.fromRGB(0, 0, 0)
-    fadeOverlay.BackgroundTransparency = 0  -- 0 = fully black (tag hidden), 1 = invisible (tag shown)
+    fadeOverlay.BackgroundColor3   = Color3.fromRGB(20, 20, 24)
+    fadeOverlay.BackgroundTransparency = 1  -- 1 = invisible (tag shown)
     fadeOverlay.BorderSizePixel    = 0
-    fadeOverlay.ZIndex             = 99  -- on top of everything
+    fadeOverlay.ZIndex             = 99
     fadeOverlay.Parent             = root
     local fadeCr = Instance.new("UICorner")
-    fadeCr.CornerRadius = UDim.new(0, 12)
+    fadeCr.CornerRadius = UDim.new(0, 10)
     fadeCr.Parent = fadeOverlay
-
-    local cr = Instance.new("UICorner")
-    cr.CornerRadius = UDim.new(0, 12)
-    cr.Parent = root
-
-    -- Subtle inner shadow / highlight at top for depth
-    local topHighlight = Instance.new("Frame")
-    topHighlight.Size             = UDim2.new(1, 0, 0, 1)
-    topHighlight.Position         = UDim2.fromOffset(0, 0)
-    topHighlight.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-    topHighlight.BackgroundTransparency = 0.5
-    topHighlight.BorderSizePixel  = 0
-    topHighlight.ZIndex            = 5
-    topHighlight.Parent            = root
-    local thCr = Instance.new("UICorner")
-    thCr.CornerRadius = UDim.new(0, 12)
-    thCr.Parent = topHighlight
 
     -- Traveling glow stroke
     local glowStroke = Instance.new("UIStroke")
-    glowStroke.Thickness          = 1.2
+    glowStroke.Thickness          = 1.1
     glowStroke.ApplyStrokeMode    = Enum.ApplyStrokeMode.Border
     glowStroke.Color              = Color3.fromRGB(253, 128, 0)
-    glowStroke.Transparency        = 0
-    glowStroke.Parent              = root
+    glowStroke.Transparency       = 0.2
+    glowStroke.Parent             = root
 
     local glowGrad = Instance.new("UIGradient")
     glowGrad.Color = ColorSequence.new({
@@ -545,13 +548,20 @@ local function buildTagFrame(player)
     local avatarHolder = Instance.new("Frame")
     avatarHolder.Size              = UDim2.fromOffset(34, 34)
     avatarHolder.Position          = UDim2.fromOffset(9, 9)
-    avatarHolder.BackgroundColor3  = Color3.fromRGB(35, 35, 38)
+    avatarHolder.BackgroundColor3  = Color3.fromRGB(40, 40, 45)
     avatarHolder.BorderSizePixel   = 0
-    avatarHolder.ZIndex             = 2
-    avatarHolder.Parent             = root
+    avatarHolder.ZIndex            = 2
+    avatarHolder.Parent            = root
     local avCr = Instance.new("UICorner")
     avCr.CornerRadius = UDim.new(1, 0)
     avCr.Parent = avatarHolder
+    -- avatar ring (orange accent)
+    local avRing = Instance.new("UIStroke")
+    avRing.Thickness = 1
+    avRing.Color = Color3.fromRGB(253, 128, 0)
+    avRing.Transparency = 0.4
+    avRing.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    avRing.Parent = avatarHolder
 
     local avatar = Instance.new("ImageLabel")
     avatar.Name                = "TagAvatar"
@@ -567,12 +577,12 @@ local function buildTagFrame(player)
     avClip.CornerRadius = UDim.new(1, 0)
     avClip.Parent = avatar
 
-    -- Online ring around avatar
+    -- Online status dot (bottom-right of avatar)
     local onlineRing = Instance.new("Frame")
     onlineRing.AnchorPoint            = Vector2.new(1, 1)
     onlineRing.Position               = UDim2.new(1, -1, 1, -1)
-    onlineRing.Size                   = UDim2.fromOffset(12, 12)
-    onlineRing.BackgroundColor3       = Color3.fromRGB(18, 18, 20)
+    onlineRing.Size                   = UDim2.fromOffset(11, 11)
+    onlineRing.BackgroundColor3       = Color3.fromRGB(22, 22, 26)
     onlineRing.BorderSizePixel        = 0
     onlineRing.ZIndex                 = 4
     onlineRing.Parent                 = avatarHolder
@@ -584,7 +594,7 @@ local function buildTagFrame(player)
     onlineDot.AnchorPoint            = Vector2.new(0.5, 0.5)
     onlineDot.Position               = UDim2.fromScale(0.5, 0.5)
     onlineDot.Size                   = UDim2.fromOffset(6, 6)
-    onlineDot.BackgroundColor3       = Color3.fromRGB(105, 166, 124)
+    onlineDot.BackgroundColor3       = Color3.fromRGB(70, 200, 120)
     onlineDot.BorderSizePixel        = 0
     onlineDot.ZIndex                 = 5
     onlineDot.Parent                 = onlineRing
@@ -592,42 +602,27 @@ local function buildTagFrame(player)
     odCr.CornerRadius = UDim.new(1, 0)
     odCr.Parent = onlineDot
 
+    -- ── Vertical divider between avatar and text ────────────────────────────
+    local divider = Instance.new("Frame")
+    divider.Size             = UDim2.fromOffset(1, 30)
+    divider.Position         = UDim2.fromOffset(51, 11)
+    divider.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    divider.BorderSizePixel  = 0
+    divider.ZIndex           = 2
+    divider.Parent           = root
+
     -- ── Right side: text content ────────────────────────────────────────────
-    local textX = 50  -- x offset for text area
-
-    -- "SOLIS" badge (above name, small pill)
-    local badge = Instance.new("Frame")
-    badge.Size             = UDim2.fromOffset(50, 14)
-    badge.Position         = UDim2.fromOffset(textX, 7)
-    badge.BackgroundColor3 = Color3.fromRGB(253, 128, 0)
-    badge.BackgroundTransparency = 0.7
-    badge.BorderSizePixel  = 0
-    badge.ZIndex           = 2
-    badge.Parent           = root
-    local badgeCorner = Instance.new("UICorner")
-    badgeCorner.CornerRadius = UDim.new(0, 4)
-    badgeCorner.Parent = badge
-
-    local badgeLabel = Instance.new("TextLabel")
-    badgeLabel.Text              = "SOLIS"
-    badgeLabel.Font              = Enum.Font.GothamBold
-    badgeLabel.TextSize          = 8
-    badgeLabel.TextColor3        = Color3.fromRGB(255, 255, 255)
-    badgeLabel.BackgroundTransparency = 1
-    badgeLabel.Size              = UDim2.fromOffset(50, 14)
-    badgeLabel.TextXAlignment    = Enum.TextXAlignment.Center
-    badgeLabel.ZIndex             = 3
-    badgeLabel.Parent             = badge
+    local textX = 60
 
     -- Player display name (bold, prominent)
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Text           = player.DisplayName
     nameLabel.Font           = Enum.Font.GothamBold
     nameLabel.TextSize       = 13
-    nameLabel.TextColor3     = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextColor3     = Color3.fromRGB(245, 245, 248)
     nameLabel.BackgroundTransparency = 1
-    nameLabel.Size           = UDim2.fromOffset(TAG_W - textX - 12, 15)
-    nameLabel.Position       = UDim2.fromOffset(textX, 22)
+    nameLabel.Size           = UDim2.fromOffset(TAG_W - textX - 12, 16)
+    nameLabel.Position       = UDim2.fromOffset(textX, 9)
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
     nameLabel.TextTruncate   = Enum.TextTruncate.AtEnd
     nameLabel.ZIndex         = 2
@@ -637,15 +632,47 @@ local function buildTagFrame(player)
     local userLabel = Instance.new("TextLabel")
     userLabel.Text           = "@" .. player.Name
     userLabel.Font           = Enum.Font.Gotham
-    userLabel.TextSize       = 10
-    userLabel.TextColor3     = Color3.fromRGB(130, 130, 135)
+    userLabel.TextSize       = 11
+    userLabel.TextColor3     = Color3.fromRGB(140, 140, 148)
     userLabel.BackgroundTransparency = 1
     userLabel.Size           = UDim2.fromOffset(TAG_W - textX - 12, 13)
-    userLabel.Position       = UDim2.fromOffset(textX, 36)
+    userLabel.Position       = UDim2.fromOffset(textX, 26)
     userLabel.TextXAlignment = Enum.TextXAlignment.Left
     userLabel.TextTruncate   = Enum.TextTruncate.AtEnd
     userLabel.ZIndex         = 2
     userLabel.Parent         = root
+
+    -- "SOLIS" badge (bottom right, small pill)
+    local badge = Instance.new("Frame")
+    badge.Size             = UDim2.fromOffset(46, 16)
+    badge.AnchorPoint      = Vector2.new(1, 1)
+    badge.Position         = UDim2.new(1, -9, 1, -9)
+    badge.BackgroundColor3 = Color3.fromRGB(253, 128, 0)
+    badge.BackgroundTransparency = 0.82
+    badge.BorderSizePixel  = 0
+    badge.ZIndex           = 2
+    badge.Parent           = root
+    local badgeCorner = Instance.new("UICorner")
+    badgeCorner.CornerRadius = UDim.new(1, 0)
+    badgeCorner.Parent = badge
+    local badgeStroke = Instance.new("UIStroke")
+    badgeStroke.Thickness = 0.6
+    badgeStroke.Color = Color3.fromRGB(253, 128, 0)
+    badgeStroke.Transparency = 0.4
+    badgeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    badgeStroke.Parent = badge
+
+    local badgeLabel = Instance.new("TextLabel")
+    badgeLabel.Text              = "SOLIS"
+    badgeLabel.Font              = Enum.Font.GothamBold
+    badgeLabel.TextSize          = 8
+    badgeLabel.TextColor3        = Color3.fromRGB(255, 200, 140)
+    badgeLabel.BackgroundTransparency = 1
+    badgeLabel.Size              = UDim2.fromScale(1, 1)
+    badgeLabel.TextXAlignment    = Enum.TextXAlignment.Center
+    badgeLabel.TextYAlignment    = Enum.TextYAlignment.Center
+    badgeLabel.ZIndex            = 3
+    badgeLabel.Parent            = badge
 
     -- Fetch avatar thumbnail async
     task.spawn(function()
@@ -720,13 +747,16 @@ local function addTag(player)
         end
 
         frame.Visible = true
+        -- Force fixed pixel size every frame — never let it scale
+        frame.Size = UDim2.fromOffset(TAG_W, TAG_H)
         if fadeOverlay and fadeOverlay.Parent then
             fadeOverlay.BackgroundTransparency = 1 - currentFade
         end
 
-        -- LOCK tag directly to anchor each frame, floored to kill sub-pixel jitter
-        local px = math.floor(screenPos.X - TAG_W / 2 + 0.5)
-        local py = math.floor(screenPos.Y - TAG_H / 2 + 0.5)
+        -- LOCK tag directly to anchor each frame (anchor is center 0.5,0.5)
+        -- Floor to integer pixels to kill sub-pixel jitter
+        local px = math.floor(screenPos.X + 0.5)
+        local py = math.floor(screenPos.Y + 0.5)
         frame.Position = UDim2.fromOffset(px, py)
 
         -- Animate the traveling glow (same speed as main window: 0.35 cycles/sec)

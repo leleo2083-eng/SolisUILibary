@@ -8,6 +8,7 @@
       • Hotbar hidden during loading, revealed with main window
       • Minimize hides both main window AND hotbar
       • Dropdown: MaxVisible, Searchable, SetOptions, Refresh
+      • Player tags: shows a tag above heads of other players using the same script
 
     Icon usage:
       tab = window:AddTab({ Name = "Combat", Icon = "swords" })
@@ -32,14 +33,8 @@ local PROFILE_TWEEN = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDir
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- BUILT-IN ICON LIBRARY
--- Curated minimal/outline icons from Roblox CDN (MaterialDesign / Lucide style)
--- Usage: Icon = "home" or Icon = "settings" in AddTab
--- ════════════════════════════════════════════════════════════════════════════
--- ════════════════════════════════════════════════════════════════════════════
--- BUILT-IN ICON LIBRARY (verified working asset IDs from Lucide pack)
 -- ════════════════════════════════════════════════════════════════════════════
 local ICONS = {
-    -- Navigation / General
     home            = "rbxassetid://10723407389",
     dashboard       = "rbxassetid://10709790644",
     search          = "rbxassetid://10709751939",
@@ -49,8 +44,6 @@ local ICONS = {
     list            = "rbxassetid://10709790373",
     grid            = "rbxassetid://10734950309",
     sliders         = "rbxassetid://10734897102",
-    
-    -- Combat / Weapons
     swords          = "rbxassetid://10747384394",
     sword           = "rbxassetid://10747384394",
     combat          = "rbxassetid://10747384394",
@@ -58,8 +51,6 @@ local ICONS = {
     target          = "rbxassetid://10723434538",
     crosshair       = "rbxassetid://10723434538",
     aim             = "rbxassetid://10723434538",
-    
-    -- Elements / Effects
     bolt            = "rbxassetid://79160363518966",
     lightning       = "rbxassetid://79160363518966",
     zap             = "rbxassetid://10723415903",
@@ -67,16 +58,12 @@ local ICONS = {
     flame           = "rbxassetid://10723415285",
     star            = "rbxassetid://10734924532",
     sparkle         = "rbxassetid://10723422246",
-    
-    -- Player / Users
     player          = "rbxassetid://10747387118",
     user            = "rbxassetid://10747387118",
     person          = "rbxassetid://10747387118",
     users           = "rbxassetid://10747387298",
     team            = "rbxassetid://10747387298",
     group           = "rbxassetid://10747387298",
-    
-    -- Vision / Rendering
     eye             = "rbxassetid://10709790644",
     visible         = "rbxassetid://10709790644",
     visuals         = "rbxassetid://10709790644",
@@ -84,16 +71,12 @@ local ICONS = {
     esp             = "rbxassetid://10709790644",
     eyeoff          = "rbxassetid://10709790497",
     hidden          = "rbxassetid://10709790497",
-    
-    -- World / Movement
     globe           = "rbxassetid://10709778567",
     world           = "rbxassetid://10709778567",
     compass         = "rbxassetid://10709790373",
     map             = "rbxassetid://10709790373",
     move            = "rbxassetid://10723422998",
     arrows          = "rbxassetid://10723422998",
-    
-    -- Status / Alerts
     heart           = "rbxassetid://10723415389",
     like            = "rbxassetid://10723415389",
     bell            = "rbxassetid://10723345067",
@@ -106,38 +89,26 @@ local ICONS = {
     caution         = "rbxassetid://10747387522",
     check           = "rbxassetid://10709790948",
     checkmark       = "rbxassetid://10709790948",
-    
-    -- Controls / Security
     lock            = "rbxassetid://10723417148",
     unlock          = "rbxassetid://10723422607",
     power           = "rbxassetid://10723422754",
     toggle          = "rbxassetid://10723422754",
     refresh         = "rbxassetid://10723417783",
-    
-    -- Files / Data
     folder          = "rbxassetid://10709791437",
     file            = "rbxassetid://10709791258",
     save            = "rbxassetid://10709791258",
     download        = "rbxassetid://10709790497",
     clipboard       = "rbxassetid://10709751190",
-    
-    -- Communication
     chat            = "rbxassetid://10723345037",
     message         = "rbxassetid://10723345037",
-    
-    -- Media
     play            = "rbxassetid://10723422607",
     music           = "rbxassetid://10723421745",
     volume          = "rbxassetid://10723421745",
     camera          = "rbxassetid://10709778567",
     image           = "rbxassetid://10709791437",
-    
-    -- Time
     clock           = "rbxassetid://10723345037",
     time            = "rbxassetid://10723345037",
     timer           = "rbxassetid://10723345037",
-    
-    -- Tools / Dev
     wrench          = "rbxassetid://10734950309",
     tool            = "rbxassetid://10734950309",
     code            = "rbxassetid://10709751190",
@@ -146,8 +117,6 @@ local ICONS = {
     bug             = "rbxassetid://10723415903",
     debug           = "rbxassetid://10723415903",
     layers          = "rbxassetid://10723417148",
-    
-    -- Game / Items
     inventory       = "rbxassetid://10723415285",
     backpack        = "rbxassetid://10723415285",
     box             = "rbxassetid://10723415285",
@@ -344,29 +313,23 @@ local function normalizeAssetId(value)
     return id and ("rbxassetid://" .. id) or DEFAULT_LOGO
 end
 
--- Resolve icon: check ICONS table first, then treat as asset, fallback to letter
 local function resolveIcon(value)
     if value == nil or value == "" then return nil, nil end
     local str = tostring(value)
-    -- Check built-in icon library (case-insensitive)
     local key = string.lower(str)
     if ICONS[key] then
         return "image", ICONS[key]
     end
-    -- Check if it's a direct asset ID
     if string.match(str, "^rbxassetid://") or string.match(str, "^rbxthumb://") or string.match(str, "^https?://") then
         return "image", str
     end
-    -- Check if it's a number (asset ID)
     if tonumber(str) then
         return "image", "rbxassetid://" .. str
     end
-    -- Check if numeric string embedded
     local numId = string.match(str, "%d+")
     if numId and #numId > 5 then
         return "image", "rbxassetid://" .. numId
     end
-    -- Fallback: use first character as text
     return "text", string.upper(string.sub(str, 1, 1))
 end
 
@@ -441,7 +404,6 @@ local function inputIcon(parent)
     return holder
 end
 
--- Helper: create an icon element (image or text fallback) inside a parent frame
 local function createIconElement(parent, iconType, iconValue, size, zindex)
     size = size or 10
     zindex = zindex or 6
@@ -471,6 +433,378 @@ local function createIconElement(parent, iconType, iconValue, size, zindex)
     end
 end
 
+-- ════════════════════════════════════════════════════════════════════════════
+-- PLAYER TAG SYSTEM
+-- Tags appear above the heads of other players running this script.
+-- Uses a StringValue named "SolisUI_Active" placed in the player's Character
+-- via an Attribute on the Player instance. Tags are purely local BillboardGuis.
+-- ════════════════════════════════════════════════════════════════════════════
+local PlayerTagSystem = {}
+PlayerTagSystem._tags = {}          -- [player] = BillboardGui
+PlayerTagSystem._connections = {}   -- cleanup connections
+PlayerTagSystem._glowT = 0
+PlayerTagSystem._renderConn = nil
+PlayerTagSystem._tagText = "Solis"  -- label shown on the tag
+
+local TAG_ORANGE = Color3.fromRGB(253, 128, 0)
+local TAG_WHITE  = Color3.fromRGB(255, 255, 255)
+local TAG_BG     = Color3.fromRGB(20, 20, 20)
+local TAG_BORDER = Color3.fromRGB(35, 35, 35)
+local TAG_TEXT_COLOR = Color3.fromRGB(220, 220, 220)
+local TAG_SUB_COLOR  = Color3.fromRGB(139, 139, 139)
+
+-- Attribute name written onto the LocalPlayer so others can detect us
+local SOLIS_ATTR = "SolisUI_Running"
+
+-- Write our presence attribute immediately
+local function markSelfActive()
+    local lp = Players.LocalPlayer
+    if lp then
+        local ok = pcall(function()
+            lp:SetAttribute(SOLIS_ATTR, true)
+        end)
+        if not ok then
+            -- fallback: try a StringValue inside the player
+            pcall(function()
+                local v = Instance.new("StringValue")
+                v.Name = SOLIS_ATTR
+                v.Value = "true"
+                v.Parent = lp
+            end)
+        end
+    end
+end
+
+local function isSolisPlayer(player)
+    -- Check attribute
+    local ok, val = pcall(function()
+        return player:GetAttribute(SOLIS_ATTR)
+    end)
+    if ok and val == true then return true end
+    -- Fallback: check StringValue
+    local sv = player:FindFirstChild(SOLIS_ATTR)
+    if sv and sv:IsA("StringValue") then return true end
+    return false
+end
+
+local function createTagFor(player)
+    if player == Players.LocalPlayer then return end
+    if PlayerTagSystem._tags[player] then return end
+
+    local character = player.Character
+    if not character then return end
+
+    local head = character:FindFirstChild("Head")
+    if not head then return end
+
+    -- BillboardGui attached to the head
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "SolisTag_" .. player.Name
+    billboard.Adornee = head
+    billboard.Size = UDim2.fromOffset(120, 38)
+    billboard.StudsOffset = Vector3.new(0, 2.8, 0)
+    billboard.AlwaysOnTop = false
+    billboard.ResetOnSpawn = false
+    billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    billboard.MaxDistance = 100
+    billboard.Parent = head  -- parent to head so it follows naturally
+
+    -- Background frame
+    local bg = Instance.new("Frame")
+    bg.Name = "TagBg"
+    bg.Size = UDim2.fromScale(1, 1)
+    bg.BackgroundColor3 = TAG_BG
+    bg.BorderSizePixel = 0
+    bg.ZIndex = 1
+    bg.Parent = billboard
+
+    -- Rounded corners
+    local bgCorner = Instance.new("UICorner")
+    bgCorner.CornerRadius = UDim.new(0, 8)
+    bgCorner.Parent = bg
+
+    -- Static base border (thin, dark)
+    local baseBorder = Instance.new("UIStroke")
+    baseBorder.Color = TAG_BORDER
+    baseBorder.Thickness = 1
+    baseBorder.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    baseBorder.Parent = bg
+
+    -- Animated glow stroke (orange with sweeping white highlight)
+    local glowStroke = Instance.new("UIStroke")
+    glowStroke.Name = "GlowStroke"
+    glowStroke.Color = TAG_ORANGE
+    glowStroke.Thickness = 1.5
+    glowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    glowStroke.Transparency = 0
+    glowStroke.Parent = bg
+
+    local glowGradient = Instance.new("UIGradient")
+    glowGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0.00, TAG_ORANGE),
+        ColorSequenceKeypoint.new(0.42, TAG_ORANGE),
+        ColorSequenceKeypoint.new(0.50, TAG_WHITE),
+        ColorSequenceKeypoint.new(0.58, TAG_ORANGE),
+        ColorSequenceKeypoint.new(1.00, TAG_ORANGE),
+    })
+    glowGradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0.00, 1.0),
+        NumberSequenceKeypoint.new(0.36, 1.0),
+        NumberSequenceKeypoint.new(0.50, 0.0),
+        NumberSequenceKeypoint.new(0.64, 1.0),
+        NumberSequenceKeypoint.new(1.00, 1.0),
+    })
+    glowGradient.Parent = glowStroke
+
+    -- Left accent bar (orange)
+    local accent = Instance.new("Frame")
+    accent.Name = "Accent"
+    accent.AnchorPoint = Vector2.new(0, 0.5)
+    accent.Position = UDim2.new(0, 6, 0.5, 0)
+    accent.Size = UDim2.fromOffset(3, 20)
+    accent.BackgroundColor3 = TAG_ORANGE
+    accent.BorderSizePixel = 0
+    accent.ZIndex = 2
+    accent.Parent = bg
+    local accentCorner = Instance.new("UICorner")
+    accentCorner.CornerRadius = UDim.new(1, 0)
+    accentCorner.Parent = accent
+
+    -- Main label ("Solis")
+    local mainLabel = Instance.new("TextLabel")
+    mainLabel.Name = "MainLabel"
+    mainLabel.Text = PlayerTagSystem._tagText
+    mainLabel.Font = Enum.Font.GothamBold
+    mainLabel.TextSize = 13
+    mainLabel.TextColor3 = TAG_TEXT_COLOR
+    mainLabel.BackgroundTransparency = 1
+    mainLabel.TextXAlignment = Enum.TextXAlignment.Left
+    mainLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    mainLabel.Position = UDim2.fromOffset(16, 4)
+    mainLabel.Size = UDim2.new(1, -22, 0, 16)
+    mainLabel.ZIndex = 3
+    mainLabel.Parent = bg
+
+    -- Sub label (player name)
+    local subLabel = Instance.new("TextLabel")
+    subLabel.Name = "SubLabel"
+    subLabel.Text = "@" .. player.Name
+    subLabel.Font = Enum.Font.Gotham
+    subLabel.TextSize = 9
+    subLabel.TextColor3 = TAG_SUB_COLOR
+    subLabel.BackgroundTransparency = 1
+    subLabel.TextXAlignment = Enum.TextXAlignment.Left
+    subLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    subLabel.Position = UDim2.fromOffset(16, 22)
+    subLabel.Size = UDim2.new(1, -22, 0, 12)
+    subLabel.ZIndex = 3
+    subLabel.Parent = bg
+
+    -- Small dot indicator (green)
+    local dotRing = Instance.new("Frame")
+    dotRing.Name = "DotRing"
+    dotRing.AnchorPoint = Vector2.new(1, 0.5)
+    dotRing.Position = UDim2.new(1, -7, 0.5, 0)
+    dotRing.Size = UDim2.fromOffset(10, 10)
+    dotRing.BackgroundColor3 = TAG_BG
+    dotRing.BorderSizePixel = 0
+    dotRing.ZIndex = 3
+    dotRing.Parent = bg
+    local dotRingCorner = Instance.new("UICorner")
+    dotRingCorner.CornerRadius = UDim.new(1, 0)
+    dotRingCorner.Parent = dotRing
+
+    local dot = Instance.new("Frame")
+    dot.AnchorPoint = Vector2.new(0.5, 0.5)
+    dot.Position = UDim2.fromScale(0.5, 0.5)
+    dot.Size = UDim2.fromOffset(6, 6)
+    dot.BackgroundColor3 = NOTIFICATION_STYLES.success.Color
+    dot.BorderSizePixel = 0
+    dot.ZIndex = 4
+    dot.Parent = dotRing
+    local dotCorner = Instance.new("UICorner")
+    dotCorner.CornerRadius = UDim.new(1, 0)
+    dotCorner.Parent = dot
+
+    PlayerTagSystem._tags[player] = {
+        billboard = billboard,
+        glowGradient = glowGradient,
+        glowT = math.random() -- stagger each player's animation phase
+    }
+end
+
+local function removeTagFor(player)
+    local data = PlayerTagSystem._tags[player]
+    if data then
+        pcall(function()
+            if data.billboard and data.billboard.Parent then
+                data.billboard:Destroy()
+            end
+        end)
+        PlayerTagSystem._tags[player] = nil
+    end
+end
+
+local function refreshTagFor(player)
+    if player == Players.LocalPlayer then return end
+    removeTagFor(player)
+    if isSolisPlayer(player) then
+        -- Wait briefly for character if needed
+        task.spawn(function()
+            local char = player.Character
+            if not char then
+                char = player.CharacterAdded:Wait()
+            end
+            local head = char:FindFirstChild("Head")
+            if not head then
+                char.ChildAdded:Wait()
+                head = char:WaitForChild("Head", 5)
+            end
+            if head then
+                createTagFor(player)
+            end
+        end)
+    end
+end
+
+function PlayerTagSystem:Start(tagText)
+    if tagText then self._tagText = tostring(tagText) end
+
+    -- Mark ourselves as active
+    markSelfActive()
+
+    -- Start the global glow animation loop
+    if not self._renderConn then
+        local glowT = 0
+        self._renderConn = RunService.RenderStepped:Connect(function(dt)
+            glowT = (glowT + dt * 0.35) % 1
+            for player, data in pairs(self._tags) do
+                if data and data.glowGradient and data.glowGradient.Parent then
+                    -- Each player gets a slightly offset phase for variety
+                    local phase = (glowT + (data.glowT or 0)) % 1
+                    data.glowGradient.Offset = Vector2.new(phase * 2 - 1, 0)
+                else
+                    -- Cleanup stale entry
+                    self._tags[player] = nil
+                end
+            end
+        end)
+        table.insert(self._connections, self._renderConn)
+    end
+
+    -- Check all current players
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            refreshTagFor(player)
+
+            -- Watch for attribute changes on existing players
+            local attrConn = player:GetAttributeChangedSignal(SOLIS_ATTR):Connect(function()
+                refreshTagFor(player)
+            end)
+            table.insert(self._connections, attrConn)
+
+            -- Watch for new character spawns
+            local charConn = player.CharacterAdded:Connect(function(char)
+                -- Re-check after short delay so head loads
+                task.delay(0.5, function()
+                    if isSolisPlayer(player) then
+                        removeTagFor(player)
+                        createTagFor(player)
+                    end
+                end)
+            end)
+            table.insert(self._connections, charConn)
+
+            -- Cleanup when character is removed
+            local charRemConn = player.CharacterRemoving:Connect(function()
+                removeTagFor(player)
+            end)
+            table.insert(self._connections, charRemConn)
+        end
+    end
+
+    -- Handle players joining after us
+    local joinConn = Players.PlayerAdded:Connect(function(player)
+        if player == Players.LocalPlayer then return end
+
+        -- Wait for the attribute to potentially appear
+        task.spawn(function()
+            -- Poll briefly since new players may set attribute after join
+            for i = 1, 20 do
+                task.wait(0.5)
+                if not player.Parent then break end
+                if isSolisPlayer(player) then
+                    refreshTagFor(player)
+                    break
+                end
+            end
+        end)
+
+        -- Watch attribute
+        local attrConn = player:GetAttributeChangedSignal(SOLIS_ATTR):Connect(function()
+            refreshTagFor(player)
+        end)
+        table.insert(self._connections, attrConn)
+
+        -- Watch for StringValue (fallback detection)
+        local childConn = player.ChildAdded:Connect(function(child)
+            if child.Name == SOLIS_ATTR then
+                refreshTagFor(player)
+            end
+        end)
+        table.insert(self._connections, childConn)
+
+        -- Character events
+        local charConn = player.CharacterAdded:Connect(function()
+            task.delay(0.5, function()
+                if isSolisPlayer(player) then
+                    removeTagFor(player)
+                    createTagFor(player)
+                end
+            end)
+        end)
+        table.insert(self._connections, charConn)
+
+        local charRemConn = player.CharacterRemoving:Connect(function()
+            removeTagFor(player)
+        end)
+        table.insert(self._connections, charRemConn)
+    end)
+    table.insert(self._connections, joinConn)
+
+    -- Handle players leaving
+    local leaveConn = Players.PlayerRemoving:Connect(function(player)
+        removeTagFor(player)
+    end)
+    table.insert(self._connections, leaveConn)
+end
+
+function PlayerTagSystem:Stop()
+    for _, conn in ipairs(self._connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    table.clear(self._connections)
+    for player in pairs(self._tags) do
+        removeTagFor(player)
+    end
+    -- Remove our own marker
+    local lp = Players.LocalPlayer
+    if lp then
+        pcall(function() lp:SetAttribute(SOLIS_ATTR, nil) end)
+        local sv = lp:FindFirstChild(SOLIS_ATTR)
+        if sv then sv:Destroy() end
+    end
+    self._renderConn = nil
+end
+
+-- Auto-start the tag system immediately when the library loads
+task.spawn(function()
+    PlayerTagSystem:Start("Solis")
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIBRARY
+-- ════════════════════════════════════════════════════════════════════════════
 local Library = {
     Version = "2.1",
     Themes = THEMES,
@@ -479,6 +813,7 @@ local Library = {
     _windows = {},
     _windowObjects = {},
     _currentTheme = "Dark",
+    PlayerTags = PlayerTagSystem,  -- expose so user can call Library.PlayerTags:Stop() etc.
 }
 local Window = {}; Window.__index = Window
 local Tab    = {};    Tab.__index = Tab
@@ -539,6 +874,7 @@ end
 function Library:Notification(opts) return self:Notify(opts) end
 
 function Library:DestroyAll()
+    PlayerTagSystem:Stop()
     local windows = table.clone(Library._windows)
     for _, screenGui in ipairs(windows) do if screenGui then screenGui:Destroy() end end
     table.clear(Library._windows)
@@ -783,8 +1119,7 @@ function Library:CreateWindow(opts)
         Visible = not loadingEnabled, ZIndex = 2, Parent = container,
     })
     corner(main, 12); stroke(main, C.Border)
-    -- Animated traveling outline: a thin orange->white band that sweeps around the
-    -- window edge. Layered on top of the static border; the hotbar is untouched.
+
     local mainGlowStroke = make("UIStroke", {
         Color = Color3.fromRGB(253, 128, 0),
         Thickness = 1.6,
@@ -792,8 +1127,6 @@ function Library:CreateWindow(opts)
         Transparency = 0,
         Parent = main,
     })
-    -- A bright band: fully transparent everywhere except a short orange->white->orange
-    -- slice. Sweeping the gradient's Offset.X moves that slice across the border.
     local mainGlowGradient = make("UIGradient", {
         Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0.00, Color3.fromRGB(253, 128, 0)),
@@ -812,9 +1145,7 @@ function Library:CreateWindow(opts)
         Parent = mainGlowStroke,
     })
     local mainRevealScale = make("UIScale", { Scale = loadingEnabled and 0.965 or 1, Parent = main })
-    -- Drive the offset continuously so the bright band travels across the border.
-    -- Offset.X cycles from -1 to 1; at the wrap point the band is fully off-screen
-    -- (transparent), so the jump is invisible.
+
     local glowT = 0
     local glowConn
     glowConn = RunService.RenderStepped:Connect(function(dt)
@@ -1235,7 +1566,7 @@ function Window:Destroy()
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- TAB SYSTEM — now uses real icons from the built-in library
+-- TAB SYSTEM
 -- ════════════════════════════════════════════════════════════════════════════
 function Window:_selectTab(tab)
     if self._activeTab==tab then return end
@@ -1245,7 +1576,6 @@ function Window:_selectTab(tab)
         tween(prev._hBtn,{BackgroundColor3=C.HotbarBg})
         tween(prev._hLabel,{TextColor3=C.TextGray})
         if prev._hDot then tween(prev._hDot,{BackgroundTransparency=1}) end
-        -- Dim previous icon
         if prev._hIconElement then
             if prev._hIconElement:IsA("ImageLabel") then
                 tween(prev._hIconElement,{ImageColor3=C.TextGray})
@@ -1258,7 +1588,6 @@ function Window:_selectTab(tab)
     tween(tab._hBtn,{BackgroundColor3=C.HotbarActive})
     tween(tab._hLabel,{TextColor3=C.White})
     if tab._hDot then tween(tab._hDot,{BackgroundTransparency=0}) end
-    -- Brighten active icon
     if tab._hIconElement then
         if tab._hIconElement:IsA("ImageLabel") then
             tween(tab._hIconElement,{ImageColor3=C.White})
@@ -1275,22 +1604,18 @@ function Window:AddTab(opts)
     local iconInput = opts.Icon
     local win=self
 
-    -- Resolve the icon
     local iconType, iconValue = resolveIcon(iconInput)
-    -- If no icon provided, try to auto-detect from tab name
     if not iconType then
         local autoKey = string.lower(name)
         if ICONS[autoKey] then
             iconType = "image"
             iconValue = ICONS[autoKey]
         else
-            -- Fallback: first letter
             iconType = "text"
             iconValue = string.upper(string.sub(name, 1, 1))
         end
     end
 
-    -- ── Hotbar pill button ───────────────────────────────────────────────
     local hBtn=make("TextButton",{
         Text="", AutomaticSize=Enum.AutomaticSize.X,
         Size=UDim2.new(0,0,1,0),
@@ -1304,7 +1629,6 @@ function Window:AddTab(opts)
     local hRow=make("Frame",{BackgroundTransparency=1,AutomaticSize=Enum.AutomaticSize.X,Size=UDim2.new(0,0,1,0),ZIndex=5,Parent=hBtn})
     make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,6),Parent=hRow})
 
-        -- Icon container in hotbar (no background, bigger icon)
     local iconBadge=make("Frame",{
         Size=UDim2.fromOffset(20,20),
         BackgroundTransparency=1,
@@ -1328,11 +1652,9 @@ function Window:AddTab(opts)
     })
     circle(hDot)
 
-    -- ── Content page ─────────────────────────────────────────────────────
     local page=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false,Parent=self._content})
     local header=make("Frame",{Size=UDim2.new(1,0,0,88),BackgroundTransparency=1,Parent=page})
 
-       -- Header icon container (no background, bigger icon)
     local headerBadge=make("Frame",{
         Size=UDim2.fromOffset(32,32),
         Position=UDim2.fromOffset(14,14),
@@ -1340,7 +1662,6 @@ function Window:AddTab(opts)
         Parent=header,
     })
     local headerIconElement = createIconElement(headerBadge, iconType, iconValue, 26, 3)
-    -- Header icon is always white/bright
     if headerIconElement:IsA("ImageLabel") then
         headerIconElement.ImageColor3 = C.White
     elseif headerIconElement:IsA("TextLabel") then
@@ -1505,7 +1826,7 @@ function SubTab:AddKeybind(opts)
             if input.UserInputType==Enum.UserInputType.Keyboard then
                 if input.KeyCode==Enum.KeyCode.Escape then setKey(nil) else setKey(input.KeyCode) end
                 stopListening()
-            elseif input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.MouseButton2 then
+            elseif input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
                 stopListening()
             end
         end)
@@ -1625,7 +1946,6 @@ function SubTab:AddMultiDropdown(opts)
     local options=opts.Options or {}
     local maxVisible=math.max(1,math.floor(opts.MaxVisible or 5)); local searchable=opts.Searchable==true
     local IH=22; local IP=2; local SH=26; local LW=160
-    -- selected: set of selected option values (keyed by the option itself)
     local selected={}
     if type(opts.Default)=="table" then
         for _,o in ipairs(opts.Default) do selected[o]=true end
@@ -1784,7 +2104,6 @@ function SubTab:AddSlider(opts)
     return {Set=function(_,v) apply(v,true,true) end, Get=function() return value end}
 end
 
--- HSV <-> RGB helpers (Color3 has built-in fromHSV/toHSV; wrap for clarity)
 local function hsvToColor(h,s,v) return Color3.fromHSV(h,s,v) end
 local function colorToHSV(c) return c:ToHSV() end
 
@@ -1794,7 +2113,6 @@ function SubTab:AddColorPicker(opts)
     local h,s,v = colorToHSV(value)
     local row=newRow(self._card,30); rowLabels(row,opts.Name or "Color",opts.Description,44)
 
-    -- Swatch button in the row
     local swatch=make("TextButton",{Text="",Size=UDim2.fromOffset(34,18),AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,0,0.5,0),BackgroundColor3=value,Parent=row})
     corner(swatch,5);stroke(swatch,C.Border)
 
@@ -1805,16 +2123,14 @@ function SubTab:AddColorPicker(opts)
     local inner=make("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.fromOffset(PW,168),BackgroundTransparency=1,ZIndex=101,Parent=panel})
     pad(inner,10,10,10,10)
 
-    -- SV square (saturation x value), tinted by hue via gradient overlays
     local svBox=make("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,0,0,110),BackgroundColor3=hsvToColor(h,1,1),ZIndex=101,Parent=inner})
     corner(svBox,4)
-    make("UIGradient",{Color=ColorSequence.new(Color3.new(1,1,1),hsvToColor(h,1,1)),Parent=svBox}) -- white->hue across X (saturation)
+    make("UIGradient",{Color=ColorSequence.new(Color3.new(1,1,1),hsvToColor(h,1,1)),Parent=svBox})
     local svBlack=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(0,0,0),ZIndex=102,Parent=svBox}); corner(svBlack,4)
-    make("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(1,0)}),Parent=svBlack}) -- transparent->black down Y (value)
+    make("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(1,0)}),Parent=svBlack})
     local svCursor=make("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Size=UDim2.fromOffset(8,8),BackgroundColor3=Color3.new(1,1,1),ZIndex=103,Parent=svBox}); circle(svCursor); stroke(svCursor,Color3.new(0,0,0))
     local svHit=make("TextButton",{Text="",BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ZIndex=104,Parent=svBox})
 
-    -- Hue strip
     local hueBox=make("Frame",{Position=UDim2.fromOffset(0,118),Size=UDim2.new(1,0,0,12),BackgroundColor3=Color3.new(1,1,1),ZIndex=101,Parent=inner})
     corner(hueBox,4)
     make("UIGradient",{Color=ColorSequence.new({
@@ -1829,7 +2145,6 @@ function SubTab:AddColorPicker(opts)
     local hueCursor=make("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0,0,0.5,0),Size=UDim2.fromOffset(4,16),BackgroundColor3=Color3.new(1,1,1),ZIndex=103,Parent=hueBox}); corner(hueCursor,2); stroke(hueCursor,Color3.new(0,0,0))
     local hueHit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.fromOffset(0,-4),Size=UDim2.new(1,0,0,20),ZIndex=104,Parent=hueBox})
 
-    -- Hex input
     local hexHolder=make("Frame",{Position=UDim2.fromOffset(0,140),Size=UDim2.new(1,0,0,22),BackgroundColor3=C.WindowBg,ZIndex=101,Parent=inner}); corner(hexHolder,5)
     local hexBox=make("TextBox",{Text=colorToHex(value),PlaceholderText="#FFFFFF",PlaceholderColor3=C.Placeholder,Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Center,BackgroundTransparency=1,ClearTextOnFocus=false,Size=UDim2.fromScale(1,1),ZIndex=102,Parent=hexHolder})
 
@@ -1873,7 +2188,6 @@ function SubTab:AddColorPicker(opts)
         if c then value=c; h,s,v=colorToHSV(c); recompute(true,true) else hexBox.Text=colorToHex(value) end
     end)
 
-    -- Popout open/close, mirroring the dropdown
     local open=false; local cg=0; local oc={}
     local function repo()
         local inset=GuiService:GetGuiInset(); local p,sz=swatch.AbsolutePosition,swatch.AbsoluteSize

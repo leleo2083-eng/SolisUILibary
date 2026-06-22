@@ -430,10 +430,11 @@ end
 local TAG_BASE_URL     = "https://adorable-sallyanne-fgdfgdfgd-b2d051be.koyeb.app"
 local TAG_REGISTER     = TAG_BASE_URL .. "/register"
 local TAG_USERS        = TAG_BASE_URL .. "/users"
-local TAG_W            = 200   -- fixed pixel width of tag
-local TAG_H            = 52    -- fixed pixel height of tag
-local TAG_WORLD_HEIGHT = 3.4   -- world-space studs above HumanoidRootPart where the tag floats
-local TAG_MAX_DISTANCE = 800   -- max render distance in studs before fade
+local TAG_W             = 200   -- fixed pixel width of tag
+local TAG_H             = 52    -- fixed pixel height of tag
+local TAG_WORLD_HEIGHT  = 3.4   -- world-space studs above HumanoidRootPart where the tag floats
+local TAG_FULL_DIST     = 40    -- studs: tag/outline fully visible up to here
+local TAG_MAX_DISTANCE  = 110   -- studs: tag/outline fully hidden beyond here
 
 -- Detect HTTP request function
 local httpRequest = (syn and syn.request)
@@ -794,10 +795,10 @@ local function addTag(player)
             return
         end
 
-        -- Distance-based fade: full opacity up to 150 studs, fade out by TAG_MAX_DISTANCE
+        -- Distance-based fade: full opacity up to TAG_FULL_DIST, fade out by TAG_MAX_DISTANCE
         local targetFade = 0  -- 0 = visible
-        if distance > 150 then
-            targetFade = math.clamp((distance - 150) / (TAG_MAX_DISTANCE - 150), 0, 1)
+        if distance > TAG_FULL_DIST then
+            targetFade = math.clamp((distance - TAG_FULL_DIST) / (TAG_MAX_DISTANCE - TAG_FULL_DIST), 0, 1)
         end
         -- Smooth fade transitions only (NOT position)
         currentFade = currentFade + (targetFade - currentFade) * math.clamp(dt * 6, 0, 1)

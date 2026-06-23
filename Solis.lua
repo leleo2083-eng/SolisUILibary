@@ -1360,63 +1360,64 @@ function Library:CreateWindow(opts)
     minimizeBtn.MouseButton1Click:Connect(function() setMinimized(true) end)
     makeDraggable(container, noDrag)
 
-    -- ── RESIZE HANDLE (rounded outer corner) ──────────────────────────────
+    -- ── RESIZE HANDLE (outlined half-circle, outside the UI) ───────────────
     local MIN_W, MIN_H = 460, 300
     local MAX_W, MAX_H = 1100, 760
-    local HANDLE_SIZE  = 26   -- visual diameter of the quarter-circle arc
-    local HANDLE_OFF   = 6    -- float distance off the UI's outer corner
+    local ARC_DIA  = 30   -- diameter of the arc circle
+    local ARC_OFF  = 8    -- distance the grip floats off the outer corner
 
-    -- Glass quarter-circle: a fully-rounded frame clipped to its bottom-right
-    -- quadrant so only the corner arc is visible, floated off the window edge.
-    local resizeHandle = make("Frame", {
-        Name = "ResizeHandle",
-        AnchorPoint = Vector2.new(1, 1),
-        Position = UDim2.new(0, windowSize.X.Offset + HANDLE_OFF, 0, windowSize.Y.Offset + HANDLE_OFF),
-        Size = UDim2.fromOffset(HANDLE_SIZE, HANDLE_SIZE),
-        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundTransparency = 0.5,
+    -- Outlined half-circle: a transparent circle carrying only a UIStroke,
+    -- clipped by its parent to a half so only a thin hollow arc shows. Sits
+    -- fully outside the window's bottom-right corner like a floating grip.
+    local resizeGrip = make("Frame", {
+        Name = "ResizeGrip",
+        AnchorPoint = Vector2.new(0, 0),
+        Position = UDim2.new(0, windowSize.X.Offset + ARC_OFF, 0, windowSize.Y.Offset + ARC_OFF),
+        Size = UDim2.fromOffset(ARC_DIA, ARC_DIA / 2),
+        BackgroundTransparency = 1,
         ClipsDescendants = true,
         ZIndex = 20, Parent = container,
     })
-    circle(resizeHandle)
-    local resizeStroke = make("UIStroke", {
-        Color = Color3.fromRGB(255, 255, 255), Thickness = 1,
-        Transparency = 0.35, ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent = resizeHandle,
+    -- The full circle lives inside the half-height grip; only its top half is
+    -- visible, producing a clean outlined half-circle dome.
+    local resizeArc = make("Frame", {
+        Name = "Arc",
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.fromOffset(ARC_DIA, ARC_DIA),
+        BackgroundTransparency = 1,
+        ZIndex = 21, Parent = resizeGrip,
     })
-    -- Knock out everything but the bottom-right quadrant so it reads as an arc
-    -- wrapping the corner rather than a full dot.
-    local resizeMask = make("Frame", {
-        AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromScale(1, 1),
-        Size = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1,
-        ZIndex = 21, Parent = resizeHandle,
+    circle(resizeArc)
+    local resizeStroke = make("UIStroke", {
+        Color = Color3.fromRGB(255, 255, 255), Thickness = 2,
+        Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = resizeArc,
     })
     local resizeHit = make("TextButton", {
-        Text = "", AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromScale(1, 1),
-        Size = UDim2.fromOffset(HANDLE_SIZE + 12, HANDLE_SIZE + 12),
-        BackgroundTransparency = 1, ZIndex = 22, Parent = resizeHandle,
+        Text = "", AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, -6),
+        Size = UDim2.fromOffset(ARC_DIA + 16, ARC_DIA + 10),
+        BackgroundTransparency = 1, ZIndex = 22, Parent = resizeGrip,
     })
-    table.insert(noDrag, resizeHandle)
+    table.insert(noDrag, resizeGrip)
     table.insert(noDrag, resizeHit)
 
     local function layoutFor(w, h)
         main.Size = UDim2.fromOffset(w, h)
         container.Size = UDim2.fromOffset(w, h + HOTBAR_GAP + HOTBAR_HEIGHT)
         hotbar.Position = UDim2.new(0.5, 0, 0, h + HOTBAR_GAP)
-        resizeHandle.Position = UDim2.new(0, w + HANDLE_OFF, 0, h + HANDLE_OFF)
+        resizeGrip.Position = UDim2.new(0, w + ARC_OFF, 0, h + ARC_OFF)
     end
 
     local resizing = false
     local resizeStart, sizeStart
     resizeHit.MouseEnter:Connect(function()
         if resizing then return end
-        tween(resizeHandle, { BackgroundTransparency = 0.32, Size = UDim2.fromOffset(HANDLE_SIZE + 4, HANDLE_SIZE + 4) })
-        tween(resizeStroke, { Transparency = 0.15 })
+        tween(resizeStroke, { Transparency = 0.2, Thickness = 2.5 })
     end)
     resizeHit.MouseLeave:Connect(function()
         if resizing then return end
-        tween(resizeHandle, { BackgroundTransparency = 0.5, Size = UDim2.fromOffset(HANDLE_SIZE, HANDLE_SIZE) })
-        tween(resizeStroke, { Transparency = 0.35 })
+        tween(resizeStroke, { Transparency = 0.5, Thickness = 2 })
     end)
     resizeHit.InputBegan:Connect(function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1
@@ -1424,13 +1425,11 @@ function Library:CreateWindow(opts)
         resizing = true
         resizeStart = input.Position
         sizeStart = Vector2.new(main.AbsoluteSize.X, main.AbsoluteSize.Y)
-        tween(resizeHandle, { BackgroundTransparency = 0.18 })
-        tween(resizeStroke, { Transparency = 0.05 })
+        tween(resizeStroke, { Transparency = 0.05, Thickness = 3 })
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 resizing = false
-                tween(resizeHandle, { BackgroundTransparency = 0.5, Size = UDim2.fromOffset(HANDLE_SIZE, HANDLE_SIZE) })
-                tween(resizeStroke, { Transparency = 0.35 })
+                tween(resizeStroke, { Transparency = 0.5, Thickness = 2 })
             end
         end)
     end)

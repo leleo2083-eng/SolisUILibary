@@ -1360,58 +1360,89 @@ function Library:CreateWindow(opts)
     minimizeBtn.MouseButton1Click:Connect(function() setMinimized(true) end)
     makeDraggable(container, noDrag)
 
-    -- ── RESIZE HANDLE ────────────────────────────────────────────────────
-    local MIN_W, MIN_H = 400, 300
-    local resizeHandle = make("TextButton", {
-        Text = "", BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundTransparency = 0.5,
+    -- ── RESIZE HANDLE (rounded outer corner) ──────────────────────────────
+    local MIN_W, MIN_H = 460, 300
+    local MAX_W, MAX_H = 1100, 760
+    local HANDLE_SIZE  = 26   -- visual diameter of the quarter-circle arc
+    local HANDLE_OFF   = 6    -- float distance off the UI's outer corner
+
+    -- Glass quarter-circle: a fully-rounded frame clipped to its bottom-right
+    -- quadrant so only the corner arc is visible, floated off the window edge.
+    local resizeHandle = make("Frame", {
+        Name = "ResizeHandle",
         AnchorPoint = Vector2.new(1, 1),
-        Position = UDim2.new(1, 0, 1, 0),
-        Size = UDim2.fromOffset(16, 16),
-        ZIndex = 20, Parent = main,
+        Position = UDim2.new(0, windowSize.X.Offset + HANDLE_OFF, 0, windowSize.Y.Offset + HANDLE_OFF),
+        Size = UDim2.fromOffset(HANDLE_SIZE, HANDLE_SIZE),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BackgroundTransparency = 0.5,
+        ClipsDescendants = true,
+        ZIndex = 20, Parent = container,
     })
-    corner(resizeHandle, 4)
-    for i = 1, 3 do
-        local offset = i * 4
-        make("Frame", {
-            BackgroundColor3 = Color3.fromRGB(200, 200, 200),
-            BackgroundTransparency = 0.2,
-            Position = UDim2.fromOffset(offset, 16 - offset),
-            Size = UDim2.fromOffset(1, offset),
-            ZIndex = 21, Parent = resizeHandle,
-        })
+    circle(resizeHandle)
+    local resizeStroke = make("UIStroke", {
+        Color = Color3.fromRGB(255, 255, 255), Thickness = 1,
+        Transparency = 0.35, ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = resizeHandle,
+    })
+    -- Knock out everything but the bottom-right quadrant so it reads as an arc
+    -- wrapping the corner rather than a full dot.
+    local resizeMask = make("Frame", {
+        AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromScale(1, 1),
+        Size = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1,
+        ZIndex = 21, Parent = resizeHandle,
+    })
+    local resizeHit = make("TextButton", {
+        Text = "", AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromScale(1, 1),
+        Size = UDim2.fromOffset(HANDLE_SIZE + 12, HANDLE_SIZE + 12),
+        BackgroundTransparency = 1, ZIndex = 22, Parent = resizeHandle,
+    })
+    table.insert(noDrag, resizeHandle)
+    table.insert(noDrag, resizeHit)
+
+    local function layoutFor(w, h)
+        main.Size = UDim2.fromOffset(w, h)
+        container.Size = UDim2.fromOffset(w, h + HOTBAR_GAP + HOTBAR_HEIGHT)
+        hotbar.Position = UDim2.new(0.5, 0, 0, h + HOTBAR_GAP)
+        resizeHandle.Position = UDim2.new(0, w + HANDLE_OFF, 0, h + HANDLE_OFF)
     end
 
-    do
-        local resizing = false
-        local startMouse, startSize
-
-        resizeHandle.MouseButton1Down:Connect(function(mx, my)
-            resizing = true
-            startMouse = Vector2.new(mx, my)
-            startSize  = Vector2.new(main.AbsoluteSize.X, main.AbsoluteSize.Y)
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            if not resizing then return end
-            if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-            local mp    = UserInputService:GetMouseLocation()
-            local delta = mp - startMouse
-            local newW  = math.max(MIN_W, startSize.X + delta.X)
-            local newH  = math.max(MIN_H, startSize.Y + delta.Y)
-            local newSize = UDim2.fromOffset(newW, newH)
-            main.Size      = newSize
-            container.Size = newSize
-            windowSize     = newSize
-        end)
-
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    local resizing = false
+    local resizeStart, sizeStart
+    resizeHit.MouseEnter:Connect(function()
+        if resizing then return end
+        tween(resizeHandle, { BackgroundTransparency = 0.32, Size = UDim2.fromOffset(HANDLE_SIZE + 4, HANDLE_SIZE + 4) })
+        tween(resizeStroke, { Transparency = 0.15 })
+    end)
+    resizeHit.MouseLeave:Connect(function()
+        if resizing then return end
+        tween(resizeHandle, { BackgroundTransparency = 0.5, Size = UDim2.fromOffset(HANDLE_SIZE, HANDLE_SIZE) })
+        tween(resizeStroke, { Transparency = 0.35 })
+    end)
+    resizeHit.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        resizing = true
+        resizeStart = input.Position
+        sizeStart = Vector2.new(main.AbsoluteSize.X, main.AbsoluteSize.Y)
+        tween(resizeHandle, { BackgroundTransparency = 0.18 })
+        tween(resizeStroke, { Transparency = 0.05 })
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
                 resizing = false
+                tween(resizeHandle, { BackgroundTransparency = 0.5, Size = UDim2.fromOffset(HANDLE_SIZE, HANDLE_SIZE) })
+                tween(resizeStroke, { Transparency = 0.35 })
             end
         end)
-    end
-    table.insert(noDrag, resizeHandle)
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if not resizing then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        local delta = input.Position - resizeStart
+        local w = math.clamp(sizeStart.X + delta.X, MIN_W, MAX_W)
+        local h = math.clamp(sizeStart.Y + delta.Y, MIN_H, MAX_H)
+        layoutFor(math.floor(w), math.floor(h))
+    end)
 
     -- ── SIDEBAR ───────────────────────────────────────────────────────────
     local sidebar = make("Frame", { Size=UDim2.new(0,190,1,0), BackgroundTransparency=1, Parent=main })

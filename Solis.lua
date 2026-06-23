@@ -1360,6 +1360,59 @@ function Library:CreateWindow(opts)
     minimizeBtn.MouseButton1Click:Connect(function() setMinimized(true) end)
     makeDraggable(container, noDrag)
 
+    -- ── RESIZE HANDLE ────────────────────────────────────────────────────
+    local MIN_W, MIN_H = 400, 300
+    local resizeHandle = make("TextButton", {
+        Text = "", BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BackgroundTransparency = 0.5,
+        AnchorPoint = Vector2.new(1, 1),
+        Position = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.fromOffset(16, 16),
+        ZIndex = 20, Parent = main,
+    })
+    corner(resizeHandle, 4)
+    for i = 1, 3 do
+        local offset = i * 4
+        make("Frame", {
+            BackgroundColor3 = Color3.fromRGB(200, 200, 200),
+            BackgroundTransparency = 0.2,
+            Position = UDim2.fromOffset(offset, 16 - offset),
+            Size = UDim2.fromOffset(1, offset),
+            ZIndex = 21, Parent = resizeHandle,
+        })
+    end
+
+    do
+        local resizing = false
+        local startMouse, startSize
+
+        resizeHandle.MouseButton1Down:Connect(function(mx, my)
+            resizing = true
+            startMouse = Vector2.new(mx, my)
+            startSize  = Vector2.new(main.AbsoluteSize.X, main.AbsoluteSize.Y)
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if not resizing then return end
+            if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+            local mp    = UserInputService:GetMouseLocation()
+            local delta = mp - startMouse
+            local newW  = math.max(MIN_W, startSize.X + delta.X)
+            local newH  = math.max(MIN_H, startSize.Y + delta.Y)
+            local newSize = UDim2.fromOffset(newW, newH)
+            main.Size      = newSize
+            container.Size = newSize
+            windowSize     = newSize
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                resizing = false
+            end
+        end)
+    end
+    table.insert(noDrag, resizeHandle)
+
     -- ── SIDEBAR ───────────────────────────────────────────────────────────
     local sidebar = make("Frame", { Size=UDim2.new(0,190,1,0), BackgroundTransparency=1, Parent=main })
     local brand = make("Frame", { Name="Brand", Position=UDim2.fromOffset(12,12), Size=UDim2.new(1,-24,0,54), BackgroundColor3=C.CardBg, Parent=sidebar })

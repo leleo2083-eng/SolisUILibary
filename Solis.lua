@@ -1378,11 +1378,12 @@ function Library:CreateWindow(opts)
         ClipsDescendants = true,
         ZIndex = 20, Parent = container,
     })
-    -- The full circle lives inside the half-height grip; only its top half is
-    -- visible, producing a clean outlined half-circle dome.
+    -- The full circle lives inside the half-height grip; pulled up by half its
+    -- diameter so only its bottom half shows — a half-circle whose flat edge
+    -- faces the UI and whose curve wraps out toward the corner.
     local resizeArc = make("Frame", {
         Name = "Arc",
-        Position = UDim2.fromOffset(0, 0),
+        Position = UDim2.fromOffset(0, -ARC_DIA / 2),
         Size = UDim2.fromOffset(ARC_DIA, ARC_DIA),
         BackgroundTransparency = 1,
         ZIndex = 21, Parent = resizeGrip,

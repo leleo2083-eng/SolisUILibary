@@ -1311,12 +1311,11 @@ function Library:CreateWindow(opts)
         hotbarListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(capHotbarWidth)
     end
     capHotbarWidth()
-    windowRef._hotbarCap = capHotbarWidth
 
+    local windowRef
     local minimized = false
     local mainTopButtons = {}
     local burgerButton
-    local windowRef
     local noDrag = {}
     table.insert(noDrag, hotbar)
 
@@ -1597,6 +1596,7 @@ function Library:CreateWindow(opts)
     }, Window)
     windowRef.Notify=function(s,m) return Window.Notify(windowRef,s==windowRef and m or s) end
     windowRef.Notification=windowRef.Notify
+    windowRef._hotbarCap = capHotbarWidth
 
     local ffc=0; local fe=0
     local fpsConn=RunService.RenderStepped:Connect(function(dt)

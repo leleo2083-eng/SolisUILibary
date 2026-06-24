@@ -1,5 +1,5 @@
 --[[
-    Solis UI v2.3 — single-file Roblox UI library
+    Solis UI v2.2 — single-file Roblox UI library
     
     FEATURES:
       • Built-in icon library with 40+ curated icons
@@ -337,8 +337,7 @@ local function guiVisible(gui)
     return true
 end
 
-local function makeDraggable(frame, target, blockers)
-    target = target or frame
+local function makeDraggable(frame, blockers)
     local dragging = false
     local dragStart, startPos
     frame.InputBegan:Connect(function(input)
@@ -350,7 +349,7 @@ local function makeDraggable(frame, target, blockers)
         end
         dragging = true
         dragStart = input.Position
-        startPos  = target.Position
+        startPos  = frame.Position
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
@@ -359,7 +358,7 @@ local function makeDraggable(frame, target, blockers)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
             or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
-            target.Position = UDim2.new(
+            frame.Position = UDim2.new(
                 startPos.X.Scale, startPos.X.Offset + delta.X,
                 startPos.Y.Scale, startPos.Y.Offset + delta.Y
             )
@@ -919,7 +918,7 @@ end
 -- LIBRARY
 -- ════════════════════════════════════════════════════════════════════════════
 local Library = {
-    Version       = "2.3",
+    Version       = "2.2",
     Themes        = THEMES,
     Icons         = ICONS,
     DefaultLogo   = DEFAULT_LOGO,
@@ -1294,28 +1293,18 @@ function Library:CreateWindow(opts)
         AutomaticSize = Enum.AutomaticSize.X,
         BackgroundTransparency = 1, ZIndex = 4, Parent = hotbar,
     })
-    local hotbarListLayout = make("UIListLayout", {
+    make("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
         VerticalAlignment = Enum.VerticalAlignment.Center,
         HorizontalAlignment = Enum.HorizontalAlignment.Center,
         SortOrder = Enum.SortOrder.LayoutOrder,
         Padding = UDim.new(0, 4), Parent = hotbarInner,
     })
-    local function capHotbarWidth()
-        if not hotbar or not hotbar.Parent then return end
-        local contentW = hotbarListLayout and hotbarListLayout.AbsoluteContentSize.X or 0
-        local desired = contentW + 20
-        hotbar.Size = UDim2.new(0, math.min(desired, containerW), 0, HOTBAR_HEIGHT)
-    end
-    if hotbarListLayout then
-        hotbarListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(capHotbarWidth)
-    end
-    capHotbarWidth()
 
-    local windowRef
     local minimized = false
     local mainTopButtons = {}
     local burgerButton
+    local windowRef
     local noDrag = {}
     table.insert(noDrag, hotbar)
 
@@ -1354,7 +1343,7 @@ function Library:CreateWindow(opts)
         Text = "", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = C.White,
         AnchorPoint = Vector2.new(1,0), Position = UDim2.new(1,-12,0,12),
         Size = UDim2.fromOffset(34,18), BackgroundColor3 = C.CardBg,
-        Visible = false, ZIndex = 11, Parent = container,
+        Visible = false, ZIndex = 11, Parent = screenGui,
     })
     corner(burgerButton, 10); stroke(burgerButton, C.Border)
     local bih = make("Frame", { BackgroundTransparency=1, Position=UDim2.fromOffset(6,0), Size=UDim2.fromOffset(18,18), Parent=burgerButton, ZIndex=12 })
@@ -1363,26 +1352,24 @@ function Library:CreateWindow(opts)
     make("Frame",{BackgroundColor3=C.White,Size=UDim2.fromOffset(12,2),Position=UDim2.fromOffset(3,12),Parent=bih,ZIndex=13})
     make("ImageLabel",{Name="BurgerLogo",Image=logoAsset,BackgroundTransparency=1,Position=UDim2.fromOffset(26,5),Size=UDim2.fromOffset(8,8),ZIndex=14,ScaleType=Enum.ScaleType.Fit,Parent=burgerButton})
 
-    table.insert(noDrag, burgerButton)
     burgerButton.MouseButton1Click:Connect(function() setMinimized(false) end)
     closeBtn.MouseButton1Click:Connect(function()
         if windowRef and windowRef.Destroy then windowRef:Destroy()
         else if screenGui then screenGui:Destroy() end end
     end)
     minimizeBtn.MouseButton1Click:Connect(function() setMinimized(true) end)
-    -- drag handle attached to brand below
+    makeDraggable(container, noDrag)
 
     -- ── SIDEBAR ───────────────────────────────────────────────────────────
     local sidebar = make("Frame", { Size=UDim2.new(0,190,1,0), BackgroundTransparency=1, Parent=main })
     local brand = make("Frame", { Name="Brand", Position=UDim2.fromOffset(12,12), Size=UDim2.new(1,-24,0,54), BackgroundColor3=C.CardBg, Parent=sidebar })
     corner(brand,10); stroke(brand,C.Border)
-    makeDraggable(brand, container, noDrag)
     local logoHolder = make("Frame", { Position=UDim2.fromOffset(9,9), Size=UDim2.fromOffset(36,36), BackgroundColor3=C.Element, Parent=brand })
     corner(logoHolder,9)
     make("TextLabel",{Text="S",Font=Enum.Font.GothamBold,TextSize=15,TextColor3=C.White,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Parent=logoHolder})
     local brandLogo = make("ImageLabel",{Name="Logo",Image=logoAsset,BackgroundTransparency=1,Position=UDim2.fromOffset(3,3),Size=UDim2.new(1,-6,1,-6),ScaleType=Enum.ScaleType.Fit,Parent=logoHolder})
-    local brandTitle = make("TextLabel",{Text=opts.Name or "Solis UI",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,9),Size=UDim2.new(1,-62,0,17),Parent=brand})
-    local brandSubtitle = make("TextLabel",{Text=opts.BrandSubtitle or ("SOLIS FREE..."..Library.Version),Font=Enum.Font.GothamMedium,TextSize=9,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,28),Size=UDim2.new(1,-62,0,13),Parent=brand})
+    make("TextLabel",{Text=opts.Name or "Solis UI",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,9),Size=UDim2.new(1,-62,0,17),Parent=brand})
+    make("TextLabel",{Text=opts.BrandSubtitle or ("SOLIS FREE..."..Library.Version),Font=Enum.Font.GothamMedium,TextSize=9,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,28),Size=UDim2.new(1,-62,0,13),Parent=brand})
     local statusDot = make("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,16,1,-19),Size=UDim2.fromOffset(6,6),BackgroundColor3=NOTIFICATION_STYLES.success.Color,Parent=sidebar})
     circle(statusDot)
     make("TextLabel",{Text=opts.StatusText or "Solis is ready",Font=Enum.Font.GothamMedium,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.new(0,28,1,-27),Size=UDim2.new(1,-40,0,16),Parent=sidebar})
@@ -1591,12 +1578,10 @@ function Library:CreateWindow(opts)
         _profilePanel=profilePanel, _performancePanel=performancePanel,
         _fpsEditableImage=fpsEditableImage, _profileKey=profileKey,
         _profileOpen=profileOpen, _setProfileVisible=setProfileVisible,
-        _brandTitle=brandTitle, _brandSubtitle=brandSubtitle,
-        _connections={}, _noDrag=noDrag, _tabs={}, _activeTab=nil, _popups={},
+        _connections={}, _noDrag=noDrag, _tabs={}, _activeTab=nil,
     }, Window)
     windowRef.Notify=function(s,m) return Window.Notify(windowRef,s==windowRef and m or s) end
     windowRef.Notification=windowRef.Notify
-    windowRef._hotbarCap = capHotbarWidth
 
     local ffc=0; local fe=0
     local fpsConn=RunService.RenderStepped:Connect(function(dt)
@@ -1655,28 +1640,6 @@ function Window:SetLogo(id)
     if self.Logo then self.Logo.Image=self._logoAsset end; return self._logoAsset
 end
 
-function Window:SetTitle(title)
-    if self._brandTitle then self._brandTitle.Text = tostring(title) end
-    return self
-end
-function Window:SetSubtitle(sub)
-    if self._brandSubtitle then self._brandSubtitle.Text = tostring(sub) end
-    return self
-end
-function Window:SetSize(size)
-    if not size then return self end
-    self.Main.Size = size
-    local cw = size.X.Offset
-    local ch = size.Y.Offset + 8 + 36
-    self.Container.Size = UDim2.fromOffset(cw, ch)
-    if self._hotbarCap then self._hotbarCap() end
-    return self
-end
-function Window:SetPosition(pos)
-    if pos then self.Container.Position = pos end
-    return self
-end
-
 function Window:Notify(opts)
     if type(opts)=="string" then opts={Content=opts} end; opts=opts or {}
     local holder=self._notificationHolder; if not holder or not holder.Parent then return nil end
@@ -1710,8 +1673,6 @@ end
 function Window:Destroy()
     for _,c in ipairs(self._connections or {}) do c:Disconnect() end
     table.clear(self._connections or {})
-    for _, close in ipairs(self._popups or {}) do pcall(close) end
-    table.clear(self._popups or {})
     if self._fpsEditableImage then pcall(function() self._fpsEditableImage:Destroy() end); self._fpsEditableImage=nil end
     local i=table.find(Library._windows,self.ScreenGui); if i then table.remove(Library._windows,i) end
     local j=table.find(Library._windowObjects,self);     if j then table.remove(Library._windowObjects,j) end
@@ -1820,21 +1781,7 @@ function Window:AddTab(opts)
 
     table.insert(self._tabs,tab)
     if not self._activeTab then self:_selectTab(tab) end
-    if self._hotbarCap then self._hotbarCap() end
     return tab
-end
-
-function Tab:Remove()
-    local win = self._window
-    if self._hBtn and self._hBtn.Parent then self._hBtn:Destroy() end
-    if self._page and self._page.Parent then self._page:Destroy() end
-    local idx = table.find(win._tabs, self)
-    if idx then table.remove(win._tabs, idx) end
-    if win._activeTab == self then
-        win._activeTab = nil
-        if win._tabs[1] then win:_selectTab(win._tabs[1]) end
-    end
-    if win._hotbarCap then win._hotbarCap() end
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -1865,14 +1812,6 @@ function Tab:AddSubTab(name)
     table.insert(self._subTabs,sub)
     if not self._activeSub then self:_selectSub(sub) end
     return sub
-end
-
-function SubTab:Clear()
-    for _, child in ipairs(self._card:GetChildren()) do
-        if not child:IsA("UIPadding") and not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
-    end
 end
 
 local function newRow(card,h)
@@ -2021,14 +1960,7 @@ function SubTab:AddDropdown(opts)
     local open=false; local cg=0; local oc={}; local co=options; local ob={}
     local function repo()
         local inset=GuiService:GetGuiInset(); local p,s=btn.AbsolutePosition,btn.AbsoluteSize
-        local x = p.X+inset.X+s.X-LW
-        local y = p.Y+inset.Y+s.Y+4
-        local cam = Workspace.CurrentCamera
-        local screenSize = cam and cam.ViewportSize or Vector2.new(1920,1080)
-        local h = calcH()
-        x = math.max(inset.X, math.min(x, screenSize.X - LW))
-        y = math.max(inset.Y, math.min(y, screenSize.Y - h))
-        list.Position=UDim2.fromOffset(x,y)
+        list.Position=UDim2.fromOffset(p.X+inset.X+s.X-LW,p.Y+inset.Y+s.Y+4)
     end
     local function calcH()
         local fc=0; for _,o in ipairs(co) do if fq=="" or string.find(string.lower(tostring(o)),string.lower(fq),1,true) then fc=fc+1 end end
@@ -2041,7 +1973,6 @@ function SubTab:AddDropdown(opts)
         tween(list,{Size=UDim2.new(0,LW,0,0)})
         local g=cg; task.delay(0.16,function() if g==cg and not open then list.Visible=false end end)
     end
-    table.insert(win._popups, function() if open then closeDD() end end)
     local function rebuild()
         for _,b in ipairs(ob) do if b and b.Parent then b:Destroy() end end; table.clear(ob)
         for _,o in ipairs(co) do
@@ -2128,14 +2059,7 @@ function SubTab:AddMultiDropdown(opts)
     end
     local function repo()
         local inset=GuiService:GetGuiInset(); local p,s=btn.AbsolutePosition,btn.AbsoluteSize
-        local x = p.X+inset.X+s.X-LW
-        local y = p.Y+inset.Y+s.Y+4
-        local cam = Workspace.CurrentCamera
-        local screenSize = cam and cam.ViewportSize or Vector2.new(1920,1080)
-        local h = calcH()
-        x = math.max(inset.X, math.min(x, screenSize.X - LW))
-        y = math.max(inset.Y, math.min(y, screenSize.Y - h))
-        list.Position=UDim2.fromOffset(x,y)
+        list.Position=UDim2.fromOffset(p.X+inset.X+s.X-LW,p.Y+inset.Y+s.Y+4)
     end
     local function calcH()
         local fc=0; for _,o in ipairs(co) do if fq=="" or string.find(string.lower(tostring(o)),string.lower(fq),1,true) then fc=fc+1 end end
@@ -2148,7 +2072,6 @@ function SubTab:AddMultiDropdown(opts)
         tween(list,{Size=UDim2.new(0,LW,0,0)})
         local g=cg; task.delay(0.16,function() if g==cg and not open then list.Visible=false end end)
     end
-    table.insert(win._popups, function() if open then closeDD() end end)
     local function rebuild()
         for _,b in ipairs(ob) do if b and b.Parent then b:Destroy() end end; table.clear(ob)
         for _,o in ipairs(co) do
@@ -2216,87 +2139,6 @@ function SubTab:AddMultiDropdown(opts)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- NEW ELEMENTS
--- ════════════════════════════════════════════════════════════════════════════
-function SubTab:AddTextArea(opts)
-    opts = opts or {}
-    local row = make("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = self._card})
-    autoOrder(row)
-    if opts.Name then
-        make("TextLabel", {Text = opts.Name, Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 14), Parent = row})
-    end
-    local holder = make("Frame", {Size = UDim2.new(1, 0, 0, opts.Height or 80), BackgroundColor3 = C.Element, Parent = row})
-    corner(holder, 6); stroke(holder, C.Border)
-    local box = make("TextBox", {
-        Text = opts.Default or "", PlaceholderText = opts.Placeholder or "Type here...", PlaceholderColor3 = C.Placeholder,
-        Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = C.TextGray, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
-        TextWrapped = true, ClearTextOnFocus = false, BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(8, 6), Size = UDim2.new(1, -16, 1, -12), Parent = holder,
-    })
-    box.FocusLost:Connect(function() fire(opts.Callback, box.Text) end)
-    return {Set = function(_, t) box.Text = tostring(t) end, Get = function() return box.Text end, Instance = box}
-end
-
-function SubTab:AddImage(opts)
-    opts = opts or {}
-    local row = make("Frame", {Size = UDim2.new(1, 0, 0, opts.Height or 120), BackgroundTransparency = 1, Parent = self._card})
-    autoOrder(row)
-    local img = make("ImageLabel", {
-        Image = normalizeAssetId(opts.Image) or DEFAULT_LOGO,
-        BackgroundColor3 = C.Element,
-        Size = UDim2.new(1, 0, 0, opts.Height or 120),
-        ScaleType = opts.ScaleType or Enum.ScaleType.Fit,
-        Parent = row,
-    })
-    corner(img, 8)
-    if opts.Callback then
-        local btn = make("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = img})
-        btn.MouseButton1Click:Connect(function() fire(opts.Callback) end)
-    end
-    return {Set = function(_, id) img.Image = normalizeAssetId(id) end, Instance = img}
-end
-
-function SubTab:AddProgressBar(opts)
-    opts = opts or {}
-    local row = newRow(self._card, 28)
-    make("TextLabel", {Text = opts.Name or "Progress", Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Size = UDim2.new(0.5, 0, 0, 14), Parent = row})
-    local vl = make("TextLabel", {Text = "0%", Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Right, BackgroundTransparency = 1, Size = UDim2.new(0.5, 0, 0, 13), Parent = row})
-    local track = make("Frame", {Position = UDim2.fromOffset(0, 20), Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = C.TrackBg, Parent = row})
-    corner(track, 3)
-    local fill = make("Frame", {Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = opts.Color or C.White, Parent = track})
-    corner(fill, 3)
-    return {
-        Set = function(_, pct)
-            pct = math.clamp(tonumber(pct) or 0, 0, 100)
-            tween(fill, {Size = UDim2.new(pct / 100, 0, 1, 0)})
-            vl.Text = tostring(math.floor(pct + 0.5)) .. "%"
-        end,
-        Instance = fill,
-    }
-end
-
-function SubTab:AddSpacer(opts)
-    opts = opts or {}
-    local h = opts.Height or 8
-    local row = make("Frame", {Size = UDim2.new(1, 0, 0, h), BackgroundTransparency = 1, Parent = self._card})
-    autoOrder(row)
-    return row
-end
-
-function SubTab:AddInfo(opts)
-    opts = opts or {}
-    local card = make("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = opts.BgColor or C.CardBg, Parent = self._card})
-    autoOrder(card); corner(card, 8); stroke(card, opts.BorderColor or C.Border)
-    pad(card, 10, 10, 12, 12)
-    make("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4), Parent = card})
-    if opts.Title then
-        make("TextLabel", {Text = opts.Title, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = opts.TitleColor or C.White, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 1, Parent = card})
-    end
-    make("TextLabel", {Text = opts.Text or opts.Description or "", Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = opts.TextColor or C.TextDim, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 2, Parent = card})
-    return card
-end
-
--- ════════════════════════════════════════════════════════════════════════════
 -- COLOR HELPERS
 -- ════════════════════════════════════════════════════════════════════════════
 local function colorToHex(c)
@@ -2316,7 +2158,6 @@ end
 function SubTab:AddSlider(opts)
     opts=opts or {}
     local mn=opts.Min or 0; local mx=opts.Max or 100; local sf=opts.Suffix or ""
-    local realtime=opts.Realtime==true
     local value=math.clamp(opts.Default or mn,mn,mx)
     local row=newRow(self._card,32)
     make("TextLabel",{Text=opts.Name or "Slider",Font=Enum.Font.GothamMedium,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0.6,0,0,14),Parent=row})
@@ -2325,7 +2166,6 @@ function SubTab:AddSlider(opts)
     local fill=make("Frame",{Size=UDim2.new(0,0,1,0),BackgroundColor3=C.White,Parent=track}); circle(fill)
     local knob=make("Frame",{Size=UDim2.fromOffset(12,12),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0,0,0.5,0),BackgroundColor3=C.White,ZIndex=2,Parent=track}); circle(knob)
     local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,-6,0,16),Size=UDim2.new(1,12,0,20),Parent=row})
-    local connections={}
     local function apply(v,a,fc)
         value=math.clamp(math.floor(v+0.5),mn,mx)
         local pct=mx>mn and (value-mn)/(mx-mn) or 0; vl.Text=tostring(value)..sf
@@ -2335,12 +2175,11 @@ function SubTab:AddSlider(opts)
     end
     local function fromX(x) return mn+(mx-mn)*math.clamp((x-track.AbsolutePosition.X)/math.max(track.AbsoluteSize.X,1),0,1) end
     local dragging=false
-    hit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true; apply(fromX(i.Position.X),true,realtime) end end)
-    local moveConn=UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then apply(fromX(i.Position.X),true,realtime) end end)
-    local endConn=UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false; if not realtime then fire(opts.Callback,value) end end end)
-    table.insert(connections,moveConn); table.insert(connections,endConn)
+    hit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true; apply(fromX(i.Position.X),true,true) end end)
+    UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then apply(fromX(i.Position.X),true,true) end end)
+    UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
     apply(value,false,false)
-    return {Set=function(_,v) apply(v,true,true) end, Get=function() return value end, _connections=connections, Disconnect=function(self) for _,c in ipairs(self._connections) do c:Disconnect() end end}
+    return {Set=function(_,v) apply(v,true,true) end, Get=function() return value end}
 end
 
 local function hsvToColor(h,s,v) return Color3.fromHSV(h,s,v) end
@@ -2402,8 +2241,6 @@ function SubTab:AddColorPicker(opts)
         if fc then fire(opts.Callback,value) end
     end
 
-    local realtime=opts.Realtime==true
-    local connections={}
     local svDragging=false; local hueDragging=false
     local function svFrom(px,py)
         local p,sz=svBox.AbsolutePosition,svBox.AbsoluteSize
@@ -2414,20 +2251,16 @@ function SubTab:AddColorPicker(opts)
         local p,sz=hueBox.AbsolutePosition,hueBox.AbsoluteSize
         h=math.clamp((px-p.X)/math.max(sz.X,1),0,1)
     end
-    svHit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then svDragging=true; svFrom(i.Position.X,i.Position.Y); recompute(true,realtime) end end)
-    hueHit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then hueDragging=true; hueFrom(i.Position.X); recompute(true,realtime) end end)
+    svHit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then svDragging=true; svFrom(i.Position.X,i.Position.Y); recompute(true,false) end end)
+    hueHit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then hueDragging=true; hueFrom(i.Position.X); recompute(true,false) end end)
     local moveConn=UserInputService.InputChanged:Connect(function(i)
         if i.UserInputType~=Enum.UserInputType.MouseMovement and i.UserInputType~=Enum.UserInputType.Touch then return end
-        if svDragging then svFrom(i.Position.X,i.Position.Y); recompute(true,realtime)
-        elseif hueDragging then hueFrom(i.Position.X); recompute(true,realtime) end
+        if svDragging then svFrom(i.Position.X,i.Position.Y); recompute(true,false)
+        elseif hueDragging then hueFrom(i.Position.X); recompute(true,false) end
     end)
     local endConn=UserInputService.InputEnded:Connect(function(i)
-        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-            svDragging=false; hueDragging=false
-            if not realtime then fire(opts.Callback,value) end
-        end
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then svDragging=false; hueDragging=false end
     end)
-    table.insert(connections,moveConn); table.insert(connections,endConn)
     hexBox.FocusLost:Connect(function()
         local c=hexToColor(hexBox.Text)
         if c then value=c; h,s,v=colorToHSV(c); recompute(true,true) else hexBox.Text=colorToHex(value) end
@@ -2436,13 +2269,7 @@ function SubTab:AddColorPicker(opts)
     local open=false; local cg=0; local oc={}
     local function repo()
         local inset=GuiService:GetGuiInset(); local p,sz=swatch.AbsolutePosition,swatch.AbsoluteSize
-        local x = p.X+inset.X+sz.X-PW
-        local y = p.Y+inset.Y+sz.Y+4
-        local cam = Workspace.CurrentCamera
-        local screenSize = cam and cam.ViewportSize or Vector2.new(1920,1080)
-        x = math.max(inset.X, math.min(x, screenSize.X - PW))
-        y = math.max(inset.Y, math.min(y, screenSize.Y - 168))
-        panel.Position=UDim2.fromOffset(x,y)
+        panel.Position=UDim2.fromOffset(p.X+inset.X+sz.X-PW,p.Y+inset.Y+sz.Y+4)
     end
     local function closePanel()
         if not open then return end; open=false; cg=cg+1
@@ -2450,7 +2277,6 @@ function SubTab:AddColorPicker(opts)
         tween(panel,{Size=UDim2.fromOffset(PW,0)})
         local g=cg; task.delay(0.16,function() if g==cg and not open then panel.Visible=false end end)
     end
-    table.insert(win._popups, function() if open then closePanel() end end)
     local function setOpen(o)
         if open==o then return end
         if o then
@@ -2480,8 +2306,7 @@ function SubTab:AddColorPicker(opts)
         end,
         Get=function() return value end,
         GetHex=function() return colorToHex(value) end,
-        _connections=connections,
-        Disconnect=function(self) for _,c in ipairs(self._connections) do c:Disconnect() end end,
+        _connections={moveConn,endConn},
     }
 end
 

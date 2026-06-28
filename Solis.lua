@@ -1196,15 +1196,19 @@ local function buildMusicPlayer(cfg)
     local musicConns     = cfg.conns
     local opts           = cfg.opts or {}
 
-    local ACCENT_LITE    = Color3.fromRGB(255, 172, 64)
-    local ACTIVE_BG      = Color3.fromRGB(48, 36, 18)
+    local CLOSE_RED      = Color3.fromRGB(190, 60, 60)
+    local CLOSE_RED_HI   = Color3.fromRGB(212, 80, 80)
+    local MIN_YELLOW     = Color3.fromRGB(255, 195, 0)
+    local MIN_YELLOW_HI  = Color3.fromRGB(255, 211, 70)
     local MUSIC_FOLDER   = tostring(opts.MusicFolder or "SolisMusic")
     local musicWidth     = profileWidth
-    local musicHeight    = 470
+    local fullHeight     = 384
+    local compactHeight  = 190
     local profilePanelH  = 382
     local musicOpenPos   = UDim2.new(1, -18, 1, -(bottomMargin + profilePanelH + panelGap))
     local musicClosedPos = UDim2.new(1, musicWidth + 28, 1, -(bottomMargin + profilePanelH + panelGap))
     local musicOpen      = false
+    local minimized      = false
 
     -- 2D audio playback via SoundService
     local SoundService = game:GetService("SoundService")
@@ -1227,8 +1231,6 @@ local function buildMusicPlayer(cfg)
     local tracks       = {}
     local currentIndex = 0
     local isPlaying    = false
-    local shuffleMode  = false
-    local loopMode     = false
     local function baseName(p)
         local n = string.match(tostring(p), "[^/\\]+$") or tostring(p)
         return (string.gsub(n, "%.[%w]+$", ""))
@@ -1238,79 +1240,81 @@ local function buildMusicPlayer(cfg)
         return string.format("%d:%02d", math.floor(t / 60), t % 60)
     end
 
-    -- ── Panel shell ─────────────────────────────────────────────────────────
-    local musicPanel = make("CanvasGroup", { Name = "MusicPlayer", AnchorPoint = Vector2.new(1, 1), Position = musicClosedPos, Size = UDim2.fromOffset(musicWidth, musicHeight), BackgroundColor3 = C.CardBg, GroupTransparency = 1, ClipsDescendants = true, ZIndex = 150, Parent = screenGui })
-    corner(musicPanel, 16); stroke(musicPanel, C.Border)
-    local topAccent = make("Frame", { Size = UDim2.new(1, -40, 0, 2), Position = UDim2.fromOffset(20, 0), BackgroundColor3 = C.Accent, ZIndex = 152, Parent = musicPanel })
-    corner(topAccent, 2)
-    make("UIGradient", { Color = ColorSequence.new(ACCENT_LITE, C.Accent), Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1) }), Parent = topAccent })
+    -- ── Panel shell (compact, matches the profile / performance panels) ─────
+    local musicPanel = make("CanvasGroup", { Name = "MusicPlayer", AnchorPoint = Vector2.new(1, 1), Position = musicClosedPos, Size = UDim2.fromOffset(musicWidth, fullHeight), BackgroundColor3 = C.CardBg, GroupTransparency = 1, ClipsDescendants = true, ZIndex = 150, Parent = screenGui })
+    corner(musicPanel, 14)
 
     -- Header
-    make("TextLabel", { Text = "Music Player", Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Position = UDim2.fromOffset(20, 16), Size = UDim2.new(1, -120, 0, 20), ZIndex = 152, Parent = musicPanel })
-    local subLabel = make("TextLabel", { Text = MUSIC_FOLDER, Font = Enum.Font.GothamMedium, TextSize = 11, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Position = UDim2.fromOffset(20, 37), Size = UDim2.new(1, -120, 0, 14), ZIndex = 152, Parent = musicPanel })
-    local refreshBtn = make("TextButton", { Text = "↻", Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = C.TextGray, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -52, 0, 17), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = C.Element, ZIndex = 152, Parent = musicPanel })
-    corner(refreshBtn, 9); stroke(refreshBtn, C.Border)
-    local musicCloseBtn = make("TextButton", { Text = "✕", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = C.TextGray, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 17), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = C.Element, ZIndex = 152, Parent = musicPanel })
-    corner(musicCloseBtn, 9); stroke(musicCloseBtn, C.Border)
+    make("TextLabel", { Text = "MUSIC PLAYER", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 12), Size = UDim2.new(1, -70, 0, 18), ZIndex = 152, Parent = musicPanel })
+    local subLabel = make("TextLabel", { Text = MUSIC_FOLDER, Font = Enum.Font.Gotham, TextSize = 10, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 30), Size = UDim2.new(1, -70, 0, 14), ZIndex = 152, Parent = musicPanel })
+    make("Frame", { Position = UDim2.new(0, 16, 0, 48), Size = UDim2.new(1, -32, 0, 1), BackgroundColor3 = C.Border, ZIndex = 151, Parent = musicPanel })
+    -- macOS-style traffic lights (minimize = yellow, close = red), matching the main window
+    local controls = make("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 15), Size = UDim2.fromOffset(32, 13), BackgroundTransparency = 1, ZIndex = 152, Parent = musicPanel })
+    local minimizeBtn = make("TextButton", { Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(0, 13, 0, 0), Size = UDim2.fromOffset(13, 13), BackgroundColor3 = MIN_YELLOW, ZIndex = 153, Parent = controls })
+    circle(minimizeBtn)
+    local musicCloseBtn = make("TextButton", { Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(13, 13), BackgroundColor3 = CLOSE_RED, ZIndex = 153, Parent = controls })
+    circle(musicCloseBtn)
 
-    -- Now playing
-    local art = make("Frame", { Position = UDim2.fromOffset(20, 66), Size = UDim2.fromOffset(66, 66), BackgroundColor3 = C.Accent, ZIndex = 152, Parent = musicPanel })
-    corner(art, 14)
-    make("UIGradient", { Rotation = 125, Color = ColorSequence.new(ACCENT_LITE, C.Accent), Parent = art })
-    make("ImageLabel", { Image = ICONS.music, ImageColor3 = C.AccentText, BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(30, 30), ZIndex = 153, Parent = art })
-    local npTitle = make("TextLabel", { Text = "Nothing playing", Font = Enum.Font.GothamBold, TextSize = 15, TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1, Position = UDim2.fromOffset(98, 76), Size = UDim2.new(1, -116, 0, 19), ZIndex = 152, Parent = musicPanel })
-    local npSub = make("TextLabel", { Text = "Add a track to begin", Font = Enum.Font.GothamMedium, TextSize = 12, TextColor3 = C.TextGray, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1, Position = UDim2.fromOffset(98, 98), Size = UDim2.new(1, -116, 0, 16), ZIndex = 152, Parent = musicPanel })
+    -- Now playing (text only — no album-art tile)
+    local npTitle = make("TextLabel", { Text = "Nothing playing", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 58), Size = UDim2.new(1, -32, 0, 18), ZIndex = 152, Parent = musicPanel })
+    local npSub = make("TextLabel", { Text = "Add audio to the " .. MUSIC_FOLDER .. " folder", Font = Enum.Font.GothamMedium, TextSize = 11, TextColor3 = C.TextGray, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 78), Size = UDim2.new(1, -32, 0, 15), ZIndex = 152, Parent = musicPanel })
 
     -- Progress
-    local progBg = make("Frame", { Position = UDim2.fromOffset(20, 148), Size = UDim2.new(1, -40, 0, 5), BackgroundColor3 = C.TrackBg, ZIndex = 152, Parent = musicPanel })
+    local progBg = make("Frame", { Position = UDim2.fromOffset(16, 104), Size = UDim2.new(1, -32, 0, 5), BackgroundColor3 = C.TrackBg, ZIndex = 152, Parent = musicPanel })
     corner(progBg, 3)
     local progFill = make("Frame", { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.Accent, ZIndex = 153, Parent = progBg })
     corner(progFill, 3)
-    local progKnob = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(11, 11), BackgroundColor3 = C.KnobAccent, ZIndex = 154, Parent = progBg })
+    local progKnob = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = C.KnobAccent, ZIndex = 154, Parent = progBg })
     circle(progKnob); stroke(progKnob, C.Accent, 2)
-    local curTime = make("TextLabel", { Text = "0:00", Font = Enum.Font.GothamMedium, TextSize = 10, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Position = UDim2.fromOffset(20, 158), Size = UDim2.fromOffset(60, 12), ZIndex = 152, Parent = musicPanel })
-    local totTime = make("TextLabel", { Text = "0:00", Font = Enum.Font.GothamMedium, TextSize = 10, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 158), Size = UDim2.fromOffset(60, 12), ZIndex = 152, Parent = musicPanel })
+    local curTime = make("TextLabel", { Text = "0:00", Font = Enum.Font.GothamMedium, TextSize = 10, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 114), Size = UDim2.fromOffset(60, 12), ZIndex = 152, Parent = musicPanel })
+    local totTime = make("TextLabel", { Text = "0:00", Font = Enum.Font.GothamMedium, TextSize = 10, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 114), Size = UDim2.fromOffset(60, 12), ZIndex = 152, Parent = musicPanel })
 
-    -- Controls
-    local ctl = make("Frame", { Position = UDim2.fromOffset(0, 180), Size = UDim2.new(1, 0, 0, 52), BackgroundTransparency = 1, ZIndex = 152, Parent = musicPanel })
-    make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 14), Parent = ctl })
-    local function ctlBtn(glyph, size, ts, order)
-        local b = make("TextButton", { Text = glyph, Font = Enum.Font.GothamBold, TextSize = ts, TextColor3 = C.TextGray, Size = UDim2.fromOffset(size, size), BackgroundColor3 = C.Element, LayoutOrder = order, ZIndex = 153, Parent = ctl })
-        circle(b); stroke(b, C.Border)
-        b.MouseEnter:Connect(function() tween(b, { BackgroundColor3 = C.ElementHover }) end)
-        b.MouseLeave:Connect(function() tween(b, { BackgroundColor3 = C.Element }) end)
-        return b
+    -- Controls (image-based transport icons; rewind sized up to match skip's visual weight)
+    local ICON_PREV = "rbxassetid://79890332995329"
+    local ICON_PLAY = "rbxassetid://10269757325"
+    local ICON_NEXT = "rbxassetid://15946567603"
+    local ctl = make("Frame", { Position = UDim2.fromOffset(0, 132), Size = UDim2.new(1, 0, 0, 48), BackgroundTransparency = 1, ZIndex = 152, Parent = musicPanel })
+    make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 16), Parent = ctl })
+    local function iconBtn(imgId, btnSize, imgSize, order)
+        local b = make("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(btnSize, btnSize), LayoutOrder = order, ZIndex = 153, Parent = ctl })
+        local img = make("ImageLabel", { Image = imgId, ImageColor3 = C.TextGray, BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(imgSize, imgSize), ScaleType = Enum.ScaleType.Fit, ZIndex = 154, Parent = b })
+        b.MouseEnter:Connect(function() tween(img, { ImageColor3 = C.White }) end)
+        b.MouseLeave:Connect(function() tween(img, { ImageColor3 = C.TextGray }) end)
+        return b, img
     end
-    local shuffleBtn = ctlBtn("⇄", 34, 15, 1)
-    local prevBtn    = ctlBtn("⏮", 40, 17, 2)
-    local playBtn    = make("TextButton", { Text = "▶", Font = Enum.Font.GothamBold, TextSize = 20, TextColor3 = C.AccentText, Size = UDim2.fromOffset(52, 52), BackgroundColor3 = C.Accent, LayoutOrder = 3, ZIndex = 153, Parent = ctl })
-    circle(playBtn)
-    local nextBtn    = ctlBtn("⏭", 40, 17, 4)
-    local loopBtn    = ctlBtn("↻", 34, 16, 5)
+    local prevBtn = iconBtn(ICON_PREV, 40, 54, 1)
+    -- play / pause (icon only, accent-tinted): play uses a texture, pause is two clean bars
+    local playBtn = make("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(52, 52), LayoutOrder = 2, ZIndex = 153, Parent = ctl })
+    local playImg = make("ImageLabel", { Image = ICON_PLAY, ImageColor3 = C.Accent, BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(34, 34), ScaleType = Enum.ScaleType.Fit, ZIndex = 154, Parent = playBtn })
+    local pauseHolder = make("Frame", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(16, 18), Visible = false, ZIndex = 154, Parent = playBtn })
+    local pb1 = make("Frame", { Size = UDim2.fromOffset(5, 18), Position = UDim2.fromOffset(1, 0), BackgroundColor3 = C.Accent, ZIndex = 155, Parent = pauseHolder }); corner(pb1, 2)
+    local pb2 = make("Frame", { Size = UDim2.fromOffset(5, 18), Position = UDim2.fromOffset(10, 0), BackgroundColor3 = C.Accent, ZIndex = 155, Parent = pauseHolder }); corner(pb2, 2)
+    local nextBtn = iconBtn(ICON_NEXT, 40, 30, 3)
 
     -- Volume
-    local volRow = make("Frame", { Position = UDim2.fromOffset(20, 240), Size = UDim2.new(1, -40, 0, 18), BackgroundTransparency = 1, ZIndex = 152, Parent = musicPanel })
-    make("ImageLabel", { Image = ICONS.volume, ImageColor3 = C.TextGray, BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(15, 15), ZIndex = 153, Parent = volRow })
-    local volBg = make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 26, 0.5, 0), Size = UDim2.new(1, -26, 0, 5), BackgroundColor3 = C.TrackBg, ZIndex = 152, Parent = volRow })
+    local volRow = make("Frame", { Position = UDim2.fromOffset(16, 190), Size = UDim2.new(1, -32, 0, 16), BackgroundTransparency = 1, ZIndex = 152, Parent = musicPanel })
+    make("TextLabel", { Text = "VOL", Font = Enum.Font.GothamBold, TextSize = 9, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 2), Size = UDim2.fromOffset(26, 12), ZIndex = 153, Parent = volRow })
+    local volBg = make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 30, 0.5, 0), Size = UDim2.new(1, -30, 0, 5), BackgroundColor3 = C.TrackBg, ZIndex = 152, Parent = volRow })
     corner(volBg, 3)
     local volFill = make("Frame", { Size = UDim2.new(0.5, 0, 1, 0), BackgroundColor3 = C.Accent, ZIndex = 153, Parent = volBg })
     corner(volFill, 3)
-    local volKnob = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.fromOffset(11, 11), BackgroundColor3 = C.KnobAccent, ZIndex = 154, Parent = volBg })
+    local volKnob = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = C.KnobAccent, ZIndex = 154, Parent = volBg })
     circle(volKnob); stroke(volKnob, C.Accent, 2)
 
-    -- Add row
-    local addBox = make("TextBox", { PlaceholderText = "Asset id or file path…", PlaceholderColor3 = C.Placeholder, Text = "", Font = Enum.Font.GothamMedium, TextSize = 12, TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, BackgroundColor3 = C.Element, Position = UDim2.fromOffset(20, 268), Size = UDim2.new(1, -110, 0, 32), ZIndex = 152, Parent = musicPanel })
-    corner(addBox, 9); stroke(addBox, C.Border); pad(addBox, 0, 0, 12, 12)
-    local addBtn = make("TextButton", { Text = "Add", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = C.AccentText, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 268), Size = UDim2.fromOffset(80, 32), BackgroundColor3 = C.Accent, ZIndex = 152, Parent = musicPanel })
-    corner(addBtn, 9)
+    -- Playlist header (label + refresh)
+    local plLabel = make("TextLabel", { Text = "PLAYLIST", Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Position = UDim2.fromOffset(18, 216), Size = UDim2.fromOffset(120, 14), ZIndex = 152, Parent = musicPanel })
+    local refreshBtn = make("TextButton", { Text = "", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0, 223), Size = UDim2.fromOffset(22, 22), BackgroundColor3 = C.Element, ZIndex = 152, Parent = musicPanel })
+    corner(refreshBtn, 7); stroke(refreshBtn, C.Border)
+    local refreshIcon = make("ImageLabel", { Image = ICONS.refresh, ImageColor3 = C.TextGray, BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(13, 13), ZIndex = 153, Parent = refreshBtn })
 
     -- Playlist
-    make("TextLabel", { Text = "PLAYLIST", Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, Position = UDim2.fromOffset(22, 312), Size = UDim2.new(0.5, 0, 0, 12), ZIndex = 152, Parent = musicPanel })
-    local countLabel = make("TextLabel", { Text = "0 tracks", Font = Enum.Font.GothamMedium, TextSize = 10, TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 312), Size = UDim2.fromOffset(120, 12), ZIndex = 152, Parent = musicPanel })
-    local list = make("ScrollingFrame", { Position = UDim2.fromOffset(16, 330), Size = UDim2.new(1, -32, 1, -346), BackgroundColor3 = C.WindowBg, ScrollBarThickness = 3, ScrollBarImageColor3 = C.Border, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 152, Parent = musicPanel })
+    local list = make("ScrollingFrame", { Position = UDim2.fromOffset(16, 238), Size = UDim2.new(1, -32, 1, -254), BackgroundColor3 = C.WindowBg, ScrollBarThickness = 3, ScrollBarImageColor3 = C.Border, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 152, Parent = musicPanel })
     corner(list, 11); pad(list, 6, 6, 6, 6)
     make("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder, Parent = list })
-    local emptyLbl = make("TextLabel", { Text = "No tracks yet — drop audio files in the\n" .. MUSIC_FOLDER .. " folder, then hit ↻", Font = Enum.Font.GothamMedium, TextSize = 11, TextColor3 = C.TextDim, BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -20, 0, 40), ZIndex = 153, Parent = list })
+    local emptyLbl = make("TextLabel", { Text = "No tracks — drop audio files in the\n" .. MUSIC_FOLDER .. " folder, then hit refresh", Font = Enum.Font.GothamMedium, TextSize = 11, TextColor3 = C.TextDim, BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -20, 0, 40), ZIndex = 153, Parent = list })
+
+    -- elements hidden when minimized
+    local lowerEls = { volRow, plLabel, refreshBtn, list }
 
     -- ── Behaviour ─────────────────────────────────────────────────────────
     local rows = {}
@@ -1323,12 +1327,10 @@ local function buildMusicPlayer(cfg)
             npSub.Text = isPlaying and "Now playing" or "Paused"
         else
             npTitle.Text = "Nothing playing"
-            npSub.Text = (#tracks > 0) and "Select a track" or "Add a track to begin"
+            npSub.Text = (#tracks > 0) and "Select a track" or ("Add audio to the " .. MUSIC_FOLDER .. " folder")
         end
-        playBtn.Text = isPlaying and "⏸" or "▶"
-        local n = #tracks
-        subLabel.Text = MUSIC_FOLDER .. " · " .. n .. " track" .. (n == 1 and "" or "s")
-        countLabel.Text = n .. " track" .. (n == 1 and "" or "s")
+        playImg.Visible = not isPlaying
+        pauseHolder.Visible = isPlaying
     end
 
     function refreshPlaylist()
@@ -1337,16 +1339,22 @@ local function buildMusicPlayer(cfg)
         emptyLbl.Visible = (#tracks == 0)
         for i, t in ipairs(tracks) do
             local active = (i == currentIndex)
-            local row = make("TextButton", { Text = "", Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = active and C.ElementHover or C.Element, LayoutOrder = i, ZIndex = 153, Parent = list })
+            local row = make("TextButton", { Text = "", Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = active and C.ElementHover or C.Element, LayoutOrder = i, ZIndex = 153, Parent = list })
             corner(row, 9)
             if active then stroke(row, C.Accent, 1) end
-            local num = make("Frame", { Position = UDim2.fromOffset(7, 7), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = active and C.Accent or C.CardBg, ZIndex = 154, Parent = row })
+            local num = make("Frame", { Position = UDim2.fromOffset(7, 6), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = active and C.Accent or C.CardBg, ZIndex = 154, Parent = row })
             corner(num, 8)
-            make("TextLabel", { Text = active and (isPlaying and "♪" or "▶") or tostring(i), Font = Enum.Font.GothamBold, TextSize = active and 12 or 11, TextColor3 = active and C.AccentText or C.TextGray, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 155, Parent = num })
+            make("TextLabel", { Text = tostring(i), Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = active and C.AccentText or C.TextGray, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 155, Parent = num })
             make("TextLabel", { Text = t.name, Font = Enum.Font.GothamMedium, TextSize = 12, TextColor3 = active and C.White or C.TextGray, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1, Position = UDim2.fromOffset(42, 0), Size = UDim2.new(1, -76, 1, 0), ZIndex = 154, Parent = row })
-            local rm = make("TextButton", { Text = "✕", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = C.TextDim, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(22, 22), BackgroundTransparency = 1, ZIndex = 155, Parent = row })
+            local rm = make("TextButton", { Text = "", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, ZIndex = 155, Parent = row })
+            local x1 = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(11, 2), BackgroundColor3 = C.TextDim, Rotation = 45, ZIndex = 156, Parent = rm })
+            corner(x1, 1)
+            local x2 = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(11, 2), BackgroundColor3 = C.TextDim, Rotation = -45, ZIndex = 156, Parent = rm })
+            corner(x2, 1)
             row.MouseEnter:Connect(function() if not (currentIndex == i) then tween(row, { BackgroundColor3 = C.ElementHover }) end end)
             row.MouseLeave:Connect(function() if not (currentIndex == i) then tween(row, { BackgroundColor3 = C.Element }) end end)
+            rm.MouseEnter:Connect(function() tween(x1, { BackgroundColor3 = C.White }); tween(x2, { BackgroundColor3 = C.White }) end)
+            rm.MouseLeave:Connect(function() tween(x1, { BackgroundColor3 = C.TextDim }); tween(x2, { BackgroundColor3 = C.TextDim }) end)
             row.MouseButton1Click:Connect(function() playIndex(i) end)
             rm.MouseButton1Click:Connect(function()
                 table.remove(tracks, i)
@@ -1364,10 +1372,7 @@ local function buildMusicPlayer(cfg)
         if i < 1 then i = #tracks elseif i > #tracks then i = 1 end
         local t = tracks[i]
         if not t.id then
-            local p = tostring(t.path)
-            if string.match(p, "^rbxassetid://") then
-                t.id = p
-            elseif assetLoader then
+            if assetLoader then
                 local ok, res = pcall(assetLoader, t.path)
                 if ok and res then t.id = res end
             end
@@ -1394,35 +1399,17 @@ local function buildMusicPlayer(cfg)
     end
     local function nextTrack()
         if #tracks == 0 then return end
-        if shuffleMode and #tracks > 1 then
-            local n = currentIndex
-            while n == currentIndex do n = math.random(1, #tracks) end
-            playIndex(n)
-        else playIndex(currentIndex + 1) end
+        playIndex(currentIndex + 1)
     end
     local function prevTrack()
         if #tracks == 0 then return end
         if musicSound.TimePosition > 3 then musicSound.TimePosition = 0 else playIndex(currentIndex - 1) end
     end
-    local function addDirect(text)
-        text = string.gsub(tostring(text or ""), "^%s+", ""); text = string.gsub(text, "%s+$", "")
-        if text == "" then return end
-        local e
-        if string.match(text, "^rbxassetid://") then
-            e = { name = "Asset " .. (string.match(text, "%d+") or ""), path = text, id = text, direct = true }
-        elseif string.match(text, "^%d+$") then
-            e = { name = "Asset " .. text, path = "rbxassetid://" .. text, id = "rbxassetid://" .. text, direct = true }
-        else
-            e = { name = baseName(text), path = text, direct = true }
-        end
-        table.insert(tracks, e); updateNowPlaying(); refreshPlaylist()
-    end
     local function rescan()
-        if not (fsList and fsIsFolder) then npSub.Text = "File API unavailable — use Add"; updateNowPlaying(); refreshPlaylist(); return end
+        if not (fsList and fsIsFolder) then npSub.Text = "File API unavailable"; updateNowPlaying(); refreshPlaylist(); return end
         if fsMakeFolder and not fsIsFolder(MUSIC_FOLDER) then pcall(fsMakeFolder, MUSIC_FOLDER) end
-        local kept = {}
-        for _, t in ipairs(tracks) do if t.direct then table.insert(kept, t) end end
-        tracks = kept; currentIndex = 0
+        local prev = tracks[currentIndex]
+        tracks = {}; currentIndex = 0
         if fsIsFolder(MUSIC_FOLDER) then
             local ok, files = pcall(fsList, MUSIC_FOLDER)
             if ok and files then
@@ -1430,6 +1417,7 @@ local function buildMusicPlayer(cfg)
                     local lf = string.lower(f)
                     if lf:sub(-4) == ".mp3" or lf:sub(-4) == ".ogg" or lf:sub(-4) == ".wav" or lf:sub(-5) == ".flac" then
                         table.insert(tracks, { name = baseName(f), path = f })
+                        if prev and prev.path == f then currentIndex = #tracks end
                     end
                 end
             end
@@ -1469,19 +1457,9 @@ local function buildMusicPlayer(cfg)
     nextBtn.MouseButton1Click:Connect(nextTrack)
     prevBtn.MouseButton1Click:Connect(prevTrack)
     refreshBtn.MouseButton1Click:Connect(rescan)
-    addBtn.MouseButton1Click:Connect(function() addDirect(addBox.Text); addBox.Text = "" end)
-    addBox.FocusLost:Connect(function(enter) if enter then addDirect(addBox.Text); addBox.Text = "" end end)
-    shuffleBtn.MouseButton1Click:Connect(function()
-        shuffleMode = not shuffleMode
-        shuffleBtn.TextColor3 = shuffleMode and C.Accent or C.TextGray
-        shuffleBtn.BackgroundColor3 = shuffleMode and ACTIVE_BG or C.Element
-    end)
-    loopBtn.MouseButton1Click:Connect(function()
-        loopMode = not loopMode; musicSound.Looped = loopMode
-        loopBtn.TextColor3 = loopMode and C.Accent or C.TextGray
-        loopBtn.BackgroundColor3 = loopMode and ACTIVE_BG or C.Element
-    end)
-    table.insert(musicConns, musicSound.Ended:Connect(function() if not loopMode then nextTrack() end end))
+    refreshBtn.MouseEnter:Connect(function() tween(refreshBtn, { BackgroundColor3 = C.ElementHover }); tween(refreshIcon, { ImageColor3 = C.White }) end)
+    refreshBtn.MouseLeave:Connect(function() tween(refreshBtn, { BackgroundColor3 = C.Element }); tween(refreshIcon, { ImageColor3 = C.TextGray }) end)
+    table.insert(musicConns, musicSound.Ended:Connect(function() nextTrack() end))
     table.insert(musicConns, RunService.RenderStepped:Connect(function()
         if not (musicPanel and musicPanel.Parent) or not musicOpen then return end
         local len = musicSound.TimeLength
@@ -1494,6 +1472,18 @@ local function buildMusicPlayer(cfg)
         end
     end))
     table.insert(musicConns, { Disconnect = function() pcall(function() musicSound:Stop(); musicSound:Destroy() end) end })
+
+    -- Minimize / close (macOS traffic lights)
+    local function setMinimized(m)
+        minimized = (m == true)
+        for _, e in ipairs(lowerEls) do e.Visible = not minimized end
+        TweenService:Create(musicPanel, PROFILE_TWEEN, { Size = UDim2.fromOffset(musicWidth, minimized and compactHeight or fullHeight) }):Play()
+    end
+    minimizeBtn.MouseEnter:Connect(function() tween(minimizeBtn, { BackgroundColor3 = MIN_YELLOW_HI }) end)
+    minimizeBtn.MouseLeave:Connect(function() tween(minimizeBtn, { BackgroundColor3 = MIN_YELLOW }) end)
+    minimizeBtn.MouseButton1Click:Connect(function() setMinimized(not minimized) end)
+    musicCloseBtn.MouseEnter:Connect(function() tween(musicCloseBtn, { BackgroundColor3 = CLOSE_RED_HI }) end)
+    musicCloseBtn.MouseLeave:Connect(function() tween(musicCloseBtn, { BackgroundColor3 = CLOSE_RED }) end)
 
     local function setMusicVisible(v, instant)
         musicOpen = (v == true)

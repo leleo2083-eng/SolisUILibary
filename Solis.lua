@@ -1578,7 +1578,7 @@ function Library:CreateWindow(opts)
     local loadingDuration     = math.clamp(tonumber(opts.LoadingDuration) or 2.65, 1.5, 8)
     local loadingText         = tostring(opts.LoadingText or opts.Name or "Solis")
     local loadingSub          = tostring(opts.LoadingSubtitle or "HUB")
-    local loadingFooter       = tostring(opts.LoadingFooter or "SOLIS UI")
+    local loadingFooter       = tostring(opts.LoadingFooter or opts.Name or "Solis Hub")
     local overlayTransparency = math.clamp(tonumber(opts.LoadingOverlayTransparency) or 0.35, 0, 0.9)
 
     -- accent palette derived from the active theme

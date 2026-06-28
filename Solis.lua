@@ -1232,6 +1232,7 @@ function Library:CreateWindow(opts)
         ZIndex = 2,
         Parent = screenGui,
     })
+    local containerScale = make("UIScale", { Scale = 1, Parent = container })
 
     -- ── LOADING SCREEN ────────────────────────────────────────────────────
     local loadingEnabled          = opts.LoadingAnimation ~= false
@@ -1586,6 +1587,7 @@ function Library:CreateWindow(opts)
     -- ── PROFILE + PERFORMANCE ─────────────────────────────────────────────
     local localPlayer      = Players.LocalPlayer
     local profileKey       = typeof(opts.ProfileKey)=="EnumItem" and opts.ProfileKey or Enum.KeyCode.K
+    local toggleKey        = (opts.ToggleKey==false) and nil or (typeof(opts.ToggleKey)=="EnumItem" and opts.ToggleKey or Enum.KeyCode.RightShift)
     local profileWidth     = math.max(280, tonumber(opts.ProfileWidth) or 312)
     local bottomMargin     = math.max(10,  tonumber(opts.ProfileBottomMargin) or 18)
     local profileOpenPos   = UDim2.new(1,-18,1,-bottomMargin)
@@ -1778,6 +1780,7 @@ function Library:CreateWindow(opts)
         _fpsEditableImage=fpsEditableImage, _profileKey=profileKey,
         _profileOpen=profileOpen, _setProfileVisible=setProfileVisible,
         _connections={}, _noDrag=noDrag, _tabs={}, _activeTab=nil,
+        _containerScale=containerScale, _uiVisible=true, _toggleKey=toggleKey,
     }, Window)
     windowRef.Notify=function(s,m) return Window.Notify(windowRef,s==windowRef and m or s) end
     windowRef.Notification=windowRef.Notify
@@ -1797,6 +1800,13 @@ function Library:CreateWindow(opts)
         end
     end)
     table.insert(windowRef._connections,pkConn)
+    if toggleKey then
+        local tkConn=UserInputService.InputBegan:Connect(function(input,gp)
+            if not loadingComplete or gp or UserInputService:GetFocusedTextBox() then return end
+            if input.KeyCode==toggleKey then windowRef:ToggleUI() end
+        end)
+        table.insert(windowRef._connections,tkConn)
+    end
     table.insert(Library._windowObjects,windowRef)
     if opts.Visible==false then screenGui.Enabled=false end
 

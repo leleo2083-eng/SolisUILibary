@@ -1652,12 +1652,26 @@ function Library:CreateWindow(opts)
     local profileClosedPos = UDim2.new(1,profileWidth+28,1,-bottomMargin)
     local profileOpen      = false
 
+    -- Music player (built further below) — forward declared so the header
+    -- toggle button and setProfileVisible can reference them.
+    local musicOpen     = false
+    local toggleMusic            -- assigned when the music panel is built
+    local closeMusic             -- assigned when the music panel is built
+    local musicConns    = {}     -- connections appended to windowRef._connections
+
     local profilePanel = make("CanvasGroup",{Name="UserProfile",AnchorPoint=Vector2.new(1,1),Position=profileClosedPos,Size=UDim2.fromOffset(profileWidth,382),BackgroundColor3=C.CardBg,GroupTransparency=1,ClipsDescendants=true,ZIndex=150,Parent=screenGui})
     corner(profilePanel,14)
     local profileHeader=make("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,0,0,65),BackgroundTransparency=1,ZIndex=151,Parent=profilePanel})
     make("TextLabel",{Text=opts.ProfileTitle or "PLAYER PROFILE",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(18,13),Size=UDim2.new(1,-36,0,18),ZIndex=152,Parent=profileHeader})
     make("TextLabel",{Text="Live session overview",Font=Enum.Font.Gotham,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(18,34),Size=UDim2.new(1,-36,0,15),ZIndex=152,Parent=profileHeader})
     make("Frame",{Position=UDim2.new(0,18,1,-1),Size=UDim2.new(1,-36,0,1),BackgroundColor3=C.Border,ZIndex=151,Parent=profileHeader})
+    -- Music player toggle (sits to the right of the PLAYER PROFILE title)
+    local musicToggleBtn=make("TextButton",{Name="MusicToggle",Text="",AutoButtonColor=false,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-16,0,14),Size=UDim2.fromOffset(34,34),BackgroundColor3=C.Element,ZIndex=153,Parent=profileHeader})
+    corner(musicToggleBtn,9);stroke(musicToggleBtn,C.Border)
+    local musicToggleIcon=make("ImageLabel",{Image=ICONS.music,BackgroundTransparency=1,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(16,16),ImageColor3=C.TextGray,ZIndex=154,Parent=musicToggleBtn})
+    musicToggleBtn.MouseEnter:Connect(function() if not musicOpen then tween(musicToggleBtn,{BackgroundColor3=C.ElementHover}) end end)
+    musicToggleBtn.MouseLeave:Connect(function() tween(musicToggleBtn,{BackgroundColor3=musicOpen and C.PillActive or C.Element}) end)
+    musicToggleBtn.MouseButton1Click:Connect(function() if toggleMusic then toggleMusic() end end)
     local identityCard=make("Frame",{Position=UDim2.fromOffset(16,82),Size=UDim2.new(1,-32,0,116),BackgroundColor3=C.Element,ZIndex=151,Parent=profilePanel})
     corner(identityCard,11);stroke(identityCard,C.Border)
     local avatarHolder=make("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,14,0.5,0),Size=UDim2.fromOffset(76,76),BackgroundColor3=C.Badge,ZIndex=152,Parent=identityCard})
@@ -1801,8 +1815,322 @@ function Library:CreateWindow(opts)
         statValueLabels[3].Text=tostring(math.floor(hi+0.5))
         redrawFpsGraph()
     end
+    -- ════════════════════════════════════════════════════════════════════
+    -- MUSIC PLAYER — folder-based playlist + direct asset/path loading
+    -- On execution a folder is created; drop .mp3/.ogg/.wav files in it and
+    -- hit refresh, or paste an asset id / file path to add a track directly.
+    -- ════════════════════════════════════════════════════════════════════
+    local MUSIC_FOLDER   = tostring(opts.MusicFolder or "SolisMusic")
+    local musicHeight    = 396
+    local musicGap       = panelGap
+    local profilePanelH  = 382
+    local musicOpenPos   = UDim2.new(1,-18,1,-(bottomMargin+profilePanelH+musicGap))
+    local musicClosedPos = UDim2.new(1,profileWidth+28,1,-(bottomMargin+profilePanelH+musicGap))
+
+    -- 2D audio playback via SoundService
+    local SoundService = game:GetService("SoundService")
+    local musicSound   = Instance.new("Sound")
+    musicSound.Name   = "SolisMusicPlayer"
+    musicSound.Volume = 0.5
+    musicSound.Looped = false
+    pcall(function() musicSound.Parent = SoundService end)
+
+    -- Filesystem / asset capabilities (guarded for non-executor environments)
+    local fsList       = (typeof(listfiles)=="function") and listfiles or nil
+    local fsIsFolder   = (typeof(isfolder)=="function") and isfolder or nil
+    local fsMakeFolder = (typeof(makefolder)=="function") and makefolder or nil
+    local assetLoader  = (typeof(getcustomasset)=="function" and getcustomasset)
+        or (typeof(getsynasset)=="function" and getsynasset) or nil
+    if fsMakeFolder and fsIsFolder and not fsIsFolder(MUSIC_FOLDER) then
+        pcall(fsMakeFolder, MUSIC_FOLDER)
+    end
+
+    local tracks       = {}     -- { {name=, path=, id=, direct=bool} }
+    local currentIndex = 0
+    local isPlaying    = false
+    local shuffleMode  = false
+    local loopMode     = false
+    local function baseName(p)
+        local n = string.match(tostring(p), "[^/\\]+$") or tostring(p)
+        return (string.gsub(n, "%.[%w]+$", ""))
+    end
+    local function fmtTime(t)
+        t = math.max(0, math.floor(t or 0))
+        return string.format("%d:%02d", math.floor(t/60), t%60)
+    end
+
+    -- ── Panel shell ───────────────────────────────────────────────────────
+    local musicPanel=make("CanvasGroup",{Name="MusicPlayer",AnchorPoint=Vector2.new(1,1),Position=musicClosedPos,Size=UDim2.fromOffset(profileWidth,musicHeight),BackgroundColor3=C.CardBg,GroupTransparency=1,ClipsDescendants=true,ZIndex=150,Parent=screenGui})
+    corner(musicPanel,14)
+    local musicHead=make("Frame",{Size=UDim2.new(1,0,0,56),BackgroundTransparency=1,ZIndex=151,Parent=musicPanel})
+    make("TextLabel",{Text="MUSIC PLAYER",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(18,13),Size=UDim2.new(1,-90,0,18),ZIndex=152,Parent=musicHead})
+    make("TextLabel",{Text="Local playlist",Font=Enum.Font.Gotham,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(18,33),Size=UDim2.new(1,-90,0,14),ZIndex=152,Parent=musicHead})
+    make("Frame",{Position=UDim2.new(0,18,1,-1),Size=UDim2.new(1,-36,0,1),BackgroundColor3=C.Border,ZIndex=151,Parent=musicHead})
+    local musicCloseBtn=make("TextButton",{Text="✕",Font=Enum.Font.GothamBold,TextSize=11,TextColor3=C.TextGray,AutoButtonColor=false,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-16,0,16),Size=UDim2.fromOffset(22,22),BackgroundColor3=C.Element,ZIndex=153,Parent=musicHead})
+    corner(musicCloseBtn,7);stroke(musicCloseBtn,C.Border)
+
+    -- ── Now playing card ──────────────────────────────────────────────────
+    local npCard=make("Frame",{Position=UDim2.fromOffset(16,64),Size=UDim2.new(1,-32,0,72),BackgroundColor3=C.Element,ZIndex=151,Parent=musicPanel})
+    corner(npCard,11);stroke(npCard,C.Border)
+    local npArt=make("Frame",{Position=UDim2.fromOffset(10,10),Size=UDim2.fromOffset(52,52),BackgroundColor3=C.Badge,ZIndex=152,Parent=npCard})
+    corner(npArt,9)
+    make("ImageLabel",{Image=ICONS.music,BackgroundTransparency=1,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(22,22),ImageColor3=C.Accent,ZIndex=153,Parent=npArt})
+    local npTitle=make("TextLabel",{Text="No track loaded",Font=Enum.Font.GothamBold,TextSize=12,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(72,14),Size=UDim2.new(1,-86,0,16),ZIndex=152,Parent=npCard})
+    local npStatus=make("TextLabel",{Text="Add MP3 files to get started",Font=Enum.Font.Gotham,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(72,32),Size=UDim2.new(1,-86,0,14),ZIndex=152,Parent=npCard})
+    local progTrack=make("Frame",{AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,72,1,-12),Size=UDim2.new(1,-86,0,4),BackgroundColor3=C.TrackBg,ZIndex=152,Parent=npCard})
+    corner(progTrack,2)
+    local progFill=make("Frame",{Size=UDim2.new(0,0,1,0),BackgroundColor3=C.Accent,ZIndex=153,Parent=progTrack})
+    corner(progFill,2)
+
+    -- ── Transport controls ────────────────────────────────────────────────
+    local controlsRow=make("Frame",{Position=UDim2.fromOffset(16,144),Size=UDim2.new(1,-32,0,42),BackgroundTransparency=1,ZIndex=151,Parent=musicPanel})
+    local playBtn=make("TextButton",{Text="▶",Font=Enum.Font.GothamBold,TextSize=15,TextColor3=C.AccentText,AutoButtonColor=false,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0.5,0),Size=UDim2.fromOffset(42,42),BackgroundColor3=C.Accent,ZIndex=152,Parent=controlsRow})
+    circle(playBtn)
+    local prevBtn=make("TextButton",{Text="◀◀",Font=Enum.Font.GothamBold,TextSize=10,TextColor3=C.White,AutoButtonColor=false,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,-58,0.5,0),Size=UDim2.fromOffset(34,34),BackgroundColor3=C.Element,ZIndex=152,Parent=controlsRow})
+    circle(prevBtn);stroke(prevBtn,C.Border)
+    local nextBtn=make("TextButton",{Text="▶▶",Font=Enum.Font.GothamBold,TextSize=10,TextColor3=C.White,AutoButtonColor=false,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,58,0.5,0),Size=UDim2.fromOffset(34,34),BackgroundColor3=C.Element,ZIndex=152,Parent=controlsRow})
+    circle(nextBtn);stroke(nextBtn,C.Border)
+    local shuffleBtn=make("TextButton",{Text="⇄",Font=Enum.Font.GothamBold,TextSize=14,TextColor3=C.TextGray,AutoButtonColor=false,AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,0,0.5,0),Size=UDim2.fromOffset(32,32),BackgroundColor3=C.Element,ZIndex=152,Parent=controlsRow})
+    circle(shuffleBtn);stroke(shuffleBtn,C.Border)
+    local loopBtn=make("TextButton",{Text="↻",Font=Enum.Font.GothamBold,TextSize=15,TextColor3=C.TextGray,AutoButtonColor=false,AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,0,0.5,0),Size=UDim2.fromOffset(32,32),BackgroundColor3=C.Element,ZIndex=152,Parent=controlsRow})
+    circle(loopBtn);stroke(loopBtn,C.Border)
+
+    -- ── Volume slider ─────────────────────────────────────────────────────
+    local volRow=make("Frame",{Position=UDim2.fromOffset(16,194),Size=UDim2.new(1,-32,0,16),BackgroundTransparency=1,ZIndex=151,Parent=musicPanel})
+    make("TextLabel",{Text="VOL",Font=Enum.Font.GothamBold,TextSize=8,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(0,2),Size=UDim2.fromOffset(26,12),ZIndex=152,Parent=volRow})
+    local volTrack=make("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,30,0.5,0),Size=UDim2.new(1,-30,0,4),BackgroundColor3=C.TrackBg,ZIndex=152,Parent=volRow})
+    corner(volTrack,2)
+    local volFill=make("Frame",{Size=UDim2.new(0.5,0,1,0),BackgroundColor3=C.Accent,ZIndex=153,Parent=volTrack})
+    corner(volFill,2)
+    local volKnob=make("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0.5,0),Size=UDim2.fromOffset(12,12),BackgroundColor3=C.KnobAccent,ZIndex=154,Parent=volTrack})
+    circle(volKnob)
+
+    -- ── Add / refresh row ─────────────────────────────────────────────────
+    local addRow=make("Frame",{Position=UDim2.fromOffset(16,218),Size=UDim2.new(1,-32,0,30),BackgroundTransparency=1,ZIndex=151,Parent=musicPanel})
+    local addBox=make("TextBox",{PlaceholderText="Paste asset id / file path…",PlaceholderColor3=C.Placeholder,Text="",Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,ClearTextOnFocus=false,BackgroundColor3=C.Element,Size=UDim2.new(1,-126,1,0),ZIndex=152,Parent=addRow})
+    corner(addBox,8);stroke(addBox,C.Border);pad(addBox,0,0,10,10)
+    local addBtn=make("TextButton",{Text="Add",Font=Enum.Font.GothamBold,TextSize=11,TextColor3=C.AccentText,AutoButtonColor=false,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-60,0,0),Size=UDim2.fromOffset(54,30),BackgroundColor3=C.Accent,ZIndex=152,Parent=addRow})
+    corner(addBtn,8)
+    local refreshBtn=make("TextButton",{Text="↻",Font=Enum.Font.GothamBold,TextSize=15,TextColor3=C.White,AutoButtonColor=false,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,0),Size=UDim2.fromOffset(50,30),BackgroundColor3=C.Element,ZIndex=152,Parent=addRow})
+    corner(refreshBtn,8);stroke(refreshBtn,C.Border)
+
+    -- ── Playlist ──────────────────────────────────────────────────────────
+    make("TextLabel",{Text="PLAYLIST",Font=Enum.Font.GothamBold,TextSize=9,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(18,254),Size=UDim2.new(0.5,-18,0,12),ZIndex=151,Parent=musicPanel})
+    local trackCountLabel=make("TextLabel",{Text="0 tracks",Font=Enum.Font.GothamMedium,TextSize=9,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Right,BackgroundTransparency=1,Position=UDim2.new(0.5,0,0,254),Size=UDim2.new(0.5,-18,0,12),ZIndex=151,Parent=musicPanel})
+    local playlist=make("ScrollingFrame",{Position=UDim2.fromOffset(16,270),Size=UDim2.new(1,-32,1,-282),BackgroundColor3=C.Element,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=C.Border,CanvasSize=UDim2.new(0,0,0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ZIndex=151,Parent=musicPanel})
+    corner(playlist,10);stroke(playlist,C.Border);pad(playlist,6,6,6,6)
+    make("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,4),Parent=playlist})
+    local emptyHint=make("TextLabel",{Text="Playlist is empty",Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.TextDim,BackgroundTransparency=1,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.new(1,-12,0,18),ZIndex=152,Parent=playlist})
+
+    -- ── Behaviour ─────────────────────────────────────────────────────────
+    local rowByIndex = {}
+    local refreshPlaylist, playIndex, updateNowPlaying
+
+    function updateNowPlaying()
+        local t=tracks[currentIndex]
+        if t then
+            npTitle.Text=t.name
+            if not isPlaying then npStatus.Text="Paused" end
+        else
+            npTitle.Text="No track loaded"
+            npStatus.Text=(#tracks>0) and "Select a track" or "Add MP3 files to get started"
+        end
+        playBtn.Text=isPlaying and "❚❚" or "▶"
+        playBtn.TextSize=isPlaying and 12 or 15
+    end
+
+    function refreshPlaylist()
+        for _,r in pairs(rowByIndex) do r:Destroy() end
+        table.clear(rowByIndex)
+        trackCountLabel.Text=(#tracks==1) and "1 track" or (#tracks.." tracks")
+        emptyHint.Visible=(#tracks==0)
+        for i,t in ipairs(tracks) do
+            local active=(i==currentIndex)
+            local row=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.new(1,0,0,34),BackgroundColor3=active and C.PillActive or C.CardBg,LayoutOrder=i,ZIndex=152,Parent=playlist})
+            corner(row,8)
+            make("TextLabel",{Text=tostring(i),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=active and C.Accent or C.TextDim,TextXAlignment=Enum.TextXAlignment.Center,BackgroundTransparency=1,Position=UDim2.fromOffset(4,0),Size=UDim2.fromOffset(22,34),ZIndex=153,Parent=row})
+            make("TextLabel",{Text=t.name,Font=Enum.Font.GothamMedium,TextSize=11,TextColor3=active and C.White or C.TextGray,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(30,0),Size=UDim2.new(1,-58,1,0),ZIndex=153,Parent=row})
+            local rmBtn=make("TextButton",{Text="✕",Font=Enum.Font.GothamBold,TextSize=10,TextColor3=C.TextDim,AutoButtonColor=false,AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-8,0.5,0),Size=UDim2.fromOffset(20,20),BackgroundTransparency=1,ZIndex=154,Parent=row})
+            row.MouseButton1Click:Connect(function() playIndex(i) end)
+            rmBtn.MouseButton1Click:Connect(function()
+                table.remove(tracks,i)
+                if currentIndex==i then
+                    pcall(function() musicSound:Stop() end); isPlaying=false; currentIndex=0; updateNowPlaying()
+                elseif currentIndex>i then currentIndex=currentIndex-1 end
+                refreshPlaylist()
+            end)
+            rowByIndex[i]=row
+        end
+    end
+
+    function playIndex(i)
+        if #tracks==0 then return end
+        if i<1 then i=#tracks elseif i>#tracks then i=1 end
+        local t=tracks[i]
+        if not t.id then
+            local p=tostring(t.path)
+            if string.match(p,"^rbxassetid://") then
+                t.id=p
+            elseif assetLoader then
+                local ok,res=pcall(assetLoader,t.path)
+                if ok and res then t.id=res end
+            end
+        end
+        if not t.id then
+            currentIndex=i; npTitle.Text=t.name
+            npStatus.Text=assetLoader and "Could not load file" or "Asset loader unavailable"
+            isPlaying=false; updateNowPlaying(); refreshPlaylist(); return
+        end
+        currentIndex=i
+        musicSound.SoundId=t.id
+        musicSound.TimePosition=0
+        pcall(function() musicSound:Play() end)
+        isPlaying=true
+        npStatus.Text="Now playing"
+        updateNowPlaying(); refreshPlaylist()
+    end
+
+    local function togglePlay()
+        if #tracks==0 then return end
+        if currentIndex==0 then playIndex(1); return end
+        if isPlaying then pcall(function() musicSound:Pause() end); isPlaying=false
+        else pcall(function() musicSound:Resume() end); isPlaying=true; npStatus.Text="Now playing" end
+        updateNowPlaying()
+    end
+    local function nextTrack()
+        if #tracks==0 then return end
+        if shuffleMode and #tracks>1 then
+            local n=currentIndex
+            while n==currentIndex do n=math.random(1,#tracks) end
+            playIndex(n)
+        else playIndex(currentIndex+1) end
+    end
+    local function prevTrack()
+        if #tracks==0 then return end
+        if musicSound.TimePosition>3 then musicSound.TimePosition=0; return end
+        playIndex(currentIndex-1)
+    end
+
+    local function addDirect(text)
+        text=string.gsub(tostring(text or ""),"^%s+","")
+        text=string.gsub(text,"%s+$","")
+        if text=="" then return end
+        local entry
+        if string.match(text,"^rbxassetid://") then
+            entry={name="Asset "..(string.match(text,"%d+") or ""),path=text,id=text,direct=true}
+        elseif string.match(text,"^%d+$") then
+            local idu="rbxassetid://"..text
+            entry={name="Asset "..text,path=idu,id=idu,direct=true}
+        else
+            entry={name=baseName(text),path=text,direct=true}
+        end
+        table.insert(tracks,entry)
+        refreshPlaylist()
+        if currentIndex==0 then updateNowPlaying() end
+    end
+
+    local function rescan()
+        if not (fsList and fsIsFolder) then
+            npStatus.Text="File API unavailable — use Add"
+            refreshPlaylist(); return
+        end
+        if fsMakeFolder and not fsIsFolder(MUSIC_FOLDER) then pcall(fsMakeFolder,MUSIC_FOLDER) end
+        if not fsIsFolder(MUSIC_FOLDER) then refreshPlaylist(); return end
+        local ok,files=pcall(fsList,MUSIC_FOLDER)
+        if not ok or not files then refreshPlaylist(); return end
+        local kept={}
+        for _,t in ipairs(tracks) do if t.direct then table.insert(kept,t) end end
+        tracks=kept; currentIndex=0
+        for _,f in ipairs(files) do
+            local lf=string.lower(f)
+            if lf:sub(-4)==".mp3" or lf:sub(-4)==".ogg" or lf:sub(-4)==".wav" or lf:sub(-5)==".flac" then
+                table.insert(tracks,{name=baseName(f),path=f})
+            end
+        end
+        refreshPlaylist(); updateNowPlaying()
+    end
+
+    -- Volume
+    local function applyVolume(frac)
+        frac=math.clamp(frac,0,1)
+        musicSound.Volume=frac
+        volFill.Size=UDim2.new(frac,0,1,0)
+        volKnob.Position=UDim2.new(frac,0,0.5,0)
+    end
+    applyVolume(0.5)
+    local volDragging=false
+    volTrack.InputBegan:Connect(function(input)
+        if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+            volDragging=true
+            applyVolume((input.Position.X-volTrack.AbsolutePosition.X)/math.max(1,volTrack.AbsoluteSize.X))
+        end
+    end)
+    volTrack.InputEnded:Connect(function(input)
+        if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then volDragging=false end
+    end)
+    table.insert(musicConns, UserInputService.InputChanged:Connect(function(input)
+        if volDragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+            applyVolume((input.Position.X-volTrack.AbsolutePosition.X)/math.max(1,volTrack.AbsoluteSize.X))
+        end
+    end))
+
+    -- Wire control buttons
+    playBtn.MouseButton1Click:Connect(togglePlay)
+    nextBtn.MouseButton1Click:Connect(nextTrack)
+    prevBtn.MouseButton1Click:Connect(prevTrack)
+    addBtn.MouseButton1Click:Connect(function() addDirect(addBox.Text); addBox.Text="" end)
+    addBox.FocusLost:Connect(function(enter) if enter then addDirect(addBox.Text); addBox.Text="" end end)
+    refreshBtn.MouseButton1Click:Connect(rescan)
+    shuffleBtn.MouseButton1Click:Connect(function()
+        shuffleMode=not shuffleMode
+        shuffleBtn.TextColor3=shuffleMode and C.Accent or C.TextGray
+        shuffleBtn.BackgroundColor3=shuffleMode and C.PillActive or C.Element
+    end)
+    loopBtn.MouseButton1Click:Connect(function()
+        loopMode=not loopMode; musicSound.Looped=loopMode
+        loopBtn.TextColor3=loopMode and C.Accent or C.TextGray
+        loopBtn.BackgroundColor3=loopMode and C.PillActive or C.Element
+    end)
+    table.insert(musicConns, musicSound.Ended:Connect(function()
+        if loopMode then return end
+        nextTrack()
+    end))
+    -- Progress updater (only works while the panel is open)
+    table.insert(musicConns, RunService.RenderStepped:Connect(function()
+        if not (musicPanel and musicPanel.Parent) or not musicOpen then return end
+        local len=musicSound.TimeLength
+        if isPlaying and len and len>0 then
+            local frac=math.clamp(musicSound.TimePosition/len,0,1)
+            progFill.Size=UDim2.new(frac,0,1,0)
+            npStatus.Text=string.format("%s / %s", fmtTime(musicSound.TimePosition), fmtTime(len))
+        end
+    end))
+    -- Clean up the Sound instance when the window is destroyed
+    table.insert(musicConns, { Disconnect=function() pcall(function() musicSound:Stop(); musicSound:Destroy() end) end })
+
+    local function setMusicVisible(v,instant)
+        musicOpen=(v==true)
+        local tp=musicOpen and musicOpenPos or musicClosedPos
+        local tr=musicOpen and 0 or 1
+        if instant then
+            musicPanel.Position=tp; musicPanel.GroupTransparency=tr
+        else
+            TweenService:Create(musicPanel,PROFILE_TWEEN,{Position=tp,GroupTransparency=tr}):Play()
+        end
+        if musicToggleBtn then musicToggleBtn.BackgroundColor3=musicOpen and C.PillActive or C.Element end
+        if musicToggleIcon then musicToggleIcon.ImageColor3=musicOpen and C.Accent or C.TextGray end
+        if musicOpen and #tracks==0 then rescan() end
+    end
+    toggleMusic=function() setMusicVisible(not musicOpen) end
+    closeMusic=function(instant) setMusicVisible(false,instant) end
+    musicCloseBtn.MouseButton1Click:Connect(function() setMusicVisible(false) end)
+
+    rescan()        -- populate from folder on startup (quietly if no FS)
+    updateNowPlaying()
+
     local function setProfileVisible(visible,instant)
         profileOpen=visible==true
+        if not profileOpen and closeMusic then closeMusic(instant) end
         local tp=profileOpen and profileOpenPos or profileClosedPos
         local ep=profileOpen and performanceOpenPos or performanceClosedPos
         local tr=profileOpen and 0 or 1
@@ -1843,6 +2171,7 @@ function Library:CreateWindow(opts)
     windowRef.Notify=function(s,m) return Window.Notify(windowRef,s==windowRef and m or s) end
     windowRef.Notification=windowRef.Notify
     if dragConn then table.insert(windowRef._connections, dragConn) end
+    for _,c in ipairs(musicConns) do table.insert(windowRef._connections, c) end
 
     local ffc=0; local fe=0
     local fpsConn=RunService.RenderStepped:Connect(function(dt)

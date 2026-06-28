@@ -1522,6 +1522,10 @@ function Library:CreateWindow(opts)
     local windowPosition = opts.Position or UDim2.fromScale(0.5, 0.5)
     local guiName        = opts.GuiName or "SolisUI"
 
+    -- Mobile detection (auto, or forced via opts.Mobile = true/false)
+    local isMobile = (opts.Mobile == true)
+        or (opts.Mobile ~= false and UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+
     local HOTBAR_HEIGHT  = 36
     local HOTBAR_GAP     = 8
 
@@ -2213,6 +2217,84 @@ function Library:CreateWindow(opts)
         end)
         table.insert(windowRef._connections,tkConn)
     end
+
+    -- ── MOBILE / RESPONSIVE SCALING ──────────────────────────────────────
+    -- The side panels live directly under the ScreenGui (not the container),
+    -- so each gets its own UIScale that we drive together with the container.
+    local function ensureScale(inst)
+        if not inst then return nil end
+        local us = inst:FindFirstChildOfClass("UIScale")
+        if not us then us = make("UIScale", { Scale = 1, Parent = inst }) end
+        return us
+    end
+    local musicPanel = screenGui:FindFirstChild("MusicPlayer")
+    local scaleList = {}
+    for _, inst in ipairs({ profilePanel, performancePanel, musicPanel, burgerButton }) do
+        local us = ensureScale(inst); if us then table.insert(scaleList, us) end
+    end
+    local userScale = tonumber(opts.Scale) or 1
+    local function applyResponsiveScale()
+        local cam = Workspace.CurrentCamera
+        local vp = (cam and cam.ViewportSize) or Vector2.new(1280, 720)
+        local s = 1
+        if isMobile then
+            local sx = (vp.X * 0.96) / math.max(1, containerW)
+            local sy = (vp.Y * 0.90) / math.max(1, containerH)
+            s = math.clamp(math.min(sx, sy, 1), 0.4, 1)
+        end
+        s = s * userScale
+        containerScale.Scale = s
+        for _, us in ipairs(scaleList) do us.Scale = s end
+    end
+    applyResponsiveScale()
+    do
+        local cam = Workspace.CurrentCamera
+        if cam then
+            table.insert(windowRef._connections, cam:GetPropertyChangedSignal("ViewportSize"):Connect(applyResponsiveScale))
+        end
+    end
+
+    -- ── UI VISIBILITY TOGGLE (keyboard-free; drives the floating button) ──
+    local uiHidden = false
+    local function setUIVisible(v)
+        v = (v ~= false)
+        uiHidden = not v
+        container.Visible = v
+        hotbar.Visible = v and not minimized
+        if burgerButton then burgerButton.Visible = v and minimized end
+        windowRef._uiVisible = v
+        return v
+    end
+    windowRef._setUIVisible = setUIVisible
+
+    -- On mobile there is no toggle key, so add a draggable floating button.
+    if isMobile then
+        local fab = make("TextButton", {
+            Name = "SolisMobileToggle", Text = "", AutoButtonColor = false,
+            AnchorPoint = Vector2.new(0, 0), Position = UDim2.fromOffset(14, 14),
+            Size = UDim2.fromOffset(46, 46), BackgroundColor3 = C.CardBg,
+            ZIndex = 60, Parent = screenGui,
+        })
+        corner(fab, 12); stroke(fab, C.Border)
+        make("ImageLabel", { Image = logoAsset, BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(26, 26), ScaleType = Enum.ScaleType.Fit, ZIndex = 61, Parent = fab })
+        local fabDrag = makeDraggable(fab, {})
+        if fabDrag then table.insert(windowRef._connections, fabDrag) end
+        -- distinguish a tap (toggle) from a drag (move) using a movement threshold
+        local downPos
+        fab.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                downPos = input.Position
+            end
+        end)
+        fab.InputEnded:Connect(function(input)
+            if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) and downPos then
+                local moved = (input.Position - downPos).Magnitude
+                downPos = nil
+                if moved < 8 then setUIVisible(uiHidden) end
+            end
+        end)
+    end
+
     table.insert(Library._windowObjects,windowRef)
     if opts.Visible==false then screenGui.Enabled=false end
 
@@ -2246,6 +2328,11 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 function Window:SetVisible(v) self.ScreenGui.Enabled = v==true end
 function Window:Toggle() self.ScreenGui.Enabled = not self.ScreenGui.Enabled; return self.ScreenGui.Enabled end
+function Window:SetUIVisible(v)
+    if self._setUIVisible then return self._setUIVisible(v==true) end
+    self.ScreenGui.Enabled = v==true; return v==true
+end
+function Window:ToggleUI() return self:SetUIVisible(not self._uiVisible) end
 function Window:SetProfileVisible(v)
     if not self._setProfileVisible then return false end
     self._profileOpen=self._setProfileVisible(v==true); return self._profileOpen

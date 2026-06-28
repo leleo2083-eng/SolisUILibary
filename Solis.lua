@@ -1,6 +1,6 @@
 --[[
-    Solis UI v2.2 — single-file Roblox UI library
-    
+    Solis UI v2.3 — single-file Roblox UI library
+
     FEATURES:
       • Built-in icon library with 40+ curated icons
       • Hotbar auto-scales width to match tab count
@@ -10,6 +10,16 @@
       • Dropdown: MaxVisible, Searchable, SetOptions, Refresh
       • Integrated Global Tag System — fixed-size screen-space tags
         that match the UI style with traveling glow animation
+
+    NEW IN v2.3:
+      • Flag + Config system — give any toggle/slider/dropdown/input/
+        keybind/colorpicker a `Flag` and persist it to disk:
+            Library:SaveConfig("name"), Library:LoadConfig("name"),
+            Library:ListConfigs(), Library:DeleteConfig("name"),
+            Library:GetFlag(flag), Library:SetFlag(flag, value)
+      • Proper connection cleanup — sliders, color pickers, keybinds and
+        window dragging no longer leak UserInputService connections; they
+        are tracked per-window and disconnected on Window:Destroy().
 ]]
 
 local TweenService     = game:GetService("TweenService")
@@ -165,6 +175,10 @@ local C = {
     HotbarActive = Color3.fromRGB(31, 31, 31),
     HotbarHover  = Color3.fromRGB(38, 38, 38),
     HotbarDot    = Color3.fromRGB(220, 220, 220),
+    Accent       = Color3.fromRGB(253, 128, 0),
+    AccentDim    = Color3.fromRGB(120, 64, 14),
+    AccentText   = Color3.fromRGB(20, 14, 6),
+    KnobAccent   = Color3.fromRGB(255, 255, 255),
 }
 
 local THEMES = {
@@ -192,6 +206,10 @@ local THEMES = {
         HotbarActive = Color3.fromRGB(235, 235, 235),
         HotbarHover  = Color3.fromRGB(229, 229, 229),
         HotbarDot    = Color3.fromRGB(60, 60, 60),
+        Accent       = Color3.fromRGB(245, 120, 0),
+        AccentDim    = Color3.fromRGB(255, 206, 158),
+        AccentText   = Color3.fromRGB(255, 255, 255),
+        KnobAccent   = Color3.fromRGB(255, 255, 255),
     },
     OLED = {
         WindowBg     = Color3.fromRGB(0, 0, 0),
@@ -216,6 +234,10 @@ local THEMES = {
         HotbarActive = Color3.fromRGB(12, 12, 12),
         HotbarHover  = Color3.fromRGB(20, 20, 20),
         HotbarDot    = Color3.fromRGB(200, 200, 200),
+        Accent       = Color3.fromRGB(255, 138, 12),
+        AccentDim    = Color3.fromRGB(110, 58, 10),
+        AccentText   = Color3.fromRGB(10, 7, 2),
+        KnobAccent   = Color3.fromRGB(255, 255, 255),
     },
 }
 
@@ -354,7 +376,7 @@ local function makeDraggable(frame, blockers)
             if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
     end)
-    UserInputService.InputChanged:Connect(function(input)
+    local dragConn = UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
             or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
@@ -364,6 +386,7 @@ local function makeDraggable(frame, blockers)
             )
         end
     end)
+    return dragConn
 end
 
 local function sortIcon(parent)
@@ -918,10 +941,12 @@ end
 -- LIBRARY
 -- ════════════════════════════════════════════════════════════════════════════
 local Library = {
-    Version       = "2.2",
+    Version       = "2.3",
     Themes        = THEMES,
     Icons         = ICONS,
     DefaultLogo   = DEFAULT_LOGO,
+    Flags         = {},        -- [flag] = { kind = <string>, api = <handle> }
+    ConfigFolder  = "SolisUI/configs",
     _windows      = {},
     _windowObjects= {},
     _currentTheme = "Dark",
@@ -930,6 +955,25 @@ local Library = {
 local Window = {}; Window.__index = Window
 local Tab    = {};    Tab.__index = Tab
 local SubTab = {}; SubTab.__index = SubTab
+
+-- Track a connection against a window so Window:Destroy() can clean it up.
+-- This prevents leaked UserInputService connections from sliders, color
+-- pickers, keybinds and dragging that previously lived for the whole session.
+local function trackConn(window, conn)
+    if window and window._connections and conn then
+        table.insert(window._connections, conn)
+    end
+    return conn
+end
+
+-- Register an interactive element under a Flag so its value can be read,
+-- written and persisted through the config system.
+local function registerFlag(flag, kind, api)
+    if flag ~= nil and api then
+        Library.Flags[tostring(flag)] = { kind = kind, api = api }
+    end
+    return api
+end
 
 local THEME_PROPS = { "BackgroundColor3", "TextColor3", "PlaceholderColor3", "ScrollBarImageColor3", "Color" }
 
@@ -973,6 +1017,145 @@ function Library:GetTheme() return Library._currentTheme end
 function Library:GetIcons() return ICONS end
 function Library:GetIcon(name) return ICONS[string.lower(tostring(name or ""))] end
 
+-- ════════════════════════════════════════════════════════════════════════════
+-- FLAGS + CONFIG PERSISTENCE
+-- ════════════════════════════════════════════════════════════════════════════
+-- Read the live value of a flagged element.
+function Library:GetFlag(flag, default)
+    local entry = Library.Flags[tostring(flag)]
+    if not entry or not entry.api or not entry.api.Get then return default end
+    local ok, value = pcall(entry.api.Get, entry.api)
+    if ok and value ~= nil then return value end
+    return default
+end
+
+-- Write a value into a flagged element (mirrors api:Set).
+function Library:SetFlag(flag, value)
+    local entry = Library.Flags[tostring(flag)]
+    if not entry or not entry.api or not entry.api.Set then return false end
+    pcall(entry.api.Set, entry.api, value)
+    return true
+end
+
+-- Capture every flag into a plain, JSON-serialisable table.
+function Library:GetConfig()
+    local data = {}
+    for flag, entry in pairs(Library.Flags) do
+        local api = entry.api
+        if api then
+            local ok, value
+            if entry.kind == "color" and api.GetHex then
+                ok, value = pcall(api.GetHex, api)
+            elseif api.Get then
+                ok, value = pcall(api.Get, api)
+            end
+            if ok and value ~= nil then
+                if entry.kind == "keybind" then
+                    -- value is an EnumItem (or nil) -> store its name
+                    data[flag] = (typeof(value) == "EnumItem") and value.Name or false
+                else
+                    data[flag] = value
+                end
+            end
+        end
+    end
+    return data
+end
+
+-- Apply a config table (as produced by GetConfig) back onto the elements.
+function Library:LoadConfigData(data)
+    if type(data) ~= "table" then return false end
+    for flag, value in pairs(data) do
+        local entry = Library.Flags[tostring(flag)]
+        if entry and entry.api and entry.api.Set then
+            if entry.kind == "keybind" then
+                local key = nil
+                if type(value) == "string" then
+                    pcall(function() key = Enum.KeyCode[value] end)
+                end
+                pcall(entry.api.Set, entry.api, key)
+            else
+                pcall(entry.api.Set, entry.api, value)
+            end
+        end
+    end
+    return true
+end
+
+-- ── File-system helpers (executor environment) ──────────────────────────────
+local function hasFileApi()
+    return type(writefile) == "function" and type(readfile) == "function"
+end
+local function ensureConfigFolder()
+    if type(makefolder) ~= "function" or type(isfolder) ~= "function" then return end
+    local parts = string.split(Library.ConfigFolder, "/")
+    local path = ""
+    for _, part in ipairs(parts) do
+        if part ~= "" then
+            path = (path == "") and part or (path .. "/" .. part)
+            if not isfolder(path) then pcall(makefolder, path) end
+        end
+    end
+end
+local function configPath(name)
+    name = tostring(name or "default"):gsub("[^%w%-_ ]", "")
+    if name == "" then name = "default" end
+    return Library.ConfigFolder .. "/" .. name .. ".json"
+end
+
+-- Persist the current state of all flags to a named config file.
+function Library:SaveConfig(name)
+    if not hasFileApi() then
+        warn("[Solis UI] SaveConfig requires an executor file API (writefile)")
+        return false
+    end
+    ensureConfigFolder()
+    local ok, encoded = pcall(function()
+        return HttpService:JSONEncode(Library:GetConfig())
+    end)
+    if not ok then warn("[Solis UI] SaveConfig failed to encode config"); return false end
+    local wrote = pcall(writefile, configPath(name), encoded)
+    if not wrote then warn("[Solis UI] SaveConfig failed to write file"); return false end
+    return true
+end
+
+-- Load a named config file and apply it to all matching flags.
+function Library:LoadConfig(name)
+    if not hasFileApi() then
+        warn("[Solis UI] LoadConfig requires an executor file API (readfile)")
+        return false
+    end
+    local path = configPath(name)
+    if type(isfile) == "function" and not isfile(path) then return false end
+    local ok, raw = pcall(readfile, path)
+    if not ok or not raw then return false end
+    local decoded, data = pcall(function() return HttpService:JSONDecode(raw) end)
+    if not decoded then warn("[Solis UI] LoadConfig failed to decode config"); return false end
+    return Library:LoadConfigData(data)
+end
+
+-- List saved config names (without extension).
+function Library:ListConfigs()
+    local out = {}
+    if type(listfiles) ~= "function" then return out end
+    ensureConfigFolder()
+    local ok, files = pcall(listfiles, Library.ConfigFolder)
+    if not ok or type(files) ~= "table" then return out end
+    for _, file in ipairs(files) do
+        local name = string.match(tostring(file), "([^/\\]+)%.json$")
+        if name then table.insert(out, name) end
+    end
+    return out
+end
+
+-- Delete a saved config file.
+function Library:DeleteConfig(name)
+    if type(delfile) ~= "function" then return false end
+    local path = configPath(name)
+    if type(isfile) == "function" and not isfile(path) then return false end
+    return (pcall(delfile, path))
+end
+
 function Library:Notify(opts)
     for index = #Library._windowObjects, 1, -1 do
         local window = Library._windowObjects[index]
@@ -990,6 +1173,7 @@ function Library:DestroyAll()
     for _, screenGui in ipairs(windows) do if screenGui then screenGui:Destroy() end end
     table.clear(Library._windows)
     table.clear(Library._windowObjects or {})
+    table.clear(Library.Flags)
 end
 
 function Library:CreateWindow(opts)
@@ -1358,7 +1542,7 @@ function Library:CreateWindow(opts)
         else if screenGui then screenGui:Destroy() end end
     end)
     minimizeBtn.MouseButton1Click:Connect(function() setMinimized(true) end)
-    makeDraggable(container, noDrag)
+    local dragConn = makeDraggable(container, noDrag)
 
     -- ── SIDEBAR ───────────────────────────────────────────────────────────
     local sidebar = make("Frame", { Size=UDim2.new(0,190,1,0), BackgroundTransparency=1, Parent=main })
@@ -1370,10 +1554,25 @@ function Library:CreateWindow(opts)
     local brandLogo = make("ImageLabel",{Name="Logo",Image=logoAsset,BackgroundTransparency=1,Position=UDim2.fromOffset(3,3),Size=UDim2.new(1,-6,1,-6),ScaleType=Enum.ScaleType.Fit,Parent=logoHolder})
     make("TextLabel",{Text=opts.Name or "Solis UI",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,9),Size=UDim2.new(1,-62,0,17),Parent=brand})
     make("TextLabel",{Text=opts.BrandSubtitle or ("SOLIS FREE..."..Library.Version),Font=Enum.Font.GothamMedium,TextSize=9,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,28),Size=UDim2.new(1,-62,0,13),Parent=brand})
+
+    -- Player mini-card (fills the sidebar and gives identity at a glance)
+    local lp = Players.LocalPlayer
+    local pcard = make("Frame",{Name="PlayerCard",Position=UDim2.fromOffset(12,78),Size=UDim2.new(1,-24,0,52),BackgroundColor3=C.CardBg,Parent=sidebar})
+    corner(pcard,10); stroke(pcard,C.Border)
+    local avH = make("Frame",{Position=UDim2.fromOffset(8,8),Size=UDim2.fromOffset(36,36),BackgroundColor3=C.Element,Parent=pcard}); corner(avH,8)
+    local avImg = make("ImageLabel",{Image="rbxthumb://type=AvatarHeadShot&id="..lp.UserId.."&w=150&h=150",BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ScaleType=Enum.ScaleType.Crop,Parent=avH}); corner(avImg,8)
+    local avRing = stroke(avH,C.Accent); avRing.Transparency=0.4
+    make("TextLabel",{Text=lp.DisplayName,Font=Enum.Font.GothamBold,TextSize=12,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(52,10),Size=UDim2.new(1,-60,0,15),Parent=pcard})
+    make("TextLabel",{Text="@"..lp.Name,Font=Enum.Font.Gotham,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(52,28),Size=UDim2.new(1,-60,0,13),Parent=pcard})
+
+    -- Faint centered logo watermark fills the otherwise empty sidebar space
+    local watermark = make("ImageLabel",{Name="Watermark",Image=logoAsset,BackgroundTransparency=1,ImageTransparency=0.92,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0.5,24),Size=UDim2.fromOffset(118,118),ScaleType=Enum.ScaleType.Fit,ZIndex=0,Parent=sidebar})
+
     local statusDot = make("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,16,1,-19),Size=UDim2.fromOffset(6,6),BackgroundColor3=NOTIFICATION_STYLES.success.Color,Parent=sidebar})
     circle(statusDot)
     make("TextLabel",{Text=opts.StatusText or "Solis is ready",Font=Enum.Font.GothamMedium,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.new(0,28,1,-27),Size=UDim2.new(1,-40,0,16),Parent=sidebar})
-    make("Frame",{Position=UDim2.fromOffset(190,0),Size=UDim2.new(0,1,1,0),BackgroundColor3=C.Border,Parent=main})
+    local divLine=make("Frame",{Position=UDim2.fromOffset(190,0),Size=UDim2.new(0,1,1,0),BackgroundColor3=C.Accent,Parent=main})
+    make("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.5,0.5),NumberSequenceKeypoint.new(1,1)}),Parent=divLine})
     local content = make("Frame",{Position=UDim2.fromOffset(191,0),Size=UDim2.new(1,-191,1,0),BackgroundTransparency=1,Parent=main})
 
     -- ── NOTIFICATIONS ─────────────────────────────────────────────────────
@@ -1582,6 +1781,7 @@ function Library:CreateWindow(opts)
     }, Window)
     windowRef.Notify=function(s,m) return Window.Notify(windowRef,s==windowRef and m or s) end
     windowRef.Notification=windowRef.Notify
+    if dragConn then table.insert(windowRef._connections, dragConn) end
 
     local ffc=0; local fe=0
     local fpsConn=RunService.RenderStepped:Connect(function(dt)
@@ -1744,7 +1944,7 @@ function Window:AddTab(opts)
 
     local hDot=make("Frame",{
         AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,1,4),
-        Size=UDim2.fromOffset(4,4), BackgroundColor3=C.HotbarDot,
+        Size=UDim2.fromOffset(4,4), BackgroundColor3=C.Accent,
         BackgroundTransparency=1, ZIndex=6, Parent=hBtn,
     })
     circle(hDot)
@@ -1832,21 +2032,23 @@ function SubTab:AddToggle(opts)
     circle(knob)
     local function render(a)
         local kp=value and UDim2.new(0,18,0.5,0) or UDim2.new(0,2,0.5,0)
-        paint(pill,"BackgroundColor3",value and "White" or "Badge",not a)
-        paint(knob,"BackgroundColor3",value and "KnobOn" or "KnobOff",not a)
+        paint(pill,"BackgroundColor3",value and "Accent" or "Badge",not a)
+        paint(knob,"BackgroundColor3",value and "KnobAccent" or "KnobOff",not a)
         if a then tween(knob,{Position=kp}) else knob.Position=kp end
     end
     local function set(v) v=v==true; if v==value then return end; value=v; render(true); fire(opts.Callback,value) end
     pill.MouseButton1Click:Connect(function() set(not value) end); render(false)
-    return {Set=function(_,v) set(v) end, Get=function() return value end}
+    return registerFlag(opts.Flag, "toggle", {Set=function(_,v) set(v) end, Get=function() return value end})
 end
 
 function SubTab:AddButton(opts)
     opts=opts or {}
-    local btn=make("TextButton",{Text=opts.Name or "Button",Font=Enum.Font.GothamMedium,TextSize=12,TextColor3=C.TextGray,Size=UDim2.new(1,0,0,28),BackgroundColor3=C.Element,Parent=self._card})
+    local primary=opts.Primary==true or opts.Style=="primary"
+    local btn=make("TextButton",{Text=opts.Name or "Button",Font=Enum.Font.GothamMedium,TextSize=12,TextColor3=primary and C.AccentText or C.TextGray,Size=UDim2.new(1,0,0,28),BackgroundColor3=primary and C.Accent or C.Element,Parent=self._card})
     autoOrder(btn);corner(btn,6)
-    btn.MouseEnter:Connect(function() tween(btn,{BackgroundColor3=C.ElementHover}) end)
-    btn.MouseLeave:Connect(function() tween(btn,{BackgroundColor3=C.Element}) end)
+    if primary then btn.Font=Enum.Font.GothamBold end
+    btn.MouseEnter:Connect(function() if primary then tween(btn,{BackgroundTransparency=0.14}) else tween(btn,{BackgroundColor3=C.ElementHover}) end end)
+    btn.MouseLeave:Connect(function() if primary then tween(btn,{BackgroundTransparency=0}) else tween(btn,{BackgroundColor3=C.Element}) end end)
     btn.MouseButton1Click:Connect(function() fire(opts.Callback) end)
     return btn
 end
@@ -1854,8 +2056,10 @@ end
 function SubTab:AddSection(opts)
     if type(opts)=="string" then opts={Name=opts} end; opts=opts or {}
     local row=make("Frame",{Size=UDim2.new(1,0,0,22),BackgroundTransparency=1,Parent=self._card}); autoOrder(row)
-    make("TextLabel",{Text=string.upper(tostring(opts.Name or "Section")),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Bottom,BackgroundTransparency=1,Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,0,1,-3),Parent=row})
+    local tick=make("Frame",{AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,0,1,-4),Size=UDim2.fromOffset(3,11),BackgroundColor3=C.Accent,Parent=row}); corner(tick,2)
+    make("TextLabel",{Text=string.upper(tostring(opts.Name or "Section")),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=C.TextGray,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Bottom,BackgroundTransparency=1,Position=UDim2.fromOffset(9,0),Size=UDim2.new(1,-9,1,-3),Parent=row})
     make("Frame",{Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=C.Border,Parent=row})
+    local accentUnderline=make("Frame",{Position=UDim2.new(0,0,1,-1),Size=UDim2.fromOffset(28,1),BackgroundColor3=C.Accent,Parent=row})
     return row
 end
 
@@ -1922,7 +2126,8 @@ function SubTab:AddKeybind(opts)
         if input.KeyCode==key then fire(opts.OnPress or opts.Pressed,key) end
     end)
     table.insert(self._window._noDrag,btn)
-    return {Set=function(_,k) setKey(k) end, Get=function() return key end, _connections={pressConn}}
+    trackConn(self._window, pressConn)
+    return registerFlag(opts.Flag, "keybind", {Set=function(_,k) setKey(k) end, Get=function() return key end, _connections={pressConn}})
 end
 
 function SubTab:AddInput(opts)
@@ -1933,7 +2138,7 @@ function SubTab:AddInput(opts)
     local box=make("TextBox",{Text=opts.Default or "",PlaceholderText=opts.Placeholder or "...",PlaceholderColor3=C.Placeholder,Font=Enum.Font.Gotham,TextSize=12,TextColor3=C.TextGray,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,ClearTextOnFocus=false,ClipsDescendants=true,Position=UDim2.fromOffset(8,0),Size=UDim2.new(1,-30,1,0),Parent=holder})
     inputIcon(holder)
     box.FocusLost:Connect(function(ep) fire(opts.Callback,box.Text,ep) end)
-    return {Set=function(_,t) box.Text=tostring(t) end, Get=function() return box.Text end}
+    return registerFlag(opts.Flag, "input", {Set=function(_,t) box.Text=tostring(t) end, Get=function() return box.Text end})
 end
 
 function SubTab:AddDropdown(opts)
@@ -2010,7 +2215,7 @@ function SubTab:AddDropdown(opts)
     btn.MouseButton1Click:Connect(function() setOpen(not open) end)
     btn.MouseEnter:Connect(function() tween(btn,{BackgroundColor3=C.ElementHover}) end)
     btn.MouseLeave:Connect(function() tween(btn,{BackgroundColor3=C.Element}) end)
-    return {
+    return registerFlag(opts.Flag, "dropdown", {
         Set=function(_,o) value=o; vl.Text=tostring(o) end, Get=function() return value end,
         SetOptions=function(_,no)
             co=no or {}; local se=false
@@ -2019,7 +2224,7 @@ function SubTab:AddDropdown(opts)
             rebuild(); if open then tween(list,{Size=UDim2.new(0,LW,0,calcH())}) end
         end,
         Refresh=function() rebuild() end,
-    }
+    })
 end
 
 function SubTab:AddMultiDropdown(opts)
@@ -2118,7 +2323,7 @@ function SubTab:AddMultiDropdown(opts)
     btn.MouseButton1Click:Connect(function() setOpen(not open) end)
     btn.MouseEnter:Connect(function() tween(btn,{BackgroundColor3=C.ElementHover}) end)
     btn.MouseLeave:Connect(function() tween(btn,{BackgroundColor3=C.Element}) end)
-    return {
+    return registerFlag(opts.Flag, "multidropdown", {
         Set=function(_,sel)
             table.clear(selected)
             if type(sel)=="table" then for _,o in ipairs(sel) do selected[o]=true end end
@@ -2135,7 +2340,7 @@ function SubTab:AddMultiDropdown(opts)
             rebuild(); updateSummary(); if open then tween(list,{Size=UDim2.new(0,LW,0,calcH())}) end
         end,
         Refresh=function() rebuild(); updateSummary() end,
-    }
+    })
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -2163,8 +2368,8 @@ function SubTab:AddSlider(opts)
     make("TextLabel",{Text=opts.Name or "Slider",Font=Enum.Font.GothamMedium,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0.6,0,0,14),Parent=row})
     local vl=make("TextLabel",{Text=tostring(value)..sf,Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Right,BackgroundTransparency=1,Position=UDim2.fromOffset(0,1),Size=UDim2.new(1,0,0,13),Parent=row})
     local track=make("Frame",{Position=UDim2.fromOffset(0,24),Size=UDim2.new(1,0,0,4),BackgroundColor3=C.TrackBg,Parent=row}); circle(track)
-    local fill=make("Frame",{Size=UDim2.new(0,0,1,0),BackgroundColor3=C.White,Parent=track}); circle(fill)
-    local knob=make("Frame",{Size=UDim2.fromOffset(12,12),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0,0,0.5,0),BackgroundColor3=C.White,ZIndex=2,Parent=track}); circle(knob)
+    local fill=make("Frame",{Size=UDim2.new(0,0,1,0),BackgroundColor3=C.Accent,Parent=track}); circle(fill)
+    local knob=make("Frame",{Size=UDim2.fromOffset(12,12),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0,0,0.5,0),BackgroundColor3=C.White,ZIndex=2,Parent=track}); circle(knob); stroke(knob,C.Accent)
     local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,-6,0,16),Size=UDim2.new(1,12,0,20),Parent=row})
     local function apply(v,a,fc)
         value=math.clamp(math.floor(v+0.5),mn,mx)
@@ -2176,10 +2381,10 @@ function SubTab:AddSlider(opts)
     local function fromX(x) return mn+(mx-mn)*math.clamp((x-track.AbsolutePosition.X)/math.max(track.AbsoluteSize.X,1),0,1) end
     local dragging=false
     hit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true; apply(fromX(i.Position.X),true,true) end end)
-    UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then apply(fromX(i.Position.X),true,true) end end)
-    UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
+    trackConn(self._window, UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then apply(fromX(i.Position.X),true,true) end end))
+    trackConn(self._window, UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end))
     apply(value,false,false)
-    return {Set=function(_,v) apply(v,true,true) end, Get=function() return value end}
+    return registerFlag(opts.Flag, "slider", {Set=function(_,v) apply(v,true,true) end, Get=function() return value end})
 end
 
 local function hsvToColor(h,s,v) return Color3.fromHSV(h,s,v) end
@@ -2298,7 +2503,9 @@ function SubTab:AddColorPicker(opts)
     swatch.MouseButton1Click:Connect(function() setOpen(not open) end)
     swatch.MouseEnter:Connect(function() tween(swatch,{BackgroundColor3=value}) end)
     recompute(false,false)
-    return {
+    trackConn(self._window, moveConn)
+    trackConn(self._window, endConn)
+    return registerFlag(opts.Flag, "color", {
         Set=function(_,c)
             c=(typeof(c)=="Color3" and c) or hexToColor(c)
             if not c then return end
@@ -2307,7 +2514,7 @@ function SubTab:AddColorPicker(opts)
         Get=function() return value end,
         GetHex=function() return colorToHex(value) end,
         _connections={moveConn,endConn},
-    }
+    })
 end
 
 return Library

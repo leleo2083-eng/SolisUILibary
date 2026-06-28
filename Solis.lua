@@ -359,7 +359,7 @@ local function guiVisible(gui)
     return true
 end
 
-local function makeDraggable(frame, blockers)
+local function makeDraggable(frame, blockers, onStart, onEnd)
     local dragging = false
     local dragStart, startPos
     frame.InputBegan:Connect(function(input)
@@ -372,8 +372,14 @@ local function makeDraggable(frame, blockers)
         dragging = true
         dragStart = input.Position
         startPos  = frame.Position
+        if typeof(onStart) == "function" then onStart() end
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            if input.UserInputState == Enum.UserInputState.End then
+                if dragging then
+                    dragging = false
+                    if typeof(onEnd) == "function" then onEnd() end
+                end
+            end
         end)
     end)
     local dragConn = UserInputService.InputChanged:Connect(function(input)
@@ -1543,7 +1549,10 @@ function Library:CreateWindow(opts)
         else if screenGui then screenGui:Destroy() end end
     end)
     minimizeBtn.MouseButton1Click:Connect(function() setMinimized(true) end)
-    local dragConn = makeDraggable(container, noDrag)
+    local onDragStart, onDragEnd
+    local dragConn = makeDraggable(container, noDrag,
+        function() if onDragStart then onDragStart() end end,
+        function() if onDragEnd then onDragEnd() end end)
 
     -- ── SIDEBAR ───────────────────────────────────────────────────────────
     local sidebar = make("Frame", { Size=UDim2.new(0,190,1,0), BackgroundTransparency=1, Parent=main })
@@ -1575,6 +1584,55 @@ function Library:CreateWindow(opts)
     local divLine=make("Frame",{Position=UDim2.fromOffset(190,0),Size=UDim2.new(0,1,1,0),BackgroundColor3=C.Accent,Parent=main})
     make("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.5,0.5),NumberSequenceKeypoint.new(1,1)}),Parent=divLine})
     local content = make("Frame",{Position=UDim2.fromOffset(191,0),Size=UDim2.new(1,-191,1,0),BackgroundTransparency=1,Parent=main})
+
+    -- ── DRAG FADE: smoothly hide inner content while dragging the window ──
+    -- The window frame (background + border + traveling glow) stays visible;
+    -- everything inside (sidebar, divider, content, corner controls) fades out.
+    local DRAG_FADE_TWEEN = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local fadeRoots = { controls, sidebar, divLine, content }
+    local fadeOrig  = {}        -- [inst] = { [prop] = originalValue }
+    local innerHidden = false
+    local FADE_PROPS = {
+        { prop = "BackgroundTransparency",     test = function(d) return d:IsA("GuiObject") end },
+        { prop = "TextTransparency",           test = function(d) return d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") end },
+        { prop = "ImageTransparency",          test = function(d) return d:IsA("ImageLabel") or d:IsA("ImageButton") end },
+        { prop = "ScrollBarImageTransparency", test = function(d) return d:IsA("ScrollingFrame") end },
+        { prop = "Transparency",               test = function(d) return d:IsA("UIStroke") end },
+    }
+    local function eachFadeInst(fn)
+        for _, root in ipairs(fadeRoots) do
+            if root and root.Parent then
+                fn(root)
+                for _, d in ipairs(root:GetDescendants()) do fn(d) end
+            end
+        end
+    end
+    local function setInnerHidden(hide)
+        if hide == innerHidden then return end
+        innerHidden = hide
+        eachFadeInst(function(d)
+            for _, entry in ipairs(FADE_PROPS) do
+                if entry.test(d) then
+                    local prop = entry.prop
+                    if hide then
+                        local cur = d[prop]
+                        if cur < 1 then
+                            fadeOrig[d] = fadeOrig[d] or {}
+                            if fadeOrig[d][prop] == nil then fadeOrig[d][prop] = cur end
+                            TweenService:Create(d, DRAG_FADE_TWEEN, { [prop] = 1 }):Play()
+                        end
+                    else
+                        local o = fadeOrig[d]
+                        if o and o[prop] ~= nil then
+                            TweenService:Create(d, DRAG_FADE_TWEEN, { [prop] = o[prop] }):Play()
+                        end
+                    end
+                end
+            end
+        end)
+    end
+    onDragStart = function() setInnerHidden(true) end
+    onDragEnd   = function() setInnerHidden(false) end
 
     -- ── NOTIFICATIONS ─────────────────────────────────────────────────────
     local notificationHolder = make("Frame",{

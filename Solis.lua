@@ -1573,178 +1573,137 @@ function Library:CreateWindow(opts)
     })
     local containerScale = make("UIScale", { Scale = 1, Parent = container })
 
-    -- ── LOADING SCREEN ────────────────────────────────────────────────────
-    local loadingEnabled          = opts.LoadingAnimation ~= false
-    local loadingDuration         = math.clamp(tonumber(opts.LoadingDuration) or 2.65, 1.5, 8)
-    local loadingIconSize         = math.clamp(math.floor(tonumber(opts.LoadingIconSize) or 112), 64, 190)
-    local loadingText             = tostring(opts.LoadingText or "Solis")
-    local loadingTextSize         = math.clamp(math.floor(tonumber(opts.LoadingTextSize) or 58), 40, 76)
-    local loadingTextStartColor   = typeof(opts.LoadingTextStartColor)    == "Color3" and opts.LoadingTextStartColor   or Color3.fromRGB(255,255,255)
-    local loadingTextHighlight    = typeof(opts.LoadingTextHighlightColor) == "Color3" and opts.LoadingTextHighlightColor or Color3.fromRGB(255,231,26)
-    local loadingTextGold         = typeof(opts.LoadingTextGoldColor)     == "Color3" and opts.LoadingTextGoldColor    or Color3.fromRGB(255,183,1)
-    local loadingTextEnd          = typeof(opts.LoadingTextEndColor)      == "Color3" and opts.LoadingTextEndColor     or Color3.fromRGB(253,128,0)
-    local loadingTextDeep         = typeof(opts.LoadingTextDeepColor)     == "Color3" and opts.LoadingTextDeepColor    or Color3.fromRGB(228,87,0)
-    local overlayTransparency     = math.clamp(tonumber(opts.LoadingOverlayTransparency) or 0.5, 0, 0.9)
-    local colorTransitionDuration = math.clamp(tonumber(opts.LoadingColorTransitionDuration) or 0.95, 0.4, 2.5)
+    -- ── LOADING SCREEN (slam-in intro, themed with the accent colour) ─────
+    local loadingEnabled      = opts.LoadingAnimation ~= false
+    local loadingDuration     = math.clamp(tonumber(opts.LoadingDuration) or 2.65, 1.5, 8)
+    local loadingText         = tostring(opts.LoadingText or opts.Name or "Solis")
+    local loadingSub          = tostring(opts.LoadingSubtitle or "HUB")
+    local loadingFooter       = tostring(opts.LoadingFooter or "SOLIS UI")
+    local overlayTransparency = math.clamp(tonumber(opts.LoadingOverlayTransparency) or 0.35, 0, 0.9)
 
-    local function sampleLoadingColor(alpha)
-        alpha = math.clamp(alpha, 0, 1)
-        if alpha <= 0.32 then return loadingTextHighlight:Lerp(loadingTextGold, alpha/0.32)
-        elseif alpha <= 0.68 then return loadingTextGold:Lerp(loadingTextEnd, (alpha-0.32)/0.36)
-        end
-        return loadingTextEnd:Lerp(loadingTextDeep, (alpha-0.68)/0.32)
-    end
+    -- accent palette derived from the active theme
+    local ACC       = C.Accent
+    local ACC_DARK  = C.AccentDim or Color3.fromRGB(150, 72, 6)
+    local ACC_LIGHT = Color3.fromRGB(255, 196, 120)
 
     local loadingComplete       = not loadingEnabled
     local loadingMotionComplete = not loadingEnabled
-    local loadingLayer, loadingContent, loadingLogo, loadingLogoScale
-    local loadingTitleHolder, loadingTitleScale, loadingCaret
-    local loadingProgressTrack, loadingProgressFill
-    local loadingLetterLabels = {}
-    local loadingLetterScales = {}
-    local loadingLetterColors = {}
-    local letterWidths        = {}
+    local loadingLayer, loadingContent, loadingLogoScale, loadingTitleScale, loadingProgressFill
+    local loadingBlur, loadingSound
 
     if loadingEnabled then
         loadingLayer = make("CanvasGroup", {
-            Name = "StartupLoader", Size = UDim2.fromScale(1,1),
-            BackgroundColor3 = Color3.fromRGB(0,0,0), BackgroundTransparency = 1,
+            Name = "StartupLoader", Size = UDim2.fromScale(1, 1),
+            BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 1,
             GroupTransparency = 0, ZIndex = 500, Parent = screenGui,
         })
-        loadingContent = make("CanvasGroup", {
-            Name = "LoadingContent", Size = UDim2.fromOffset(560,300),
-            Position = UDim2.new(0.5,0,0.5,18), AnchorPoint = Vector2.new(0.5,0.5),
-            BackgroundTransparency = 1, GroupTransparency = 1, ZIndex = 501, Parent = loadingLayer,
-        })
-        loadingLogo = make("ImageLabel", {
-            Name = "LoadingLogo", Image = logoAsset,
-            Size = UDim2.fromOffset(loadingIconSize,loadingIconSize),
-            Position = UDim2.new(0.5,0,0,84), AnchorPoint = Vector2.new(0.5,0.5),
-            BackgroundTransparency = 1, BorderSizePixel = 0, ImageTransparency = 0,
-            ScaleType = Enum.ScaleType.Fit, ZIndex = 502, Parent = loadingContent,
-        })
-        loadingLogoScale = make("UIScale", { Scale = 0.58, Parent = loadingLogo })
 
-        local characterCount = math.max(#loadingText, 1)
-        local letterSpacing  = math.max(1, math.floor(loadingTextSize * 0.025))
-        local titleWidth = 0
-        for index = 1, #loadingText do
-            local ch = string.sub(loadingText, index, index)
-            local measured = TextService:GetTextSize(ch, loadingTextSize, Enum.Font.GothamBold, Vector2.new(200,90))
-            local w = math.max(math.ceil(measured.X), math.floor(loadingTextSize*0.24))
-            letterWidths[index] = w
-            titleWidth = titleWidth + w
-            if index < #loadingText then titleWidth = titleWidth + letterSpacing end
+        if opts.LoadingBlur ~= false then
+            loadingBlur = Instance.new("BlurEffect")
+            loadingBlur.Size = 0
+            pcall(function() loadingBlur.Parent = game:GetService("Lighting") end)
         end
-        titleWidth = math.max(titleWidth, 80)
 
-        loadingTitleHolder = make("Frame", {
-            Name = "LoadingTitle", Size = UDim2.fromOffset(titleWidth+12, 82),
-            Position = UDim2.new(0.5,0,0,151), AnchorPoint = Vector2.new(0.5,0),
-            BackgroundTransparency = 1, ZIndex = 502, Parent = loadingContent,
-        })
-        loadingTitleScale = make("UIScale", { Scale = 0.94, Parent = loadingTitleHolder })
+        if opts.LoadingSound then
+            loadingSound = Instance.new("Sound")
+            loadingSound.SoundId = normalizeAssetId(opts.LoadingSound)
+            loadingSound.Volume = 0
+            loadingSound.Looped = false
+            loadingSound.TimePosition = tonumber(opts.LoadingSoundStart) or 0
+            pcall(function() loadingSound.Parent = SoundService end)
+        end
 
-        local xOff = 6
-        for index = 1, #loadingText do
-            local ch    = string.sub(loadingText, index, index)
-            local w     = letterWidths[index]
-            local alpha = #loadingText > 1 and ((index-1)/(#loadingText-1)) or 0.5
-            local letter = make("TextLabel", {
-                Name = "Letter"..index, Text = ch,
-                Font = Enum.Font.GothamBold, TextSize = loadingTextSize,
-                TextColor3 = loadingTextStartColor, TextTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Center,
-                TextYAlignment = Enum.TextYAlignment.Center,
-                BackgroundTransparency = 1, Position = UDim2.fromOffset(xOff,10),
-                Size = UDim2.fromOffset(w,72), ZIndex = 503, Parent = loadingTitleHolder,
+        local function sideLabel(anchorX)
+            local lbl = make("TextLabel", {
+                Size = UDim2.fromOffset(260, 54), Position = UDim2.new(anchorX, 0, 0.5, -27),
+                AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
+                Text = loadingText, Font = Enum.Font.GothamBlack, TextScaled = true,
+                TextColor3 = C.White, TextStrokeColor3 = Color3.fromRGB(0, 0, 0), TextStrokeTransparency = 0.45,
+                TextTransparency = 1, ZIndex = 508, Parent = loadingLayer,
             })
-            local ls = make("UIScale", { Scale = 0.78, Parent = letter })
-            loadingLetterLabels[index] = letter
-            loadingLetterScales[index] = ls
-            loadingLetterColors[index] = sampleLoadingColor(alpha)
-            xOff = xOff + w + letterSpacing
+            make("UIGradient", { Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, ACC_DARK),
+                ColorSequenceKeypoint.new(0.5, ACC_LIGHT),
+                ColorSequenceKeypoint.new(1, ACC_DARK),
+            }), Parent = lbl })
+            return lbl
         end
+        local leftLbl  = sideLabel(0.18)
+        local rightLbl = sideLabel(0.82)
 
-        loadingCaret = make("Frame", {
-            Name = "TypingCaret", Size = UDim2.fromOffset(2, math.floor(loadingTextSize*0.7)),
-            Position = UDim2.fromOffset(6,20), BackgroundColor3 = loadingTextGold,
-            BackgroundTransparency = 1, ZIndex = 504, Parent = loadingTitleHolder,
+        local mainWrap = make("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(80, 36),
+            Position = UDim2.new(0.5, 0, 0.5, -20), BackgroundTransparency = 1, ZIndex = 510, Parent = loadingLayer,
         })
-        corner(loadingCaret, 1)
+        local tag = make("TextLabel", {
+            Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = loadingText,
+            Font = Enum.Font.GothamBlack, TextScaled = true, TextColor3 = C.White,
+            TextStrokeColor3 = Color3.fromRGB(0, 0, 0), TextStrokeTransparency = 0.3,
+            TextXAlignment = Enum.TextXAlignment.Center, TextTransparency = 1, ZIndex = 510, Parent = mainWrap,
+        })
+        local tagGrad = make("UIGradient", { Rotation = 0, Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, ACC_DARK),
+            ColorSequenceKeypoint.new(0.35, ACC),
+            ColorSequenceKeypoint.new(0.5, ACC_LIGHT),
+            ColorSequenceKeypoint.new(0.65, ACC),
+            ColorSequenceKeypoint.new(1, ACC_DARK),
+        }), Parent = tag })
 
-        local progressWidth = math.clamp(math.floor(titleWidth*0.76), 150, 270)
-        loadingProgressTrack = make("Frame", {
-            Name = "LoadingProgress", Size = UDim2.fromOffset(progressWidth,3),
-            Position = UDim2.new(0.5,0,0,246), AnchorPoint = Vector2.new(0.5,0.5),
-            BackgroundColor3 = Color3.fromRGB(255,255,255), BackgroundTransparency = 0.9,
-            ClipsDescendants = true, ZIndex = 502, Parent = loadingContent,
+        local line = make("Frame", {
+            Size = UDim2.fromOffset(0, 2), Position = UDim2.new(0.5, 0, 0.5, 60), AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = ACC, BackgroundTransparency = 1, ZIndex = 510, Parent = loadingLayer,
         })
-        corner(loadingProgressTrack, 2)
-        loadingProgressFill = make("Frame", {
-            Name = "Fill", Size = UDim2.new(0,0,1,0),
-            BackgroundColor3 = loadingTextEnd, ZIndex = 503, Parent = loadingProgressTrack,
+        make("UIGradient", { Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1),
+        }), Parent = line })
+
+        local sub = make("TextLabel", {
+            Size = UDim2.fromOffset(400, 22), Position = UDim2.new(0.5, 0, 0.5, 82), AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1, Text = loadingSub, Font = Enum.Font.GothamBold, TextSize = 16,
+            TextColor3 = ACC_LIGHT, TextStrokeColor3 = Color3.fromRGB(0, 0, 0), TextStrokeTransparency = 0.5,
+            TextXAlignment = Enum.TextXAlignment.Center, TextTransparency = 1, ZIndex = 510, Parent = loadingLayer,
         })
-        corner(loadingProgressFill, 2)
-        make("UIGradient", {
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0.00, loadingTextHighlight),
-                ColorSequenceKeypoint.new(0.34, loadingTextGold),
-                ColorSequenceKeypoint.new(0.72, loadingTextEnd),
-                ColorSequenceKeypoint.new(1.00, loadingTextDeep),
-            }),
-            Rotation = 0, Parent = loadingProgressFill,
+        local footer = make("TextLabel", {
+            Size = UDim2.fromOffset(400, 16), Position = UDim2.new(0.5, 0, 0.5, 112), AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1, Text = loadingFooter, Font = Enum.Font.GothamMedium, TextSize = 11,
+            TextColor3 = Color3.fromRGB(200, 150, 90), TextStrokeColor3 = Color3.fromRGB(0, 0, 0), TextStrokeTransparency = 0.6,
+            TextXAlignment = Enum.TextXAlignment.Center, TextTransparency = 1, ZIndex = 510, Parent = loadingLayer,
         })
 
         task.spawn(function()
-            local characterCount2 = math.max(#loadingText, 1)
-            local letterSpacing2  = math.max(1, math.floor(loadingTextSize*0.025))
-            TweenService:Create(loadingLayer,    TweenInfo.new(0.34,Enum.EasingStyle.Quad,  Enum.EasingDirection.Out), {BackgroundTransparency=overlayTransparency}):Play()
-            TweenService:Create(loadingContent,  TweenInfo.new(0.42,Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position=UDim2.fromScale(0.5,0.5),GroupTransparency=0}):Play()
-            TweenService:Create(loadingLogoScale,TweenInfo.new(0.62,Enum.EasingStyle.Back,  Enum.EasingDirection.Out), {Scale=1}):Play()
-            TweenService:Create(loadingLogo,     TweenInfo.new(0.58,Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position=UDim2.new(0.5,0,0,76)}):Play()
-            TweenService:Create(loadingTitleScale,TweenInfo.new(0.52,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Scale=1}):Play()
-            task.wait(0.36)
-            if not loadingLayer or not loadingLayer.Parent then return end
-            TweenService:Create(loadingCaret, TweenInfo.new(0.16,Enum.EasingStyle.Quad,Enum.EasingDirection.Out), {BackgroundTransparency=0.08}):Play()
-            local typingTime  = math.max(loadingDuration - colorTransitionDuration - 1.28, 0.45)
-            local letterDelay = math.clamp(typingTime/characterCount2, 0.075, 0.19)
-            local caretX = 6
-            for index, letter in ipairs(loadingLetterLabels) do
-                if not loadingLayer or not loadingLayer.Parent then return end
-                local ls = loadingLetterScales[index]
-                local w  = letterWidths[index]
-                TweenService:Create(letter, TweenInfo.new(0.28,Enum.EasingStyle.Quart,Enum.EasingDirection.Out), {Position=UDim2.fromOffset(caretX,0),TextTransparency=0}):Play()
-                TweenService:Create(ls,     TweenInfo.new(0.34,Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale=1}):Play()
-                caretX = caretX + w + letterSpacing2
-                TweenService:Create(loadingCaret,        TweenInfo.new(0.12,Enum.EasingStyle.Sine,Enum.EasingDirection.Out), {Position=UDim2.fromOffset(caretX,20)}):Play()
-                TweenService:Create(loadingProgressFill, TweenInfo.new(0.2, Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Size=UDim2.new((index/characterCount2)*0.58,0,1,0)}):Play()
-                task.wait(letterDelay)
+            if loadingBlur then TweenService:Create(loadingBlur, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { Size = 10 }):Play() end
+            if loadingSound then
+                pcall(function() loadingSound:Play() end)
+                TweenService:Create(loadingSound, TweenInfo.new(0.5), { Volume = math.clamp(tonumber(opts.LoadingSoundVolume) or 0.45, 0, 1) }):Play()
             end
-            TweenService:Create(loadingCaret, TweenInfo.new(0.18,Enum.EasingStyle.Quad,Enum.EasingDirection.In), {BackgroundTransparency=1}):Play()
-            task.wait(0.08)
-            local stagger = math.clamp((colorTransitionDuration/math.max(characterCount2+1,2))*0.72, 0.055, 0.15)
-            for index, letter in ipairs(loadingLetterLabels) do
-                if not loadingLayer or not loadingLayer.Parent then return end
-                local ls = loadingLetterScales[index]
-                TweenService:Create(letter,TweenInfo.new(0.46,Enum.EasingStyle.Quint,Enum.EasingDirection.InOut),{TextColor3=loadingLetterColors[index]}):Play()
-                TweenService:Create(ls,    TweenInfo.new(0.18,Enum.EasingStyle.Quart,Enum.EasingDirection.Out), {Scale=1.065}):Play()
-                task.delay(0.14, function()
-                    if ls and ls.Parent then
-                        TweenService:Create(ls,TweenInfo.new(0.24,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Scale=1}):Play()
-                    end
-                end)
-                TweenService:Create(loadingProgressFill,TweenInfo.new(0.28,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Size=UDim2.new(0.58+((index/characterCount2)*0.42),0,1,0)}):Play()
-                task.wait(stagger)
-            end
-            TweenService:Create(loadingProgressFill,TweenInfo.new(0.25,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Size=UDim2.fromScale(1,1)}):Play()
-            task.wait(0.38)
-            TweenService:Create(loadingLogoScale,  TweenInfo.new(0.22,Enum.EasingStyle.Sine,Enum.EasingDirection.Out),  {Scale=1.035}):Play()
-            TweenService:Create(loadingTitleScale, TweenInfo.new(0.22,Enum.EasingStyle.Sine,Enum.EasingDirection.Out),  {Scale=1.018}):Play()
-            task.wait(0.22)
-            TweenService:Create(loadingLogoScale,  TweenInfo.new(0.3,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut), {Scale=1}):Play()
-            TweenService:Create(loadingTitleScale, TweenInfo.new(0.3,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut), {Scale=1}):Play()
-            task.wait(0.28)
+            TweenService:Create(loadingLayer, TweenInfo.new(0.34, Enum.EasingStyle.Quad), { BackgroundTransparency = overlayTransparency }):Play()
+            TweenService:Create(leftLbl, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play()
+            task.wait(0.16)
+            TweenService:Create(rightLbl, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play()
+            task.wait(math.clamp(loadingDuration * 0.4, 0.5, 2.0))
+            if not loadingLayer.Parent then return end
+            local slideInfo = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            TweenService:Create(leftLbl, slideInfo, { Position = UDim2.new(0.5, 0, 0.5, -27) }):Play()
+            TweenService:Create(rightLbl, slideInfo, { Position = UDim2.new(0.5, 0, 0.5, -27) }):Play()
+            task.wait(0.32)
+            leftLbl.Visible = false; rightLbl.Visible = false
+            tag.TextTransparency = 0
+            TweenService:Create(mainWrap, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(820, 140) }):Play()
+            task.wait(0.26)
+            line.BackgroundTransparency = 0
+            TweenService:Create(line, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(380, 2) }):Play()
+            TweenService:Create(sub, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play()
+            task.wait(0.16)
+            TweenService:Create(footer, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { TextTransparency = 0.1 }):Play()
+            task.spawn(function()
+                local off = -0.5
+                while loadingLayer.Parent and not loadingComplete and tag.Parent do
+                    off = off + 0.009; if off > 1.5 then off = -0.5 end
+                    tagGrad.Offset = Vector2.new(off, 0)
+                    task.wait()
+                end
+            end)
+            task.wait(math.clamp(loadingDuration * 0.5, 0.4, 2.5))
             loadingMotionComplete = true
         end)
     end
@@ -2314,8 +2273,12 @@ function Library:CreateWindow(opts)
                 pe=TweenService:Create(loadingProgressFill,TweenInfo.new(0.3,Enum.EasingStyle.Quart,Enum.EasingDirection.In),{Size=UDim2.new(0,0,1,0)})
             end
             fo:Play(); if ce then ce:Play() end; if le then le:Play() end; if te then te:Play() end; if pe then pe:Play() end
+            if loadingBlur then TweenService:Create(loadingBlur,TweenInfo.new(0.48,Enum.EasingStyle.Quart,Enum.EasingDirection.InOut),{Size=0}):Play() end
+            if loadingSound then TweenService:Create(loadingSound,TweenInfo.new(0.5),{Volume=0}):Play() end
             fo.Completed:Wait()
             if loadingLayer and loadingLayer.Parent then loadingLayer:Destroy() end
+            pcall(function() if loadingBlur then loadingBlur:Destroy() end end)
+            pcall(function() if loadingSound then loadingSound:Stop(); loadingSound:Destroy() end end)
             if not screenGui.Parent then return end; loadingComplete=true
         end)
     end

@@ -2149,11 +2149,42 @@ function Library:CreateWindow(opts)
         _profileOpen=profileOpen, _setProfileVisible=setProfileVisible,
         _connections={}, _noDrag=noDrag, _tabs={}, _activeTab=nil,
         _containerScale=containerScale, _uiVisible=true, _toggleKey=toggleKey,
+        _destroyed=false,
     }, Window)
     windowRef.Notify=function(s,m) return Window.Notify(windowRef,s==windowRef and m or s) end
     windowRef.Notification=windowRef.Notify
     if dragConn then table.insert(windowRef._connections, dragConn) end
     for _,c in ipairs(musicConns) do table.insert(windowRef._connections, c) end
+
+    -- ── PERSISTENCE GUARD ─────────────────────────────────────────────────
+    -- Some games / anti-cheats strip GUIs (from CoreGui or PlayerGui) when the
+    -- character respawns, which made the whole window — and the minimized
+    -- burger button in the top corner — vanish on death. Re-parent the window
+    -- back to a safe host whenever it gets detached, so it never disappears.
+    -- The burger button lives under screenGui too, so it returns with it.
+    local function resolveHost()
+        local host
+        if typeof(opts.Parent) == "Instance" then
+            host = opts.Parent
+        else
+            pcall(function() host = (gethui and gethui()) or game:GetService("CoreGui") end)
+        end
+        if not host then host = Players.LocalPlayer:WaitForChild("PlayerGui") end
+        return host
+    end
+    local guardConn
+    guardConn = screenGui.AncestryChanged:Connect(function(_, parent)
+        -- parent == nil means it was detached from the DataModel (e.g. on death),
+        -- not an intentional Destroy (which sets windowRef._destroyed).
+        if parent ~= nil then return end
+        if windowRef and windowRef._destroyed then return end
+        task.defer(function()
+            if windowRef and windowRef._destroyed then return end
+            if screenGui.Parent ~= nil then return end
+            pcall(function() screenGui.Parent = resolveHost() end)
+        end)
+    end)
+    table.insert(windowRef._connections, guardConn)
 
     local ffc=0; local fe=0
     local fpsConn=RunService.RenderStepped:Connect(function(dt)
@@ -2337,6 +2368,7 @@ function Window:Notify(opts)
 end
 
 function Window:Destroy()
+    self._destroyed = true
     for _,c in ipairs(self._connections or {}) do c:Disconnect() end
     table.clear(self._connections or {})
     if self._fpsEditableImage then pcall(function() self._fpsEditableImage:Destroy() end); self._fpsEditableImage=nil end

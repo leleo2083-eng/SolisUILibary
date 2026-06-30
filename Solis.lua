@@ -456,9 +456,18 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 -- TAG SYSTEM (screen-space, fixed pixel size, matches UI style)
 -- ════════════════════════════════════════════════════════════════════════════
-local TAG_BASE_URL     = "https://adorable-sallyanne-fgdfgdfgd-b2d051be.koyeb.app"
-local TAG_REGISTER     = TAG_BASE_URL .. "/register"
-local TAG_USERS        = TAG_BASE_URL .. "/users"
+local TAG_BASE_URL          = "https://adorable-sallyanne-fgdfgdfgd-b2d051be.koyeb.app"
+local TAG_REGISTER          = TAG_BASE_URL .. "/register"
+local TAG_USERS             = TAG_BASE_URL .. "/users"
+local TAG_ADMIN_DISCONNECT  = TAG_BASE_URL .. "/admin/disconnect"
+
+-- UserIds with access to the admin panel. The server has its own copy of
+-- this list — the client-side check just decides whether the panel UI is
+-- built. The server still validates every /admin/* request.
+local ADMIN_USER_IDS = { [2401825836] = true }
+local function isAdminUser(player)
+    return player and ADMIN_USER_IDS[player.UserId] == true
+end
 local TAG_W             = 200   -- fixed pixel width of tag
 local TAG_H             = 52    -- fixed pixel height of tag
 local TAG_WORLD_HEIGHT  = 3.4   -- world-space studs above HumanoidRootPart where the tag floats
@@ -475,8 +484,23 @@ local TagSystem = {}
 TagSystem._tags        = {}   -- [Player] = { frame, glowGradient, conn, canvasGroup, targetX, targetY }
 TagSystem._screenGui   = nil
 TagSystem._active      = {}   -- [UserId] = true
+TagSystem._userInfo    = {}   -- [UserId] = { userId, displayName, name }
+TagSystem._listeners   = {}   -- [n] = function(userInfo, activeSet)
 TagSystem._running     = false
 TagSystem._connections = {}
+
+-- Register a callback that receives the latest active-user snapshot whenever
+-- the tag system polls the presence server. Returns the same fn for removal.
+function TagSystem:OnUsersUpdated(fn)
+    if type(fn) == "function" then table.insert(TagSystem._listeners, fn) end
+    return fn
+end
+function TagSystem:RemoveListener(fn)
+    for i, f in ipairs(TagSystem._listeners) do
+        if f == fn then table.remove(TagSystem._listeners, i); return true end
+    end
+    return false
+end
 
 -- Build the tag ScreenGui (once)
 local function ensureTagGui()
@@ -883,14 +907,39 @@ end
 
 local function tagRegister()
     if not httpRequest then return end
-    pcall(function()
-        httpRequest({
+    local lp = Players.LocalPlayer
+    if not lp then return end
+
+    local payload
+    local pok, encoded = pcall(function()
+        return HttpService:JSONEncode({
+            userId      = lp.UserId,
+            displayName = lp.DisplayName,
+            name        = lp.Name,
+        })
+    end)
+    if pok and encoded then
+        payload = encoded
+    else
+        -- Fallback to a minimal body if JSONEncode somehow fails
+        payload = '{"userId":' .. lp.UserId .. '}'
+    end
+
+    local ok, res = pcall(function()
+        return httpRequest({
             Url    = TAG_REGISTER,
             Method = "POST",
             Headers = { ["Content-Type"] = "application/json" },
-            Body   = '{"userId":' .. Players.LocalPlayer.UserId .. '}',
+            Body   = payload,
         })
     end)
+    if not ok or not res or not res.Body then return end
+
+    -- If the server has queued this user for an admin kick, comply.
+    local sok, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
+    if sok and type(data) == "table" and data.kick == true then
+        pcall(function() lp:Kick("[Solis] Disconnected by admin") end)
+    end
 end
 
 local function tagFetchAndUpdate()
@@ -905,10 +954,28 @@ local function tagFetchAndUpdate()
     end)
     if not sok or type(data) ~= "table" then return end
 
-    -- Build active set
-    local active = {}
-    for _, id in ipairs(data) do active[id] = true end
-    TagSystem._active = active
+    -- Build active set + user info map. Supports both the old format
+    -- (array of numeric ids) and the new format (array of {userId, ...}).
+    local active, userInfo = {}, {}
+    for _, entry in ipairs(data) do
+        local id
+        if type(entry) == "number" then
+            id = entry
+            userInfo[id] = { userId = id, displayName = "", name = "" }
+        elseif type(entry) == "table" then
+            id = tonumber(entry.userId)
+            if id then
+                userInfo[id] = {
+                    userId      = id,
+                    displayName = tostring(entry.displayName or ""),
+                    name        = tostring(entry.name or ""),
+                }
+            end
+        end
+        if id then active[id] = true end
+    end
+    TagSystem._active   = active
+    TagSystem._userInfo = userInfo
 
     -- Add/remove tags
     for _, player in ipairs(Players:GetPlayers()) do
@@ -919,6 +986,11 @@ local function tagFetchAndUpdate()
                 removeTag(player)
             end
         end
+    end
+
+    -- Notify subscribers (admin panel, etc.) on the snapshot.
+    for _, fn in ipairs(TagSystem._listeners) do
+        task.spawn(function() pcall(fn, userInfo, active) end)
     end
 end
 
@@ -1173,6 +1245,43 @@ function Library:Notify(opts)
     return nil
 end
 function Library:Notification(opts) return self:Notify(opts) end
+
+-- Ask the presence server to kick a user. The local player must be in the
+-- server's admin list for this to succeed. Returns (ok, errorString).
+function Library:AdminDisconnect(userId)
+    if not httpRequest then return false, "no HTTP request function" end
+    local lp = Players.LocalPlayer
+    if not lp then return false, "no LocalPlayer" end
+    userId = tonumber(userId)
+    if not userId then return false, "invalid userId" end
+
+    local pok, body = pcall(function()
+        return HttpService:JSONEncode({ adminId = lp.UserId, userId = userId })
+    end)
+    if not pok or not body then return false, "encode failed" end
+
+    local ok, res = pcall(function()
+        return httpRequest({
+            Url     = TAG_ADMIN_DISCONNECT,
+            Method  = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body    = body,
+        })
+    end)
+    if not ok or not res then return false, "request failed" end
+
+    local status = tonumber(res.StatusCode) or 0
+    if status >= 200 and status < 300 then return true end
+    if status == 403 then return false, "not authorized" end
+    return false, ("server returned " .. tostring(status))
+end
+
+-- Returns true if the local player is in the client-side admin list. The
+-- server still validates every admin command; this is only used by the UI
+-- to decide whether to render the admin panel.
+function Library:IsAdmin()
+    return isAdminUser(Players.LocalPlayer)
+end
 
 function Library:DestroyAll()
     local windows = table.clone(Library._windows)
@@ -2110,6 +2219,351 @@ function Library:CreateWindow(opts)
         conns = musicConns, opts = opts,
     })
 
+    -- ── ADMIN PANEL (only built for users in ADMIN_USER_IDS) ──────────────
+    -- Slides in from the bottom-left whenever the profile panel opens.
+    -- Lists every active client reported by the presence server, with a
+    -- Disconnect button that queues that user for a server-side kick.
+    local adminPanel             -- nil for non-admin users
+    local adminListener          -- TagSystem listener, cleaned up on destroy
+    local setAdminVisible        -- forward declare; called by setProfileVisible
+    local adminEnabled = isAdminUser(localPlayer)
+
+    if adminEnabled then
+        local adminWidth        = math.max(280, tonumber(opts.AdminPanelWidth) or 332)
+        local adminHeight       = math.max(280, tonumber(opts.AdminPanelHeight) or 416)
+        local adminOpenPos      = UDim2.new(0, 18, 1, -bottomMargin)
+        local adminClosedPos    = UDim2.new(0, -(adminWidth + 28), 1, -bottomMargin)
+
+        adminPanel = make("CanvasGroup", {
+            Name = "AdminPanel", AnchorPoint = Vector2.new(0, 1),
+            Position = adminClosedPos, Size = UDim2.fromOffset(adminWidth, adminHeight),
+            BackgroundColor3 = C.CardBg, GroupTransparency = 1,
+            ClipsDescendants = true, ZIndex = 150, Parent = screenGui,
+        })
+        corner(adminPanel, 14)
+
+        -- Header
+        local adminHeader = make("Frame", { Size = UDim2.new(1, 0, 0, 65), BackgroundTransparency = 1, ZIndex = 151, Parent = adminPanel })
+        make("TextLabel", {
+            Text = "ADMIN PANEL", Font = Enum.Font.GothamBold, TextSize = 13,
+            TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1, Position = UDim2.fromOffset(18, 13),
+            Size = UDim2.new(1, -100, 0, 18), ZIndex = 152, Parent = adminHeader,
+        })
+        make("TextLabel", {
+            Text = "Active client management", Font = Enum.Font.Gotham, TextSize = 10,
+            TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1, Position = UDim2.fromOffset(18, 34),
+            Size = UDim2.new(1, -100, 0, 15), ZIndex = 152, Parent = adminHeader,
+        })
+        make("Frame", {
+            Position = UDim2.new(0, 18, 1, -1), Size = UDim2.new(1, -36, 0, 1),
+            BackgroundColor3 = C.Border, ZIndex = 151, Parent = adminHeader,
+        })
+
+        -- LIVE badge (top-right, mirrors the performance panel style)
+        local liveBadge = make("Frame", {
+            AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 14),
+            Size = UDim2.fromOffset(64, 20), BackgroundColor3 = C.BadgeIdle,
+            ZIndex = 152, Parent = adminHeader,
+        })
+        corner(liveBadge, 6)
+        local liveDot = make("Frame", {
+            AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 9, 0.5, 0),
+            Size = UDim2.fromOffset(5, 5), BackgroundColor3 = NOTIFICATION_STYLES.success.Color,
+            ZIndex = 153, Parent = liveBadge,
+        })
+        circle(liveDot)
+        make("TextLabel", {
+            Text = "LIVE", Font = Enum.Font.GothamBold, TextSize = 8,
+            TextColor3 = C.TextGray, TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1, Position = UDim2.fromOffset(20, 0),
+            Size = UDim2.new(1, -24, 1, 0), ZIndex = 153, Parent = liveBadge,
+        })
+
+        -- Summary card: count on the left, admin UID on the right
+        local summaryCard = make("Frame", {
+            Position = UDim2.fromOffset(16, 75), Size = UDim2.new(1, -32, 0, 56),
+            BackgroundColor3 = C.Element, ZIndex = 151, Parent = adminPanel,
+        })
+        corner(summaryCard, 11); stroke(summaryCard, C.Border)
+        make("TextLabel", {
+            Text = "ACTIVE CLIENTS", Font = Enum.Font.GothamBold, TextSize = 8,
+            TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 8),
+            Size = UDim2.new(0.5, -12, 0, 11), ZIndex = 152, Parent = summaryCard,
+        })
+        local activeCountLabel = make("TextLabel", {
+            Text = "0", Font = Enum.Font.GothamBold, TextSize = 23,
+            TextColor3 = C.White, TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 21),
+            Size = UDim2.new(0.5, -12, 0, 28), ZIndex = 152, Parent = summaryCard,
+        })
+        make("TextLabel", {
+            Text = "ADMIN UID", Font = Enum.Font.GothamBold, TextSize = 8,
+            TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Right,
+            BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 0, 8),
+            Size = UDim2.new(0.5, -12, 0, 11), ZIndex = 152, Parent = summaryCard,
+        })
+        make("TextLabel", {
+            Text = localPlayer and tostring(localPlayer.UserId) or "N/A",
+            Font = Enum.Font.GothamMedium, TextSize = 12, TextColor3 = C.White,
+            TextXAlignment = Enum.TextXAlignment.Right, BackgroundTransparency = 1,
+            Position = UDim2.new(0.5, 0, 0, 26),
+            Size = UDim2.new(0.5, -12, 0, 18), ZIndex = 152, Parent = summaryCard,
+        })
+
+        -- List header + refresh button
+        make("TextLabel", {
+            Text = "CLIENT LIST", Font = Enum.Font.GothamBold, TextSize = 10,
+            TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1, Position = UDim2.fromOffset(18, 142),
+            Size = UDim2.fromOffset(140, 14), ZIndex = 151, Parent = adminPanel,
+        })
+        local refreshAdminBtn = make("TextButton", {
+            Text = "", AutoButtonColor = false, AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -16, 0, 149), Size = UDim2.fromOffset(22, 22),
+            BackgroundColor3 = C.Element, ZIndex = 151, Parent = adminPanel,
+        })
+        corner(refreshAdminBtn, 7); stroke(refreshAdminBtn, C.Border)
+        local refreshAdminIcon = make("ImageLabel", {
+            Image = ICONS.refresh, ImageColor3 = C.TextGray, BackgroundTransparency = 1,
+            AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(13, 13), ZIndex = 152, Parent = refreshAdminBtn,
+        })
+        refreshAdminBtn.MouseEnter:Connect(function()
+            tween(refreshAdminBtn, { BackgroundColor3 = C.ElementHover })
+            tween(refreshAdminIcon, { ImageColor3 = C.White })
+        end)
+        refreshAdminBtn.MouseLeave:Connect(function()
+            tween(refreshAdminBtn, { BackgroundColor3 = C.Element })
+            tween(refreshAdminIcon, { ImageColor3 = C.TextGray })
+        end)
+        table.insert(noDrag, refreshAdminBtn)
+
+        -- Scrolling list container + empty-state label (sibling so the
+        -- UIListLayout doesn't move it around when the list is empty).
+        local listFrame = make("ScrollingFrame", {
+            Position = UDim2.fromOffset(16, 168),
+            Size = UDim2.new(1, -32, 1, -184),
+            BackgroundColor3 = C.Element, BorderSizePixel = 0,
+            ScrollBarThickness = 3, ScrollBarImageColor3 = C.Border,
+            CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            ScrollingDirection = Enum.ScrollingDirection.Y,
+            ZIndex = 151, Parent = adminPanel,
+        })
+        corner(listFrame, 11); stroke(listFrame, C.Border); pad(listFrame, 6, 6, 6, 6)
+        make("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder, Parent = listFrame })
+        table.insert(noDrag, listFrame)
+
+        local emptyLabel = make("TextLabel", {
+            Text = "No active clients", Font = Enum.Font.GothamMedium, TextSize = 11,
+            TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Center,
+            BackgroundTransparency = 1,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0, 168 + ((adminHeight - 184) / 2)),
+            Size = UDim2.fromOffset(adminWidth - 64, 22),
+            ZIndex = 152, Parent = adminPanel,
+        })
+
+        local adminRows = {}  -- userId -> row Frame
+
+        local function buildRow(info, order)
+            local userId = info.userId
+            local isSelf = (localPlayer and userId == localPlayer.UserId) or false
+            local displayName = (info.displayName ~= nil and info.displayName ~= "")
+                and info.displayName or ("User " .. tostring(userId))
+            local handle = (info.name ~= nil and info.name ~= "") and ("@" .. info.name) or "@unknown"
+
+            local row = make("Frame", {
+                Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = C.WindowBg,
+                LayoutOrder = order, ZIndex = 152, Parent = listFrame,
+            })
+            corner(row, 9); stroke(row, C.Border)
+
+            -- Avatar
+            local avH = make("Frame", {
+                Position = UDim2.fromOffset(7, 7), Size = UDim2.fromOffset(36, 36),
+                BackgroundColor3 = C.Element, ZIndex = 153, Parent = row,
+            })
+            corner(avH, 8)
+            local avImg = make("ImageLabel", {
+                Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(userId) .. "&w=150&h=150",
+                BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1),
+                ScaleType = Enum.ScaleType.Crop, ZIndex = 154, Parent = avH,
+            })
+            corner(avImg, 8)
+            if isSelf then
+                local ring = stroke(avH, C.Accent); ring.Transparency = 0.3
+            end
+
+            -- Reserve space on the right for the action (84px button or 60px badge)
+            local actionW = isSelf and 60 or 84
+            local textRight = actionW + 18
+
+            make("TextLabel", {
+                Text = isSelf and (displayName .. "  (you)") or displayName,
+                Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = C.White,
+                TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+                BackgroundTransparency = 1, Position = UDim2.fromOffset(51, 6),
+                Size = UDim2.new(1, -(51 + textRight), 0, 14),
+                ZIndex = 153, Parent = row,
+            })
+            make("TextLabel", {
+                Text = handle, Font = Enum.Font.Gotham, TextSize = 10,
+                TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd, BackgroundTransparency = 1,
+                Position = UDim2.fromOffset(51, 21),
+                Size = UDim2.new(1, -(51 + textRight), 0, 12),
+                ZIndex = 153, Parent = row,
+            })
+            make("TextLabel", {
+                Text = "ID " .. tostring(userId),
+                Font = Enum.Font.GothamMedium, TextSize = 9,
+                TextColor3 = C.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+                BackgroundTransparency = 1, Position = UDim2.fromOffset(51, 34),
+                Size = UDim2.new(1, -(51 + textRight), 0, 11),
+                ZIndex = 153, Parent = row,
+            })
+
+            if isSelf then
+                local selfBadge = make("Frame", {
+                    AnchorPoint = Vector2.new(1, 0.5),
+                    Position = UDim2.new(1, -8, 0.5, 0),
+                    Size = UDim2.fromOffset(54, 22),
+                    BackgroundColor3 = C.Badge, ZIndex = 153, Parent = row,
+                })
+                corner(selfBadge, 6)
+                make("TextLabel", {
+                    Text = "YOU", Font = Enum.Font.GothamBold, TextSize = 9,
+                    TextColor3 = C.Accent, TextXAlignment = Enum.TextXAlignment.Center,
+                    BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1),
+                    ZIndex = 154, Parent = selfBadge,
+                })
+            else
+                local CLOSE_RED    = Color3.fromRGB(190, 60, 60)
+                local CLOSE_RED_HI = Color3.fromRGB(212, 80, 80)
+                local dcBtn = make("TextButton", {
+                    Text = "DISCONNECT", Font = Enum.Font.GothamBold, TextSize = 10,
+                    TextColor3 = Color3.fromRGB(255, 255, 255), AutoButtonColor = false,
+                    AnchorPoint = Vector2.new(1, 0.5),
+                    Position = UDim2.new(1, -8, 0.5, 0),
+                    Size = UDim2.fromOffset(78, 24),
+                    BackgroundColor3 = CLOSE_RED, ZIndex = 153, Parent = row,
+                })
+                corner(dcBtn, 6)
+                dcBtn.MouseEnter:Connect(function() tween(dcBtn, { BackgroundColor3 = CLOSE_RED_HI }) end)
+                dcBtn.MouseLeave:Connect(function() tween(dcBtn, { BackgroundColor3 = CLOSE_RED }) end)
+                dcBtn.MouseButton1Click:Connect(function()
+                    if dcBtn:GetAttribute("Busy") then return end
+                    dcBtn:SetAttribute("Busy", true)
+                    dcBtn.Text = "..."
+                    task.spawn(function()
+                        local ok, err = Library:AdminDisconnect(userId)
+                        if ok then
+                            if windowRef and windowRef.Notify then
+                                windowRef:Notify({
+                                    Title = "Admin",
+                                    Content = "Disconnect queued: " .. displayName,
+                                    Type = "warning", Duration = 4,
+                                })
+                            end
+                            -- Optimistically drop the row; the next poll
+                            -- will reconcile anyway.
+                            if row and row.Parent then row:Destroy() end
+                            adminRows[userId] = nil
+                        else
+                            dcBtn.Text = "DISCONNECT"
+                            dcBtn:SetAttribute("Busy", nil)
+                            if windowRef and windowRef.Notify then
+                                windowRef:Notify({
+                                    Title = "Admin",
+                                    Content = "Disconnect failed: " .. tostring(err),
+                                    Type = "error", Duration = 5,
+                                })
+                            end
+                        end
+                    end)
+                end)
+                table.insert(noDrag, dcBtn)
+            end
+            return row
+        end
+
+        local function refreshAdminList(userInfos)
+            -- Clear existing rows
+            for uid, r in pairs(adminRows) do
+                if r and r.Parent then r:Destroy() end
+            end
+            table.clear(adminRows)
+
+            userInfos = userInfos or TagSystem._userInfo or {}
+            -- Ensure the local admin always shows up, even if the latest
+            -- /users response hasn't echoed back our own /register yet.
+            local merged = {}
+            for id, info in pairs(userInfos) do merged[id] = info end
+            if localPlayer and not merged[localPlayer.UserId] then
+                merged[localPlayer.UserId] = {
+                    userId      = localPlayer.UserId,
+                    displayName = localPlayer.DisplayName,
+                    name        = localPlayer.Name,
+                }
+            end
+
+            local sorted = {}
+            for _, info in pairs(merged) do table.insert(sorted, info) end
+            table.sort(sorted, function(a, b)
+                -- Pin "you" to the top, then alphabetical by display name
+                local aSelf = localPlayer and a.userId == localPlayer.UserId
+                local bSelf = localPlayer and b.userId == localPlayer.UserId
+                if aSelf ~= bSelf then return aSelf end
+                local an = string.lower(tostring(a.displayName or ""))
+                local bn = string.lower(tostring(b.displayName or ""))
+                if an ~= bn then return an < bn end
+                return a.userId < b.userId
+            end)
+
+            for i, info in ipairs(sorted) do
+                local row = buildRow(info, i)
+                adminRows[info.userId] = row
+            end
+            activeCountLabel.Text = tostring(#sorted)
+            emptyLabel.Visible = (#sorted == 0)
+        end
+
+        refreshAdminBtn.MouseButton1Click:Connect(function()
+            tween(refreshAdminIcon, { Rotation = refreshAdminIcon.Rotation + 360 })
+            task.spawn(function()
+                tagFetchAndUpdate()
+                pcall(refreshAdminList, TagSystem._userInfo)
+            end)
+        end)
+
+        -- Subscribe to live updates from the tag system poll loop.
+        adminListener = TagSystem:OnUsersUpdated(function(userInfos)
+            if not adminPanel or not adminPanel.Parent then return end
+            task.spawn(function() pcall(refreshAdminList, userInfos) end)
+        end)
+
+        -- Initial render with whatever data we already have.
+        refreshAdminList(TagSystem._userInfo)
+
+        -- Trigger an immediate fetch in the background so the list populates
+        -- without waiting for the next 5s poll tick.
+        task.spawn(function() pcall(tagFetchAndUpdate) end)
+
+        function setAdminVisible(open, instant)
+            local pos = open and adminOpenPos or adminClosedPos
+            local tr  = open and 0 or 1
+            if instant then
+                adminPanel.Position = pos
+                adminPanel.GroupTransparency = tr
+            else
+                TweenService:Create(adminPanel, PROFILE_TWEEN, { Position = pos, GroupTransparency = tr }):Play()
+            end
+        end
+    end
+
     local function setProfileVisible(visible,instant)
         profileOpen=visible==true
         if not profileOpen and closeMusic then closeMusic(instant) end
@@ -2123,6 +2577,7 @@ function Library:CreateWindow(opts)
             TweenService:Create(profilePanel,PROFILE_TWEEN,{Position=tp,GroupTransparency=tr}):Play()
             TweenService:Create(performancePanel,PROFILE_TWEEN,{Position=ep,GroupTransparency=tr}):Play()
         end
+        if setAdminVisible then setAdminVisible(profileOpen, instant) end
         if windowRef then windowRef._profileOpen=profileOpen end; return profileOpen
     end
     if localPlayer then
@@ -2155,6 +2610,13 @@ function Library:CreateWindow(opts)
     windowRef.Notification=windowRef.Notify
     if dragConn then table.insert(windowRef._connections, dragConn) end
     for _,c in ipairs(musicConns) do table.insert(windowRef._connections, c) end
+
+    -- Clean up the admin panel's TagSystem listener on Window:Destroy()
+    if adminListener then
+        table.insert(windowRef._connections, {
+            Disconnect = function() TagSystem:RemoveListener(adminListener) end,
+        })
+    end
 
     -- ── PERSISTENCE GUARD ─────────────────────────────────────────────────
     -- Some games / anti-cheats strip GUIs (from CoreGui or PlayerGui) when the
@@ -2219,7 +2681,7 @@ function Library:CreateWindow(opts)
     end
     local musicPanel = screenGui:FindFirstChild("MusicPlayer")
     local scaleList = {}
-    for _, inst in ipairs({ profilePanel, performancePanel, musicPanel, burgerButton }) do
+    for _, inst in ipairs({ profilePanel, performancePanel, musicPanel, burgerButton, adminPanel }) do
         local us = ensureScale(inst); if us then table.insert(scaleList, us) end
     end
     local userScale = tonumber(opts.Scale) or 1

@@ -42,11 +42,11 @@ local PROFILE_TWEEN = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDir
 -- BUILT-IN ICON LIBRARY
 -- ════════════════════════════════════════════════════════════════════════════
 local ICONS = {
-    home            = "rbxassetid://10723407389",
-    dashboard       = "rbxassetid://10709790644",
-    search          = "rbxassetid://10709751939",
-    settings        = "rbxassetid://10734950309",
-    gear            = "rbxassetid://10734950309",
+    home            = "rbxassetid://4562959382",
+    dashboard       = "rbxassetid://115870883170035",
+    search          = "rbxassetid://18733177504",
+    settings        = "rbxassetid://4738901432",
+    gear            = "rbxassetid://10270641832",
     menu            = "rbxassetid://10734896206",
     list            = "rbxassetid://10709790373",
     grid            = "rbxassetid://10734950309",

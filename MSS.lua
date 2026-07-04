@@ -1,5 +1,5 @@
 --[[
-    MSS UI v2.3 — single-file Roblox UI library
+    MSS UI v2.4 — single-file Roblox UI library
 
     FEATURES:
       • Built-in icon library with 40+ curated icons
@@ -20,6 +20,11 @@
       • Proper connection cleanup — sliders, color pickers, keybinds and
         window dragging no longer leak UserInputService connections; they
         are tracked per-window and disconnected on Window:Destroy().
+
+    NEW IN v2.4:
+      • Scrollable subtab bar — when a tab has many subtabs, use the
+        ‹ › buttons (or mouse wheel over the bar) to scroll through them.
+        The active subtab auto-scrolls into view when selected.
 ]]
 
 local TweenService     = game:GetService("TweenService")
@@ -2917,17 +2922,27 @@ function Window:AddTab(opts)
 
     make("TextLabel",{Text=name,Font=Enum.Font.GothamBold,TextSize=14,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(54,17),Size=UDim2.new(1,-70,0,14),Parent=header})
     make("TextLabel",{Text=opts.Subtitle or "",Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.fromOffset(54,33),Size=UDim2.new(1,-70,0,12),Parent=header})
-    local pillRow=make("Frame",{Position=UDim2.fromOffset(16,54),Size=UDim2.new(1,-32,0,24),BackgroundTransparency=1,Parent=header})
+    local pillBar=make("Frame",{Position=UDim2.fromOffset(16,54),Size=UDim2.new(1,-32,0,24),BackgroundTransparency=1,ClipsDescendants=true,Parent=header})
+    local pillScrollLeft=make("TextButton",{Text="‹",Font=Enum.Font.GothamBold,TextSize=18,TextColor3=C.TextGray,Size=UDim2.fromOffset(20,24),BackgroundColor3=C.WindowBg,Visible=false,Parent=pillBar})
+    corner(pillScrollLeft,6); table.insert(win._noDrag,pillScrollLeft)
+    local pillScroll=make("ScrollingFrame",{Position=UDim2.fromOffset(24,0),Size=UDim2.new(1,-48,1,0),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=0,ScrollingDirection=Enum.ScrollingDirection.X,AutomaticCanvasSize=Enum.AutomaticSize.X,CanvasSize=UDim2.new(),ClipsDescendants=true,Parent=pillBar})
+    table.insert(win._noDrag,pillScroll)
+    local pillRow=make("Frame",{AutomaticSize=Enum.AutomaticSize.X,Size=UDim2.new(0,0,1,0),BackgroundTransparency=1,Parent=pillScroll})
     make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,8),Parent=pillRow})
+    local pillScrollRight=make("TextButton",{Text="›",Font=Enum.Font.GothamBold,TextSize=18,TextColor3=C.TextGray,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,0),Size=UDim2.fromOffset(20,24),BackgroundColor3=C.WindowBg,Visible=false,Parent=pillBar})
+    corner(pillScrollRight,6); table.insert(win._noDrag,pillScrollRight)
     make("Frame",{Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=C.Border,Parent=header})
     local pagesHolder=make("Frame",{Position=UDim2.fromOffset(0,88),Size=UDim2.new(1,0,1,-88),BackgroundTransparency=1,Parent=page})
 
     local tab=setmetatable({
         _window=win,
         _hBtn=hBtn,_hLabel=hLabel,_hDot=hDot,_hIconElement=hIconElement,
-        _page=page,_pillRow=pillRow,_pagesHolder=pagesHolder,
+        _page=page,_pillBar=pillBar,_pillScroll=pillScroll,_pillRow=pillRow,
+        _pillScrollLeft=pillScrollLeft,_pillScrollRight=pillScrollRight,
+        _pagesHolder=pagesHolder,
         _subTabs={},_activeSub=nil,
     },Tab)
+    tab:_setupPillScroll()
 
     hBtn.MouseButton1Click:Connect(function() win:_selectTab(tab) end)
     hBtn.MouseEnter:Connect(function()
@@ -2945,11 +2960,98 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 -- SUBTAB + ELEMENTS
 -- ════════════════════════════════════════════════════════════════════════════
+local PILL_SCROLL_STEP = 72
+
+function Tab:_updatePillScroll()
+    local scroll = self._pillScroll
+    if not scroll then return end
+    task.defer(function()
+        if not scroll.Parent then return end
+        local maxX = math.max(0, scroll.AbsoluteCanvasSize.X - scroll.AbsoluteWindowSize.X)
+        local canScroll = maxX > 2
+        if self._pillScrollLeft then
+            self._pillScrollLeft.Visible = canScroll
+            paint(self._pillScrollLeft, "TextColor3", scroll.CanvasPosition.X > 2 and "White" or "TextDim", true)
+        end
+        if self._pillScrollRight then
+            self._pillScrollRight.Visible = canScroll
+            paint(self._pillScrollRight, "TextColor3", scroll.CanvasPosition.X < maxX - 2 and "White" or "TextDim", true)
+        end
+        if not canScroll then
+            scroll.CanvasPosition = Vector2.new(0, 0)
+        end
+    end)
+end
+
+function Tab:_scrollPillBy(delta)
+    local scroll = self._pillScroll
+    if not scroll then return end
+    local maxX = math.max(0, scroll.AbsoluteCanvasSize.X - scroll.AbsoluteWindowSize.X)
+    scroll.CanvasPosition = Vector2.new(math.clamp(scroll.CanvasPosition.X + delta, 0, maxX), 0)
+    self:_updatePillScroll()
+end
+
+function Tab:_scrollPillIntoView(pill)
+    local scroll = self._pillScroll
+    if not scroll or not pill or not pill.Parent then return end
+    task.defer(function()
+        if not pill.Parent or not scroll.Parent then return end
+        local maxX = math.max(0, scroll.AbsoluteCanvasSize.X - scroll.AbsoluteWindowSize.X)
+        local relLeft = pill.AbsolutePosition.X - scroll.AbsolutePosition.X + scroll.CanvasPosition.X
+        local relRight = relLeft + pill.AbsoluteSize.X
+        local viewLeft = scroll.CanvasPosition.X
+        local viewRight = viewLeft + scroll.AbsoluteWindowSize.X
+        local nextX = scroll.CanvasPosition.X
+        if relLeft < viewLeft + 4 then
+            nextX = relLeft - 8
+        elseif relRight > viewRight - 4 then
+            nextX = relRight - scroll.AbsoluteWindowSize.X + 8
+        end
+        scroll.CanvasPosition = Vector2.new(math.clamp(nextX, 0, maxX), 0)
+        self:_updatePillScroll()
+    end)
+end
+
+function Tab:_setupPillScroll()
+    local scroll = self._pillScroll
+    local left = self._pillScrollLeft
+    local right = self._pillScrollRight
+    if not scroll then return end
+
+    if left then
+        left.MouseButton1Click:Connect(function() self:_scrollPillBy(-PILL_SCROLL_STEP) end)
+        left.MouseEnter:Connect(function() tween(left, {BackgroundColor3=C.NavHover}) end)
+        left.MouseLeave:Connect(function() tween(left, {BackgroundColor3=C.WindowBg}) end)
+    end
+    if right then
+        right.MouseButton1Click:Connect(function() self:_scrollPillBy(PILL_SCROLL_STEP) end)
+        right.MouseEnter:Connect(function() tween(right, {BackgroundColor3=C.NavHover}) end)
+        right.MouseLeave:Connect(function() tween(right, {BackgroundColor3=C.WindowBg}) end)
+    end
+
+    scroll:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(function() self:_updatePillScroll() end)
+    scroll:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(function() self:_updatePillScroll() end)
+    scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function() self:_updatePillScroll() end)
+
+    trackConn(self._window, UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseWheel then return end
+        if not scroll.Visible or not self._page.Visible then return end
+        local mouse = UserInputService:GetMouseLocation()
+        local inset = GuiService:GetGuiInset()
+        local pos = Vector2.new(mouse.X - inset.X, mouse.Y - inset.Y)
+        local sPos, sSize = scroll.AbsolutePosition, scroll.AbsoluteSize
+        if pos.X >= sPos.X and pos.X <= sPos.X + sSize.X and pos.Y >= sPos.Y and pos.Y <= sPos.Y + sSize.Y then
+            self:_scrollPillBy(-input.Position.Z * PILL_SCROLL_STEP * 0.5)
+        end
+    end))
+end
+
 function Tab:_selectSub(sub)
     if self._activeSub==sub then return end
     local prev=self._activeSub; self._activeSub=sub
     if prev then prev._page.Visible=false; paint(prev._pill,"BackgroundColor3","WindowBg"); paint(prev._pill,"TextColor3","TextGray") end
     sub._page.Visible=true; paint(sub._pill,"BackgroundColor3","PillActive"); paint(sub._pill,"TextColor3","White")
+    self:_scrollPillIntoView(sub._pill)
 end
 
 function Tab:AddSubTab(name)
@@ -2969,6 +3071,7 @@ function Tab:AddSubTab(name)
     pill.MouseLeave:Connect(function() tween(pill,{BackgroundColor3=tab._activeSub==sub and C.PillActive or C.WindowBg}) end)
     table.insert(self._subTabs,sub)
     if not self._activeSub then self:_selectSub(sub) end
+    self:_updatePillScroll()
     return sub
 end
 

@@ -145,7 +145,7 @@ local ICONS = {
     gamepad         = "rbxassetid://10723422998",
     controller      = "rbxassetid://10723422998",
     teleport        = "rbxassetid://10090587519",
-    speed           = "rbxassetid://10723415903",
+    speed           = "rbxassetid://11111111111",
     running         = "rbxassetid://10723422998",
     favorite        = "rbxassetid://10734924532",
 }

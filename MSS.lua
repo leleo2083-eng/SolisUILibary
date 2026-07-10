@@ -1,5 +1,5 @@
 --[[
-    MSS UI v2.4 — single-file Roblox UI library
+    Wisp UI v2.4 — single-file Roblox UI library
 
     FEATURES:
       • Built-in icon library with 40+ curated icons
@@ -38,7 +38,7 @@ local TextService      = game:GetService("TextService")
 local HttpService      = game:GetService("HttpService")
 local Workspace        = game:GetService("Workspace")
 
-local DEFAULT_LOGO = "rbxassetid://74056591905592"
+local DEFAULT_LOGO = "rbxassetid://112809424076936"
 local TWEEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local NOTIFICATION_TWEEN = TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 local PROFILE_TWEEN = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -180,7 +180,7 @@ local C = {
     HotbarActive = Color3.fromRGB(31, 31, 31),
     HotbarHover  = Color3.fromRGB(38, 38, 38),
     HotbarDot    = Color3.fromRGB(220, 220, 220),
-    Accent       = Color3.fromRGB(30, 90, 220),
+    Accent       = Color3.fromRGB(100, 50, 200),
     AccentDim    = Color3.fromRGB(14, 40, 100),
     AccentText   = Color3.fromRGB(230, 240, 255),
     KnobAccent   = Color3.fromRGB(255, 255, 255),
@@ -211,7 +211,7 @@ local THEMES = {
         HotbarActive = Color3.fromRGB(235, 235, 235),
         HotbarHover  = Color3.fromRGB(229, 229, 229),
         HotbarDot    = Color3.fromRGB(60, 60, 60),
-        Accent       = Color3.fromRGB(35, 100, 230),
+        Accent       = Color3.fromRGB(105, 55, 210),
         AccentDim    = Color3.fromRGB(180, 200, 255),
         AccentText   = Color3.fromRGB(255, 255, 255),
         KnobAccent   = Color3.fromRGB(255, 255, 255),
@@ -239,7 +239,7 @@ local THEMES = {
         HotbarActive = Color3.fromRGB(12, 12, 12),
         HotbarHover  = Color3.fromRGB(20, 20, 20),
         HotbarDot    = Color3.fromRGB(200, 200, 200),
-        Accent       = Color3.fromRGB(41, 110, 255),
+        Accent       = Color3.fromRGB(110, 60, 220),
         AccentDim    = Color3.fromRGB(10, 35, 90),
         AccentText   = Color3.fromRGB(6, 10, 24),
         KnobAccent   = Color3.fromRGB(255, 255, 255),
@@ -516,7 +516,7 @@ local function ensureTagGui()
     if not targetParent then targetParent = localPlayer:WaitForChild("PlayerGui") end
 
     local sg = Instance.new("ScreenGui")
-    sg.Name               = "MSSTagGui"
+    sg.Name               = "WispTagGui"
     sg.ResetOnSpawn       = false
     sg.IgnoreGuiInset     = true
     sg.ZIndexBehavior     = Enum.ZIndexBehavior.Sibling
@@ -536,7 +536,7 @@ local function buildTagFrame(player)
 
     -- Root container: fixed pixel size, positioned by RenderStepped loop
     local root = Instance.new("Frame")
-    root.Name              = "MSSTag_" .. player.UserId
+    root.Name              = "WispTag_" .. player.UserId
     root.Size              = UDim2.fromOffset(TAG_W, TAG_H)
     root.AnchorPoint       = Vector2.new(0.5, 0.5)
     root.BackgroundColor3  = Color3.fromRGB(22, 22, 26)
@@ -582,17 +582,17 @@ local function buildTagFrame(player)
     local glowStroke = Instance.new("UIStroke")
     glowStroke.Thickness          = 1.1
     glowStroke.ApplyStrokeMode    = Enum.ApplyStrokeMode.Border
-    glowStroke.Color              = Color3.fromRGB(30, 90, 220)
+    glowStroke.Color              = Color3.fromRGB(100, 50, 200)
     glowStroke.Transparency       = 0.2
     glowStroke.Parent             = root
 
     local glowGrad = Instance.new("UIGradient")
     glowGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(30, 90, 220)),
-        ColorSequenceKeypoint.new(0.40, Color3.fromRGB(30, 90, 220)),
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(100, 50, 200)),
+        ColorSequenceKeypoint.new(0.40, Color3.fromRGB(100, 50, 200)),
         ColorSequenceKeypoint.new(0.50, Color3.fromRGB(255, 255, 255)),
-        ColorSequenceKeypoint.new(0.60, Color3.fromRGB(30, 90, 220)),
-        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(30, 90, 220)),
+        ColorSequenceKeypoint.new(0.60, Color3.fromRGB(100, 50, 200)),
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(100, 50, 200)),
     })
     glowGrad.Transparency = NumberSequence.new({
         NumberSequenceKeypoint.new(0.00, 1.0),
@@ -617,7 +617,7 @@ local function buildTagFrame(player)
     -- avatar ring (dark blue accent)
     local avRing = Instance.new("UIStroke")
     avRing.Thickness = 1
-    avRing.Color = Color3.fromRGB(30, 90, 220)
+    avRing.Color = Color3.fromRGB(100, 50, 200)
     avRing.Transparency = 0.4
     avRing.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     avRing.Parent = avatarHolder
@@ -706,12 +706,12 @@ local function buildTagFrame(player)
     userLabel.ZIndex         = 2
     userLabel.Parent         = root
 
-    -- "MSS" badge (bottom right, small pill)
+    -- "Wisp" badge (bottom right, small pill)
     local badge = Instance.new("Frame")
     badge.Size             = UDim2.fromOffset(badgeW, 16)
     badge.AnchorPoint      = Vector2.new(1, 1)
     badge.Position         = UDim2.new(1, -badgePadR, 1, -9)
-    badge.BackgroundColor3 = Color3.fromRGB(30, 90, 220)
+    badge.BackgroundColor3 = Color3.fromRGB(100, 50, 200)
     badge.BackgroundTransparency = 0.82
     badge.BorderSizePixel  = 0
     badge.ZIndex           = 2
@@ -721,16 +721,16 @@ local function buildTagFrame(player)
     badgeCorner.Parent = badge
     local badgeStroke = Instance.new("UIStroke")
     badgeStroke.Thickness = 0.6
-    badgeStroke.Color = Color3.fromRGB(30, 90, 220)
+    badgeStroke.Color = Color3.fromRGB(100, 50, 200)
     badgeStroke.Transparency = 0.4
     badgeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     badgeStroke.Parent = badge
 
     local badgeLabel = Instance.new("TextLabel")
-    badgeLabel.Text              = "MSS"
+    badgeLabel.Text              = "Wisp"
     badgeLabel.Font              = Enum.Font.GothamBold
     badgeLabel.TextSize          = 8
-    badgeLabel.TextColor3        = Color3.fromRGB(140, 180, 255)
+    badgeLabel.TextColor3        = Color3.fromRGB(180, 140, 255)
     badgeLabel.BackgroundTransparency = 1
     badgeLabel.Size              = UDim2.fromScale(1, 1)
     badgeLabel.TextXAlignment    = Enum.TextXAlignment.Center
@@ -752,7 +752,7 @@ local function buildTagFrame(player)
 end
 
 -- Outline color: matches the moving UI glow color
-local TAG_OUTLINE_COLOR = Color3.fromRGB(30, 90, 220)
+local TAG_OUTLINE_COLOR = Color3.fromRGB(100, 50, 200)
 
 -- Attach an outline (Highlight, outline-only) to a player's character.
 -- Only applied to OTHER players — never the local player themselves.
@@ -762,11 +762,11 @@ local function applyOutline(player)
     if not char then return nil end
 
     -- Remove any existing highlight first
-    local existing = char:FindFirstChild("MSSOutline")
+    local existing = char:FindFirstChild("WispOutline")
     if existing then existing:Destroy() end
 
     local hl = Instance.new("Highlight")
-    hl.Name             = "MSSOutline"
+    hl.Name             = "WispOutline"
     hl.FillColor        = Color3.fromRGB(0, 0, 0)
     hl.FillTransparency = 1            -- outline only, no fill
     hl.OutlineColor     = TAG_OUTLINE_COLOR
@@ -780,7 +780,7 @@ end
 local function clearOutline(player)
     local char = player.Character
     if not char then return end
-    local existing = char:FindFirstChild("MSSOutline")
+    local existing = char:FindFirstChild("WispOutline")
     if existing then existing:Destroy() end
 end
 
@@ -807,7 +807,7 @@ local function addTag(player)
     local function refreshOutline()
         local char = player.Character
         if not char then return end
-        local existing = char:FindFirstChild("MSSOutline")
+        local existing = char:FindFirstChild("WispOutline")
         if not existing then applyOutline(player) end
     end
     refreshOutline()
@@ -832,7 +832,7 @@ local function addTag(player)
         end
 
         -- Ensure outline exists on the current character, and animate it
-        local outline = char:FindFirstChild("MSSOutline")
+        local outline = char:FindFirstChild("WispOutline")
         if not outline then outline = applyOutline(player) end
 
         local camera = Workspace.CurrentCamera
@@ -892,9 +892,9 @@ local function addTag(player)
             local pulse = math.sin(glowT * math.pi)                 -- 0 -> 1 -> 0 across the cycle
             local sharp = pulse * pulse                              -- sharpen so the flash is brief
             -- Brightness lerp: base dark blue -> near-white at the flash peak
-            local r = 30  + (255 - 30)  * sharp
-            local g = 90  + (255 - 90)  * sharp
-            local b = 220 + (255 - 220) * sharp
+            local r = 100  + (255 - 100)  * sharp
+            local g = 50  + (255 - 50)  * sharp
+            local b = 200 + (255 - 200) * sharp
             outline.OutlineColor = Color3.fromRGB(math.floor(r), math.floor(g), math.floor(b))
             -- Outline dims when the tag is far (matches the tag fade)
             outline.OutlineTransparency = currentFade * 0.85
@@ -943,7 +943,7 @@ local function tagRegister()
     -- If the server has queued this user for an admin kick, comply.
     local sok, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
     if sok and type(data) == "table" and data.kick == true then
-        pcall(function() lp:Kick("[MSS] Disconnected by admin") end)
+        pcall(function() lp:Kick("[Wisp] Disconnected by admin") end)
     end
 end
 
@@ -1029,7 +1029,7 @@ local Library = {
     Icons         = ICONS,
     DefaultLogo   = DEFAULT_LOGO,
     Flags         = {},        -- [flag] = { kind = <string>, api = <handle> }
-    ConfigFolder  = "MSSUI/configs",
+    ConfigFolder  = "WispUI/configs",
     _windows      = {},
     _windowObjects= {},
     _currentTheme = "Dark",
@@ -1065,14 +1065,14 @@ function Library:SetTheme(theme)
     if type(theme) == "string" then
         themeName = theme
         theme = THEMES[theme]
-        if not theme then warn(("[MSS UI] unknown theme %q"):format(themeName)); return false end
+        if not theme then warn(("[Wisp UI] unknown theme %q"):format(themeName)); return false end
     elseif type(theme) ~= "table" then
-        warn("[MSS UI] SetTheme expects a built-in theme name or theme table"); return false
+        warn("[Wisp UI] SetTheme expects a built-in theme name or theme table"); return false
     end
     for key in pairs(C) do
         local value = theme[key]
         if value ~= nil and typeof(value) ~= "Color3" then
-            warn(("[MSS UI] theme key %s must be a Color3"):format(key)); return false
+            warn(("[Wisp UI] theme key %s must be a Color3"):format(key)); return false
         end
     end
     for key in pairs(C) do
@@ -1189,23 +1189,23 @@ end
 -- Persist the current state of all flags to a named config file.
 function Library:SaveConfig(name)
     if not hasFileApi() then
-        warn("[MSS UI] SaveConfig requires an executor file API (writefile)")
+        warn("[Wisp UI] SaveConfig requires an executor file API (writefile)")
         return false
     end
     ensureConfigFolder()
     local ok, encoded = pcall(function()
         return HttpService:JSONEncode(Library:GetConfig())
     end)
-    if not ok then warn("[MSS UI] SaveConfig failed to encode config"); return false end
+    if not ok then warn("[Wisp UI] SaveConfig failed to encode config"); return false end
     local wrote = pcall(writefile, configPath(name), encoded)
-    if not wrote then warn("[MSS UI] SaveConfig failed to write file"); return false end
+    if not wrote then warn("[Wisp UI] SaveConfig failed to write file"); return false end
     return true
 end
 
 -- Load a named config file and apply it to all matching flags.
 function Library:LoadConfig(name)
     if not hasFileApi() then
-        warn("[MSS UI] LoadConfig requires an executor file API (readfile)")
+        warn("[Wisp UI] LoadConfig requires an executor file API (readfile)")
         return false
     end
     local path = configPath(name)
@@ -1213,7 +1213,7 @@ function Library:LoadConfig(name)
     local ok, raw = pcall(readfile, path)
     if not ok or not raw then return false end
     local decoded, data = pcall(function() return HttpService:JSONDecode(raw) end)
-    if not decoded then warn("[MSS UI] LoadConfig failed to decode config"); return false end
+    if not decoded then warn("[Wisp UI] LoadConfig failed to decode config"); return false end
     return Library:LoadConfigData(data)
 end
 
@@ -1246,7 +1246,7 @@ function Library:Notify(opts)
             return window:Notify(opts)
         end
     end
-    warn("[MSS UI] create a window before calling Library:Notify")
+    warn("[Wisp UI] create a window before calling Library:Notify")
     return nil
 end
 function Library:Notification(opts) return self:Notify(opts) end
@@ -1314,7 +1314,7 @@ local function buildMusicPlayer(cfg)
     local CLOSE_RED_HI   = Color3.fromRGB(212, 80, 80)
     local MIN_YELLOW     = Color3.fromRGB(255, 195, 0)
     local MIN_YELLOW_HI  = Color3.fromRGB(255, 211, 70)
-    local MUSIC_FOLDER   = tostring(opts.MusicFolder or "MSSMusic")
+    local MUSIC_FOLDER   = tostring(opts.MusicFolder or "WispMusic")
     local musicWidth     = profileWidth
     local fullHeight     = 384
     local compactHeight  = 190
@@ -1327,7 +1327,7 @@ local function buildMusicPlayer(cfg)
     -- 2D audio playback via SoundService
     local SoundService = game:GetService("SoundService")
     local musicSound   = Instance.new("Sound")
-    musicSound.Name   = "MSSMusicPlayer"
+    musicSound.Name   = "WispMusicPlayer"
     musicSound.Volume = 0.5
     musicSound.Looped = false
     pcall(function() musicSound.Parent = SoundService end)
@@ -1634,7 +1634,7 @@ function Library:CreateWindow(opts)
     local logoAsset      = normalizeAssetId(opts.Logo or DEFAULT_LOGO)
     local windowSize     = opts.Size or UDim2.fromOffset(700, 490)
     local windowPosition = opts.Position or UDim2.fromScale(0.5, 0.5)
-    local guiName        = opts.GuiName or "MSSUI"
+    local guiName        = opts.GuiName or "WispUI"
 
     -- Mobile detection (auto, or forced via opts.Mobile = true/false)
     local isMobile = (opts.Mobile == true)
@@ -1677,7 +1677,7 @@ function Library:CreateWindow(opts)
     local containerH = windowSize.Y.Offset + HOTBAR_GAP + HOTBAR_HEIGHT
 
     local container = make("Frame", {
-        Name = "MSSContainer",
+        Name = "WispContainer",
         Size = UDim2.fromOffset(containerW, containerH),
         Position = windowPosition,
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1690,15 +1690,15 @@ function Library:CreateWindow(opts)
     -- ── LOADING SCREEN (slam-in intro, themed with the accent colour) ─────
     local loadingEnabled      = opts.LoadingAnimation ~= false
     local loadingDuration     = math.clamp(tonumber(opts.LoadingDuration) or 2.65, 1.5, 8)
-    local loadingText         = tostring(opts.LoadingText or opts.Name or "MSS")
+    local loadingText         = tostring(opts.LoadingText or opts.Name or "Wisp")
     local loadingSub          = tostring(opts.LoadingSubtitle or "HUB")
-    local loadingFooter       = tostring(opts.LoadingFooter or "MSS HUB")
+    local loadingFooter       = tostring(opts.LoadingFooter or "Wisp HUB")
     local overlayTransparency = math.clamp(tonumber(opts.LoadingOverlayTransparency) or 0.35, 0, 0.9)
 
     -- accent palette derived from the active theme
     local ACC       = C.Accent
-    local ACC_DARK  = C.AccentDim or Color3.fromRGB(6, 30, 90)
-    local ACC_LIGHT = Color3.fromRGB(120, 170, 255)
+    local ACC_DARK  = C.AccentDim or Color3.fromRGB(40, 15, 80)
+    local ACC_LIGHT = Color3.fromRGB(180, 130, 255)
 
     local loadingComplete       = not loadingEnabled
     local loadingMotionComplete = not loadingEnabled
@@ -1833,7 +1833,7 @@ function Library:CreateWindow(opts)
 
     -- Animated traveling outline
     local mainGlowStroke = make("UIStroke", {
-        Color = Color3.fromRGB(30, 90, 220),
+        Color = Color3.fromRGB(100, 50, 200),
         Thickness = 1.6,
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Transparency = 0,
@@ -1841,11 +1841,11 @@ function Library:CreateWindow(opts)
     })
     local mainGlowGradient = make("UIGradient", {
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0.00, Color3.fromRGB(30, 90, 220)),
-            ColorSequenceKeypoint.new(0.42, Color3.fromRGB(30, 90, 220)),
+            ColorSequenceKeypoint.new(0.00, Color3.fromRGB(100, 50, 200)),
+            ColorSequenceKeypoint.new(0.42, Color3.fromRGB(100, 50, 200)),
             ColorSequenceKeypoint.new(0.50, Color3.fromRGB(255, 255, 255)),
-            ColorSequenceKeypoint.new(0.58, Color3.fromRGB(30, 90, 220)),
-            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(30, 90, 220)),
+            ColorSequenceKeypoint.new(0.58, Color3.fromRGB(100, 50, 200)),
+            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(100, 50, 200)),
         }),
         Transparency = NumberSequence.new({
             NumberSequenceKeypoint.new(0.00, 1.0),
@@ -1966,8 +1966,8 @@ function Library:CreateWindow(opts)
     corner(brand,10); stroke(brand,C.Border)
     local logoHolder = make("Frame", { Position=UDim2.fromOffset(9,9), Size=UDim2.fromOffset(36,36), BackgroundTransparency=1, Parent=brand })
     local brandLogo = make("ImageLabel",{Name="Logo",Image=logoAsset,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ScaleType=Enum.ScaleType.Fit,Parent=logoHolder})
-    make("TextLabel",{Text=opts.Name or "MSS UI",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,9),Size=UDim2.new(1,-62,0,17),Parent=brand})
-    make("TextLabel",{Text=opts.BrandSubtitle or ("MSS FREE..."..Library.Version),Font=Enum.Font.GothamMedium,TextSize=9,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,28),Size=UDim2.new(1,-62,0,13),Parent=brand})
+    make("TextLabel",{Text=opts.Name or "Wisp UI",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,9),Size=UDim2.new(1,-62,0,17),Parent=brand})
+    make("TextLabel",{Text=opts.BrandSubtitle or ("Wisp FREE..."..Library.Version),Font=Enum.Font.GothamMedium,TextSize=9,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(54,28),Size=UDim2.new(1,-62,0,13),Parent=brand})
 
     -- Player mini-card (fills the sidebar and gives identity at a glance)
     local lp = Players.LocalPlayer
@@ -1984,7 +1984,7 @@ function Library:CreateWindow(opts)
 
     local statusDot = make("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,16,1,-19),Size=UDim2.fromOffset(6,6),BackgroundColor3=NOTIFICATION_STYLES.success.Color,Parent=sidebar})
     circle(statusDot)
-    make("TextLabel",{Text=opts.StatusText or "MSS is ready",Font=Enum.Font.GothamMedium,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.new(0,28,1,-27),Size=UDim2.new(1,-40,0,16),Parent=sidebar})
+    make("TextLabel",{Text=opts.StatusText or "Wisp is ready",Font=Enum.Font.GothamMedium,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.new(0,28,1,-27),Size=UDim2.new(1,-40,0,16),Parent=sidebar})
     local divLine=make("Frame",{Position=UDim2.fromOffset(190,0),Size=UDim2.new(0,1,1,0),BackgroundColor3=C.Accent,Parent=main})
     make("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.5,0.5),NumberSequenceKeypoint.new(1,1)}),Parent=divLine})
     local content = make("Frame",{Position=UDim2.fromOffset(191,0),Size=UDim2.new(1,-191,1,0),BackgroundTransparency=1,Parent=main})
@@ -2725,7 +2725,7 @@ function Library:CreateWindow(opts)
     -- On mobile there is no toggle key, so add a draggable floating button.
     if isMobile then
         local fab = make("TextButton", {
-            Name = "MSSMobileToggle", Text = "", AutoButtonColor = false,
+            Name = "WispMobileToggle", Text = "", AutoButtonColor = false,
             AnchorPoint = Vector2.new(0, 0), Position = UDim2.fromOffset(14, 14),
             Size = UDim2.fromOffset(46, 46), BackgroundColor3 = C.CardBg,
             ZIndex = 60, Parent = screenGui,
